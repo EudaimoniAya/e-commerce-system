@@ -1,0 +1,138 @@
+# =========================
+# 环境与密钥（切勿提交）
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+.venv/
+venv/
+ENV/
+env/
+
+# 包管理
+pip-log.txt
+pip-delete-this-directory.txt
+.pdm-python
+.pdm.toml
+.pdm-build/
+__pypackages__/
+poetry.lock
+# 若使用 uv 且希望锁文件入库，可删除下一行
+# uv.lock
+
+# =========================
+# 测试与覆盖率
+# =========================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# =========================
+# 类型检查与 Lint
+# =========================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# =========================
+# 日志与运行时
+# =========================
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# 数据库与本地数据
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+data/
+mysql-data/
+postgres-data/
+
+# =========================
+# Docker
+# =========================
+docker-compose.override.yml
+
+# =========================
+# IDE / 编辑器
+# =========================
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Cursor 本地状态（保留 .cursor/commands、.cursor/skills 等可共享配置）
+.cursorignore
+
+# =========================
+# 操作系统
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# =========================
+# 构建与部署产物
+# =========================
+*.tar
+*.tar.gz
+*.zip
+
+# =========================
+# 临时文件
+# =========================
+tmp/
+temp/
+*.tmp
+*.bak

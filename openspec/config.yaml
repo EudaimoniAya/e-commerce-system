@@ -1,0 +1,44 @@
+schema: spec-driven
+
+# 项目全局上下文 — 创建 OpenSpec artifact 时自动注入 AI
+# 完整架构文档见 docs/architecture.md，决策记录见 docs/decision/
+context: |
+  项目：AI 赋能电商个人项目（当前阶段：电商 MVP，不含 AI 功能）
+
+  技术栈：FastAPI + SQLAlchemy + MySQL + Alembic + pytest
+  后期 AI：LangChain 家族 + PostgreSQL/pgvector（MySQL 为唯一写源）
+
+  架构：简易版单体多域（Modular Monolith）
+  - 按限界上下文纵切：user / catalog / ordering / engagement（后期）/ ai（后期）
+  - 每域内部：router → service → repository → model + schemas
+  - 跨域协作：仅通过对方 service + Pydantic schema，禁止跨域 import ORM 或 repository
+  - AI 域与业务域并列，Tool 调用业务 service，不直连 DB
+  - 共享设施：infra/（配置、DB、JWT、异常）
+  - 详见 docs/architecture.md 和 docs/decision/单体多域架构.md
+
+  电商 MVP 范围：用户、商品、订单；无支付、无物流、无 SKU 多规格
+  订单状态：pending → confirmed → completed / cancelled
+  Phase 2：购物车（ordering 域）、收藏/浏览（engagement 域）
+
+  开发流程：垂直切片增量交付，SDD + TDD，一个 change = 一个可演示能力
+  初期可粗糙（表可少），但工程纪律从第一天起（CI lint + test）
+
+  预估规模：电商 ~3000 行，全项目 ~10000 行
+
+# 各 artifact 类型的定制规则
+rules:
+  proposal:
+    - 必须包含 Non-goals 章节，明确本 change 不做什么
+    - 声明影响的业务域（user / catalog / ordering / engagement / infra）
+    - 单个 change 应在一个垂直切片内可演示，不要一次覆盖多个域
+  design:
+    - 跨域交互必须说明调用哪个域的 service 及使用的 schema
+    - 禁止设计跨域 ORM import 或共享 repository
+    - 新增表必须声明归属哪个域
+  tasks:
+    - 每个 task 应可在 1-2 小时内完成
+    - 实现顺序：失败测试 → 迁移/model → service → router
+    - 一个 apply 会话建议只完成 1-2 个 task
+  specs:
+    - 验收标准必须可测试（对应 pytest 用例）
+    - 跨域场景须明确依赖的 service 接口边界
