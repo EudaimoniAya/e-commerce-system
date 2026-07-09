@@ -1,7 +1,7 @@
 ## 1. 工具链骨架
 
-- [ ] 1.1 创建 `devbox.json`（Python 3.13、uv、go-task）与 `pyproject.toml`（fastapi、uvicorn、pytest、httpx、ruff），执行 `uv sync` 生成并提交 `uv.lock`
-- [ ] 1.2 创建 `Taskfile.yml`，定义 `sync`、`ruff`、`test`、`ci`（ruff + test）、`dev` 任务
+- [x] 1.1 创建 `devbox.json`（Python 3.13、uv、go-task）与 `pyproject.toml`（fastapi、uvicorn、pytest、httpx、ruff），执行 `uv sync` 生成并提交 `uv.lock`
+- [x] 1.2 创建 `Taskfile.yml`，定义 `sync`、`ruff`、`test`、`ci`（ruff + test）、`dev` 任务
 
 ## 2. TDD — 失败测试（红）
 

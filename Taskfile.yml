@@ -1,0 +1,29 @@
+version: "3"
+
+tasks:
+  sync:
+    desc: 同步 Python 依赖（uv sync）
+    cmds:
+      - uv sync
+
+  ruff:
+    desc: 运行 ruff lint
+    cmds:
+      - uv run ruff check .
+
+  test:
+    desc: 运行 pytest
+    cmds:
+      # pytest 无测试收集时返回 5；包装为 0，真实失败仍向上传递
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest']).returncode;sys.exit(0 if c in (0,5) else c)"
+
+  ci:
+    desc: 本地 CI（ruff + test）
+    cmds:
+      - task: ruff
+      - task: test
+
+  dev:
+    desc: 启动开发服务器（uvicorn --reload）
+    cmds:
+      - uv run uvicorn app.main:app --reload
