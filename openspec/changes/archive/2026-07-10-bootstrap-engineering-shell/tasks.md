@@ -17,11 +17,12 @@
 ## 4. 远程 CI
 
 - [x] 4.1 创建 `.github/workflows/ci.yml`，按 design 中 CI 触发策略（PR→dev、push dev、PR→main、push main）执行 `task ci`
-- [ ] 4.2 push 到远程并确认 GitHub Actions 全绿
+- [x] 4.2 push 到远程并确认 GitHub Actions 全绿
 
 ## 5. 文档与 DoD
 
-- [ ] 5.1 添加 `.env.example` 与 `README.md`（devbox 用法、task 命令、feature→dev→main 分支流、DoD 说明）
-- [ ] 5.2 按需更新 `docs/architecture.md` 目录结构；确认 DoD 满足后准备 archive
+- [x] 5.1 添加 `.env.example` 与 `README.md`（devbox 用法、task 命令、feature→dev→main 分支流、DoD 说明）
+- [x] 5.2 按需更新 `docs/architecture.md` 目录结构；确认 DoD 满足后准备 archive
+  - **DoD 已满足**：本地 `task ci` 全绿、远程 CI 全绿、文档已更新；可执行 `/opsx:archive` 归档
 
 > **Apply 约定**：严格 TDD，§2 完成前不得开始 §3；每个 apply 会话建议只完成 1–2 个 task。
