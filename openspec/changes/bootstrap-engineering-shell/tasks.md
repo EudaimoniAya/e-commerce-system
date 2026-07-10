@@ -16,7 +16,7 @@
 
 ## 4. 远程 CI
 
-- [ ] 4.1 创建 `.github/workflows/ci.yml`，按 design 中 CI 触发策略（PR→dev、push dev、PR→main、push main）执行 `task ci`
+- [x] 4.1 创建 `.github/workflows/ci.yml`，按 design 中 CI 触发策略（PR→dev、push dev、PR→main、push main）执行 `task ci`
 - [ ] 4.2 push 到远程并确认 GitHub Actions 全绿
 
 ## 5. 文档与 DoD
