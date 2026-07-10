@@ -1,19 +1,12 @@
 [project]
 name = "e-commerce-system"
 version = "0.1.0"
-description = "AI 赋能电商个人练习项目"
+description = "AI 赋能电商个人项目"
 requires-python = ">=3.13"
-dependencies = [
-    "fastapi",
-    "uvicorn[standard]",
-]
+dependencies = ["fastapi", "uvicorn[standard]"]
 
 [dependency-groups]
-dev = [
-    "pytest",
-    "httpx",
-    "ruff",
-]
+dev = ["pytest", "httpx", "ruff"]
 
 [build-system]
 requires = ["hatchling"]
