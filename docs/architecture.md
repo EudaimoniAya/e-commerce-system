@@ -112,20 +112,30 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（工程壳 + user 域）
+### 5.1 当前骨架（工程壳 + infra/health）
 
 ```text
 e-commerce-system/
 ├── app/
-│   ├── __init__.py
-│   ├── infra/                    # 横切：配置、DB、安全（占位）
+│   ├── main.py                   # FastAPI 入口，挂载各域路由
+│   ├── infra/
+│   │   ├── health/               # 运维：存活探针 GET /health
+│   │   │   ├── router.py
+│   │   │   ├── service.py
+│   │   │   └── schemas.py
 │   │   └── __init__.py
 │   └── user/                     # 纵切：用户域（占位）
 │       └── __init__.py
 ├── tests/
-│   ├── __init__.py
-│   └── user/
-│       └── __init__.py
+│   ├── conftest.py               # TestClient fixture
+│   ├── health/
+│   │   └── test_health.py
+│   └── user/                     # 占位
+├── .github/workflows/ci.yml      # PR/push → dev、main 执行 task ci
+├── devbox.json                   # Python 3.13、uv、go-task
+├── Taskfile.yml                  # sync / ruff / test / ci / dev
+├── pyproject.toml
+├── uv.lock
 ├── docs/
 ├── openspec/
 └── ...
@@ -137,9 +147,10 @@ e-commerce-system/
 
 ```text
 app/
-├── main.py                       # 后续工程壳 change 添加
+├── main.py
 ├── infra/
-│   ├── config.py
+│   ├── health/                   # 已实现
+│   ├── config.py                 # 后续
 │   ├── database.py
 │   └── auth.py
 ├── user/
