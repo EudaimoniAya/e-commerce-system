@@ -3,10 +3,17 @@ name = "e-commerce-system"
 version = "0.1.0"
 description = "AI 赋能电商个人项目"
 requires-python = ">=3.13"
-dependencies = ["fastapi", "uvicorn[standard]"]
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]",
+    "asyncmy",
+    "alembic",
+    "pydantic-settings",
+]
 
 [dependency-groups]
-dev = ["pytest", "httpx", "ruff"]
+dev = ["pytest", "httpx", "ruff", "pytest-asyncio"]
 
 [build-system]
 requires = ["hatchling"]
@@ -22,3 +29,7 @@ target-version = "py313"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
+markers = [
+    "integration: 依赖 MySQL 的集成测试；需 task db:up，DATABASE_URL 指向 ecommerce_test",
+]

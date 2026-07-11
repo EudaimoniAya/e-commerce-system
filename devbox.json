@@ -3,9 +3,12 @@
   "packages": [
     "python@3.13",
     "uv@latest",
-    "go-task@latest"
+    "go-task@latest",
+    "mysql80@latest"
   ],
   "env": {
-    "UV_PROJECT_ENVIRONMENT": ".venv"
+    "UV_PROJECT_ENVIRONMENT": ".venv",
+    "MYSQL_DATADIR": "./mysql-data",
+    "MYSQL_UNIX_PORT": "/tmp/e-commerce-system-mysql.sock"
   }
 }

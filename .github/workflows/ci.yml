@@ -11,10 +11,30 @@ on:
     branches:
       - dev
       - main
+  # feature 分支可在 Actions 页手动触发，无需 PR 到 dev/main
+  workflow_dispatch:
+
+env:
+  # CI 使用 TCP 连接 mysql service container（与本地 devbox unix socket 不同）
+  DATABASE_URL: mysql+asyncmy://root@127.0.0.1:3306/ecommerce_test?charset=utf8mb4
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: ecommerce_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -32,6 +52,13 @@ jobs:
 
       - name: Sync dependencies
         run: task sync
+
+      - name: Ensure test database exists
+        run: |
+          mysql -h 127.0.0.1 -u root -e "CREATE DATABASE IF NOT EXISTS ecommerce_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
 
       - name: Run CI
         run: task ci
