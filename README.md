@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前处于 **工程壳 + 数据库基础设施（Task 1）** 阶段：FastAPI 入口、devbox MySQL、Taskfile 数据库命令与 CI 门禁已就绪；Alembic / readiness / integration 测试在后续 Task 中完成。
+AI 赋能电商个人练习项目。当前处于 **数据库基础设施** 阶段：FastAPI 入口、devbox MySQL、SQLAlchemy 2 异步栈、Alembic 迁移、`GET /health/ready` readiness 探针与 CI integration 测试已就绪。
 
 ## 前置条件
 
@@ -26,18 +26,30 @@ cp .env.example .env
 # 4. 启动本地 MySQL 并创建 dev/test 双库
 task db:up
 
-# 5. 运行本地 CI（ruff + pytest；当前不依赖 MySQL）
+# 5. 执行迁移（dev 库）
+task migrate
+
+# 6. 运行本地 CI（ruff + pytest；含 integration，需 db:up）
 task ci
 
-# 6. 启动开发服务器（自动依赖 db:up）
+# 7. 启动开发服务器（自动依赖 db:up）
 task dev
 ```
 
-开发服务器默认 `http://127.0.0.1:8000`。存活探针：
+开发服务器默认 `http://127.0.0.1:8000`（须已配置 `.env` 中的 `DATABASE_URL`）。
+
+存活探针：
 
 ```bash
 curl http://127.0.0.1:8000/health
 # {"status":"ok"}
+```
+
+就绪探针（检查 MySQL 连通性）：
+
+```bash
+curl http://127.0.0.1:8000/health/ready
+# {"status":"ready","checks":{"mysql":"ok"}}
 ```
 
 验证 MySQL 双库（可选）：
@@ -56,7 +68,7 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
 | `task test` | 运行 pytest |
-| `task ci` | 本地 CI：`ruff` + `test`（**不**自动启动 MySQL） |
+| `task ci` | 本地 CI：`ruff` + `test`（**不**自动启动 MySQL；integration 需先 `db:up`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
 
 ### 数据库（本地 devbox）
@@ -66,7 +78,7 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task db:up` | 启动 MySQL，确保 `ecommerce_dev` / `ecommerce_test` 存在 |
 | `task db:down` | 停止 MySQL（socket shutdown + process-compose） |
 | `task db:reset` | `db:down` → 删除 `mysql-data/` → `db:up`（慎用） |
-| `task migrate` | `alembic upgrade head`（需 `.env` 与 Alembic 脚手架，Task 4+） |
+| `task migrate` | `alembic upgrade head`（默认 `DATABASE_URL` → dev 库） |
 | `task migrate:new -- "描述"` | 新建 Alembic revision（autogenerate） |
 
 实现脚本：`scripts/devbox_mysql_{up,down,reset}.sh`。
@@ -96,9 +108,9 @@ MySQL 已就绪；数据目录: .../mysql-data；已有库: ecommerce_dev, ecomm
 
 - 数据目录：`mysql-data/`（已 `.gitignore`）
 - 本地连接：**unix socket**（非 TCP 3306），见 `.env.example` 与 `devbox.d/mysql80/my.cnf`
-- CI 使用 **TCP** `127.0.0.1:3306`（GitHub Actions mysql service container，Task 5.2）
+- CI 使用 **TCP** `127.0.0.1:3306`（GitHub Actions mysql service container）
 
-本地与远程 CI 的 **lint + unit 测试** 均执行 `task ci`；含 integration 的完整验证需在本地先 `task db:up`，CI 侧待 workflow 更新。
+本地与远程 CI 均执行 `task ci`（ruff + pytest）。本地须先 `task db:up`；CI 在 workflow 内自动启动 mysql service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库策略](docs/decision/测试与数据库策略.md)。
 
 ## 环境变量
 
@@ -121,20 +133,29 @@ feature/* ──PR──▶ dev ──PR──▶ main（可部署线）
 
 | 场景 | 说明 |
 |------|------|
-| feature 分支开发 | 从 `dev` 切出，本地 `task ci` 通过后提 PR |
+| feature 分支开发 | 从 `dev` 切出，本地 `task db:up` + `task ci` 通过后提 PR |
+| feature 远程 CI | push 不自动触发；可用 **Actions → CI → Run workflow**（`workflow_dispatch`）或开 Draft PR → `dev` |
 | 合入 dev | PR → `dev` 触发 GitHub Actions CI |
 | 合入 main | `dev` → `main` PR，CI 通过后可部署 |
 
-feature 分支直接 push **不**触发远程 CI（节省配额）；合入前通过 PR 验证。
+feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入前通过 PR 或手动触发验证。
 
 ## CI
 
 Workflow：`.github/workflows/ci.yml`
 
-| 事件 | 分支 |
-|------|------|
+| 事件 | 分支 / 方式 |
+|------|-------------|
 | `pull_request` | `dev`, `main` |
 | `push` | `dev`, `main` |
+| `workflow_dispatch` | 任意分支手动触发（feature 开发验证用） |
+
+CI job 顺序：mysql service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`。
+
+```bash
+# feature 分支手动触发远程 CI（CLI）
+gh workflow run ci.yml --ref feature/infra-database
+```
 
 GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/github-actions-pinning.mdc`）。
 
@@ -150,5 +171,6 @@ GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/g
 ## 文档
 
 - [架构设计](docs/architecture.md)
+- [测试与数据库策略（ADR）](docs/decision/测试与数据库策略.md)
 - [devbox MySQL 竞态条件排查](docs/troubleshooting/devbox-mysql-竞态条件.md)
 - [OpenSpec 变更](openspec/changes/)

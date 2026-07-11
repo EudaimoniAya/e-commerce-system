@@ -39,7 +39,7 @@
 
 ## 6. 文档与 DoD
 
-- [ ] 6.1 更新 `README.md`（db 命令、双库、dev vs CI、readiness 演示）与 `docs/architecture.md` 目录结构
-- [ ] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿、文档已更新；准备 archive
+- [x] 6.1 更新 `README.md`（db 命令、双库、dev vs CI、readiness 演示）与 `docs/architecture.md` 目录结构
+- [x] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿（run #29159435667）、文档已更新；可执行 `/opsx:archive` 归档
 
 > **Apply 约定**：严格 TDD，§3 完成前不得开始 §4；每个 apply 会话建议只完成 1–2 个 task。

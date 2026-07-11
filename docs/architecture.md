@@ -74,7 +74,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 | 模块 | 职责 |
 |------|------|
-| `infra/` | 配置、数据库 Session、JWT、公共异常、分页 |
+| `infra/` | 配置、数据库 Session、健康探针、readiness、公共异常、分页 |
 | `events/`（后期） | Outbox、领域事件，驱动 MySQL → pgvector ACL 同步 |
 | `shared/`（可选） | 无业务含义的公共类型，保持极简 |
 
@@ -112,31 +112,54 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（工程壳 + infra/health）
+### 5.1 当前骨架（工程壳 + infra 数据库基础设施）
 
 ```text
 e-commerce-system/
 ├── app/
-│   ├── main.py                   # FastAPI 入口，挂载各域路由
+│   ├── main.py                   # FastAPI 入口，挂载 health / readiness 路由
 │   ├── infra/
-│   │   ├── health/               # 运维：存活探针 GET /health
+│   │   ├── config.py             # pydantic-settings：DATABASE_URL、APP_ENV
+│   │   ├── database.py           # async engine、AsyncSession、Base、get_db
+│   │   ├── health/               # 存活探针 GET /health
 │   │   │   ├── router.py
 │   │   │   ├── service.py
 │   │   │   └── schemas.py
-│   │   └── __init__.py
+│   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL 检查）
+│   │   │   ├── router.py
+│   │   │   ├── service.py
+│   │   │   └── schemas.py
+│   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
+│   │       ├── migration_smoke.py
+│   │       └── __init__.py
 │   └── user/                     # 纵切：用户域（占位）
 │       └── __init__.py
+├── alembic/                      # MySQL 迁移（Alembic）
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+│       └── 001_create_infra_migration_smoke.py
+├── scripts/                      # devbox MySQL 运维（须在 devbox shell 内）
+│   ├── devbox_mysql_up.sh
+│   ├── devbox_mysql_down.sh
+│   └── devbox_mysql_reset.sh
 ├── tests/
-│   ├── conftest.py               # TestClient fixture
+│   ├── conftest.py               # TestClient、db_session rollback、test DATABASE_URL
 │   ├── health/
 │   │   └── test_health.py
-│   └── user/                     # 占位
-├── .github/workflows/ci.yml      # PR/push → dev、main 执行 task ci
-├── devbox.json                   # Python 3.13、uv、go-task
-├── Taskfile.yml                  # sync / ruff / test / ci / dev
+│   └── infra/                    # integration 测试（@pytest.mark.integration）
+│       ├── test_database.py
+│       ├── test_migration_smoke.py
+│       └── test_readiness.py
+├── .github/workflows/ci.yml      # PR/push → dev、main；workflow_dispatch；mysql service + task ci
+├── devbox.json                   # Python 3.13、uv、go-task、MySQL 8.0
+├── devbox.d/mysql80/my.cnf       # 本地 socket、datadir
+├── Taskfile.yml                  # sync / ruff / test / ci / dev / db:* / migrate:*
 ├── pyproject.toml
 ├── uv.lock
 ├── docs/
+│   └── decision/
+│       └── 测试与数据库策略.md    # devbox vs CI、双库、rollback、asyncmy
 ├── openspec/
 └── ...
 ```
@@ -150,9 +173,10 @@ app/
 ├── main.py
 ├── infra/
 │   ├── health/                   # 已实现
-│   ├── config.py                 # 后续
-│   ├── database.py
-│   └── auth.py
+│   ├── readiness/                # 已实现
+│   ├── config.py                 # 已实现
+│   ├── database.py               # 已实现
+│   └── auth.py                   # 后续
 ├── user/
 │   ├── router.py
 │   ├── service.py
@@ -170,7 +194,7 @@ app/
     ├── assistant/
     ├── buddy/
     └── sync/
-├── alembic/                      # business 迁移（MySQL）
+├── alembic/                      # business 迁移（MySQL，已初始化）
 ```
 
 ## 6. 电商 MVP 范围
@@ -247,4 +271,5 @@ pending → confirmed → completed
 ## 9. 相关文档
 
 - [单体多域架构决策](./decision/单体多域架构.md)
+- [测试与数据库策略（ADR）](./decision/测试与数据库策略.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)
