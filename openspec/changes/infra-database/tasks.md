@@ -12,10 +12,18 @@
 
 ## 3. TDD — 失败测试（红）
 
-- [ ] 3.1 在 `pyproject.toml` 注册 `integration` marker；扩展 `tests/conftest.py`（async `db_session` rollback fixture、test `DATABASE_URL`）
-- [ ] 3.2 按 `specs/infra-readiness/spec.md` 编写 `tests/infra/test_readiness.py`（200 / 503 场景）；**不编写** readiness 实现
-- [ ] 3.3 按 `specs/infra-database/spec.md` 编写 `tests/infra/test_database.py`（`SELECT 1`）与 `tests/infra/test_migration_smoke.py`（Alembic upgrade + smoke CRUD）；**不编写** database/readiness 实现与 migration
-- [ ] 3.4 运行 `task db:up` 后 `task test`，确认相关测试失败（红），记录预期失败原因
+- [x] 3.1 在 `pyproject.toml` 注册 `integration` marker；扩展 `tests/conftest.py`（async `db_session` rollback fixture、test `DATABASE_URL`）
+- [x] 3.2 按 `specs/infra-readiness/spec.md` 编写 `tests/infra/test_readiness.py`（200 / 503 场景）；**不编写** readiness 实现
+- [x] 3.3 按 `specs/infra-database/spec.md` 编写 `tests/infra/test_database.py`（`SELECT 1`）与 `tests/infra/test_migration_smoke.py`（Alembic upgrade + smoke CRUD）；**不编写** database/readiness 实现与 migration
+- [x] 3.4 运行 `task db:up` 后 `task test`，确认相关测试失败（红），记录预期失败原因
+  - **红阶段失败原因**（`devbox run -- task db:up` + `devbox run -- task test`）：
+    - `test_get_db_select_one`：`ModuleNotFoundError: No module named 'app.infra.database'`（§4.1 尚未实现）
+    - `test_alembic_upgrade_head_creates_smoke_table`：`No 'script_location' key found in configuration`（`alembic/` 尚未初始化，§4.2）
+    - `test_migration_smoke_crud` / `test_migration_smoke_rollback_zero_side_effect`：`ModuleNotFoundError: No module named 'app.infra.models'`（ORM 与 migration 尚未实现，§4.2）
+    - `test_readiness_returns_200_when_mysql_ok`：`404 Not Found`（`/health/ready` 路由未挂载，§4.3）
+    - `test_readiness_returns_503_when_mysql_unavailable`：`AttributeError: module 'app.infra' has no attribute 'readiness'`（readiness 模块尚未实现，§4.3）
+    - `test_readiness_content_type_is_json`：`404` 非 200/503（同上）
+  - **仍通过**：`tests/health/test_health.py` 两项（liveness 已实现，不依赖 DB）
 
 ## 4. 核心实现（绿）
 

@@ -29,3 +29,7 @@ target-version = "py313"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
+markers = [
+    "integration: 依赖 MySQL 的集成测试；需 task db:up，DATABASE_URL 指向 ecommerce_test",
+]
