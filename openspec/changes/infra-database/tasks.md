@@ -27,9 +27,9 @@
 
 ## 4. 核心实现（绿）
 
-- [ ] 4.1 实现 `app/infra/config.py`、`app/infra/database.py`（async engine、AsyncSession、`get_db`、`Base`）
-- [ ] 4.2 初始化 `alembic/`；添加 `_infra_migration_smoke` ORM 与首条 migration；`task migrate` 可在 dev/test 库执行
-- [ ] 4.3 实现 `app/infra/readiness/`（schemas、service、router）并在 `app/main.py` 挂载；使 readiness 与 database/smoke 测试通过
+- [x] 4.1 实现 `app/infra/config.py`、`app/infra/database.py`（async engine、AsyncSession、`get_db`、`Base`）
+- [x] 4.2 初始化 `alembic/`；添加 `_infra_migration_smoke` ORM 与首条 migration；`task migrate` 可在 dev/test 库执行
+- [x] 4.3 实现 `app/infra/readiness/`（schemas、service、router）并在 `app/main.py` 挂载；使 readiness 与 database/smoke 测试通过
 
 ## 5. 本地验证与 CI
 

@@ -3,6 +3,8 @@
 from fastapi import FastAPI
 
 from app.infra.health.router import router as health_router
+from app.infra.readiness.router import router as readiness_router
 
 app = FastAPI(title="e-commerce-system")
 app.include_router(health_router)
+app.include_router(readiness_router)
