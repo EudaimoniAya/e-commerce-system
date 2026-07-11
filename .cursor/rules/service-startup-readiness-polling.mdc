@@ -1,0 +1,70 @@
+---
+description: 服务启动后须轮询就绪再操作；禁止在 process manager 返回后立即连接
+globs: Taskfile.yml,scripts/**,devbox.json,.github/workflows/**
+alwaysApply: false
+---
+
+# 服务启动就绪轮询
+
+## 核心原则
+
+**进程已启动 ≠ 服务已就绪。**
+
+进程管理器（devbox process-compose、Docker、systemd、K8s 等）在子进程 fork 后即可返回；
+子进程可能仍在初始化（加载数据、打开 socket）。此时立即连接必然失败。
+
+## 反模式
+
+```bash
+devbox services up mysql -b
+mysql -u root -e "CREATE DATABASE ..."   # ERROR 2002: socket 不存在
+```
+
+## 正确模式
+
+```bash
+devbox services up mysql -b
+# 轮询直到探测成功（本项目见 scripts/devbox_mysql_up.sh）
+mysqladmin -u root --socket="$MYSQL_UNIX_PORT" ping --silent >/dev/null 2>&1
+mysql -u root --socket="$MYSQL_UNIX_PORT" -e "CREATE DATABASE ..."
+```
+
+本项目 `task db:up` 将初始化、启动、轮询、建库合并在 `scripts/devbox_mysql_up.sh`，**不要**在 Taskfile 里拆成「up 后立即 mysql」两步。
+
+## 轮询模板
+
+```bash
+WAIT_TIMEOUT_SEC=60
+for i in $(seq 1 "${WAIT_TIMEOUT_SEC}"); do
+  if <就绪探测命令> 2>/dev/null; then
+    break
+  fi
+  if [ "${i}" -eq "${WAIT_TIMEOUT_SEC}" ]; then
+    echo "服务在 ${WAIT_TIMEOUT_SEC} 秒内未就绪" >&2
+    exit 1
+  fi
+  sleep 1
+done
+```
+
+常见探测：
+
+| 服务 | 探测命令 |
+|------|----------|
+| MySQL（socket） | `mysqladmin -u root --socket=... ping --silent` |
+| PostgreSQL | `pg_isready` |
+| HTTP | `curl -sf http://127.0.0.1:PORT/health` |
+| TCP | `timeout 1 bash -c 'echo >/dev/tcp/HOST/PORT'` |
+
+## 适用范围
+
+- `devbox services up -b` 后的数据库操作
+- Docker `depends_on` 须配合 `condition: service_healthy`
+- CI 后台服务启动后须等待 health 再跑测试
+- K8s `readinessProbe`（同类问题，不同层）
+
+## 本项目补充
+
+- **僵死 process-compose**：MySQL 未就绪时先 `devbox services stop`，再 `up`；已就绪则跳过 `up`，避免 `already running` 报错（见 `scripts/devbox_mysql_down.sh`）。
+- **mysqld 残留**：`db:down` 先 `mysqladmin shutdown`（socket）再 `devbox services stop`，避免 `db:up` 误判已就绪。
+- **本地 MySQL**：使用 unix socket + `skip-networking`，不用 TCP 轮询。

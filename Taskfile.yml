@@ -23,7 +23,34 @@ tasks:
       - task: ruff
       - task: test
 
+  db:up:
+    desc: 启动 devbox MySQL 8.0 并确保 dev/test 双库存在
+    cmds:
+      - bash scripts/devbox_mysql_up.sh
+
+  db:down:
+    desc: 停止 devbox MySQL 服务（process-compose）
+    cmds:
+      - bash scripts/devbox_mysql_down.sh
+
+  db:reset:
+    desc: 停止 MySQL 并清除 mysql-data/ 后重新启动（开发用，慎用）
+    cmds:
+      - bash scripts/devbox_mysql_reset.sh
+
+  migrate:
+    desc: 执行 Alembic 迁移至 head（默认 DATABASE_URL 指向 dev 库）
+    cmds:
+      - uv run alembic upgrade head
+
+  migrate:new:
+    desc: 创建新 Alembic revision（autogenerate），用法 task migrate:new -- "描述"
+    cmds:
+      - uv run alembic revision --autogenerate -m '{{default "migration" .CLI_ARGS}}'
+
   dev:
     desc: 启动开发服务器（uvicorn --reload）
+    deps:
+      - db:up
     cmds:
       - uv run uvicorn app.main:app --reload
