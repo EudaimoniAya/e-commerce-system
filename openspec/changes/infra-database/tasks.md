@@ -35,7 +35,7 @@
 
 - [x] 5.1 运行 `task ci` 确认本地 lint + test 全绿；手动验证 `task dev` 后 `curl /health` 与 `curl /health/ready`
 - [x] 5.2 更新 `.github/workflows/ci.yml`：mysql service container、创建 `ecommerce_test`、`alembic upgrade head`、设置 `DATABASE_URL`、`task ci`；增加 `workflow_dispatch` 供 feature 分支手动触发
-- [ ] 5.3 push 并确认 GitHub Actions 全绿
+- [x] 5.3 push 并确认 GitHub Actions 全绿（`workflow_dispatch` 触发 run #29159435667 ✓）
 
 ## 6. 文档与 DoD
 
