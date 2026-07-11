@@ -7,8 +7,8 @@
 
 ## 2. ADR 与 Cursor rules
 
-- [ ] 2.1 编写 `docs/decision/测试与数据库策略.md`（devbox vs CI service、双库、rollback、asyncmy、不用 SQLite）
-- [ ] 2.2 添加 `.cursor/rules/cross-domain-imports.mdc`（禁止跨域 import ORM/repository）
+- [x] 2.1 编写 `docs/decision/测试与数据库策略.md`（devbox vs CI service、双库、rollback、asyncmy、不用 SQLite）
+- [x] 2.2 添加 `.cursor/rules/cross-domain-imports.mdc`（禁止跨域 import ORM/repository）
 
 ## 3. TDD — 失败测试（红）
 
