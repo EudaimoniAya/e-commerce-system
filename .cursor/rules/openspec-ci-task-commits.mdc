@@ -1,0 +1,62 @@
+---
+description: OpenSpec CI 相关 Task 须拆分两次 commit/push，并按项目 commit 格式填写
+globs: openspec/changes/**/tasks.md,.github/workflows/**
+alwaysApply: false
+---
+
+# OpenSpec CI Task：提交与远程验证
+
+当用户要求完成 OpenSpec change 中 **§6 本地验证与 CI**（或 tasks 描述含 push / GitHub Actions / `ci.yml` / `workflow_dispatch`）时，**自动**执行以下流程，无需用户重复提醒。
+
+## 两次 commit / push
+
+### 第一次：CI 配置与本地验证（Task 6.1 ~ 6.2）
+
+1. 改 `.github/workflows/ci.yml`（如 `JWT_SECRET_KEY`）、本地 `task migrate` + `task ci`、必要时 curl 烟雾测试。
+2. **commit + push**（用户未禁止 push 时默认 push）。
+3. commit message 格式：
+
+```text
+ci(<change-name>): [apply] Task 6.1 ~6.2 <简短标题>：
+ * <本地 migrate + task ci 结果>；
+ * <curl 或关键验证>；
+ * ci.yml <具体 env 变更>；更新 tasks.md §6.1~6.2。
+```
+
+### 第二次：远程 CI 全绿后（Task 6.3）
+
+1. `git push -u origin HEAD`（若第一次已 push 则跳过）。
+2. `gh workflow run CI --ref <branch>`（feature 分支无 push 触发时）或确认 PR CI。
+3. `gh run watch <run-id> --exit-status` 等待 **success**。
+4. **再 commit + push**：仅更新 `tasks.md` 勾选 6.3，正文附 Actions run URL。
+
+```text
+ci(<change-name>): [apply] Task 6.3 确认 GitHub Actions CI 全绿
+
+workflow_dispatch on <branch>: <run-url>
+```
+
+## commit message 通用格式
+
+与仓库历史一致：
+
+```text
+<type>(<scope>): [apply] Task <编号> <主题>：
+ * <要点 1>；
+ * <要点 2>；
+```
+
+- **type**：`feat` / `test` / `ci` / `docs` / `build` 等
+- **scope**：change 名（如 `user-auth`）
+- **编号**：`6.1 ~6.2`、`7.1` 等，与 `tasks.md` 一致
+- 正文用 `*` 分条，中文简体
+
+## 禁止
+
+- 在远程 CI 未绿前勾选 Task 6.3 或宣称 DoD 完成。
+- 把「配置变更」与「CI 全绿确认」混在一个 commit 里（除非用户明确要求单次提交）。
+
+## 参考
+
+- 范例：`ci(user-auth): [apply] Task 6.1 ~6.2 …` / `Task 6.3 确认 GitHub Actions CI 全绿`
+- DoD：README §Definition of Done

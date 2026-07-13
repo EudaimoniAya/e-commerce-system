@@ -35,8 +35,8 @@
 
 ## 7. 文档与 DoD
 
-- [ ] 7.1 更新 `README.md`（阶段描述改为 user 业务域开发；auth API 演示）与 `docs/architecture.md`（`app/user/` 结构）
-- [ ] 7.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿、文档已更新；可执行 `/opsx:archive` 归档
+- [x] 7.1 更新 `README.md`（阶段描述改为 user 业务域开发；auth API 演示）与 `docs/architecture.md`（`app/user/` 结构）
+- [x] 7.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿、文档已更新；可执行 `/opsx:archive` 归档
 
 > **Apply 约定**：严格 TDD，§3 完成前不得开始 §4–§5；每个 apply 会话建议只完成 1–2 个 task。
 
