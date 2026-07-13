@@ -29,8 +29,8 @@
 
 ## 6. 本地验证与 CI
 
-- [ ] 6.1 运行 `task migrate` 后 `task ci` 确认本地全绿；手动 `curl` 注册、登录、`/users/me`
-- [ ] 6.2 更新 `.github/workflows/ci.yml`：注入 `JWT_SECRET_KEY`；确认 migrate + pytest 通过
+- [x] 6.1 运行 `task migrate` 后 `task ci` 确认本地全绿；手动 `curl` 注册、登录、`/users/me`
+- [x] 6.2 更新 `.github/workflows/ci.yml`：注入 `JWT_SECRET_KEY`；确认 migrate + pytest 通过
 - [ ] 6.3 push 并确认 GitHub Actions 全绿（`workflow_dispatch` 或 PR）
 
 ## 7. 文档与 DoD
