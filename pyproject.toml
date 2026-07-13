@@ -11,7 +11,7 @@ dependencies = [
     "alembic",
     "pydantic-settings",
     "pyjwt",
-    "pwdlib",
+    "pwdlib[argon2]",
     "email-validator",
 ]
 
