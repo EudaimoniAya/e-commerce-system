@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前处于 **数据库基础设施** 阶段：FastAPI 入口、devbox MySQL、SQLAlchemy 2 异步栈、Alembic 迁移、`GET /health/ready` readiness 探针与 CI integration 测试已就绪。
+AI 赋能电商个人练习项目。当前处于 **user 业务域（认证）** 阶段：在数据库基础设施之上已交付用户注册/登录、JWT、`GET /users/me` 与 `users` 表迁移；health/readiness 探针与 CI integration 测试（24 项）已就绪。
 
 ## 前置条件
 
@@ -50,6 +50,24 @@ curl http://127.0.0.1:8000/health
 ```bash
 curl http://127.0.0.1:8000/health/ready
 # {"status":"ready","checks":{"mysql":"ok"}}
+```
+
+认证 API（须已 `task migrate` 且 `.env` 含 `JWT_SECRET_KEY`）：
+
+```bash
+# 注册（201，返回 access_token 与 user）
+curl -X POST http://127.0.0.1:8000/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.com","password":"password123"}'
+
+# 登录（200）
+curl -X POST http://127.0.0.1:8000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.com","password":"password123"}'
+
+# 当前用户（Bearer token）
+curl http://127.0.0.1:8000/users/me \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 验证 MySQL 双库（可选）：
@@ -124,6 +142,9 @@ cp .env.example .env
 |------|------|
 | `APP_ENV` | `development` / `test` / `production` |
 | `DATABASE_URL` | 本地用 socket URL；跑 integration 测试时改为 `ecommerce_test` |
+| `JWT_SECRET_KEY` | JWT 签名密钥（≥ 32 字节）；本地与 CI 均必填 |
+| `JWT_ISSUER` | 可选，默认 `e-commerce-system` |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | 可选，默认 `30` |
 
 ## 分支工作流
 
@@ -150,7 +171,7 @@ Workflow：`.github/workflows/ci.yml`
 | `push` | `dev`, `main` |
 | `workflow_dispatch` | 任意分支手动触发（feature 开发验证用） |
 
-CI job 顺序：mysql service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`。
+CI job 顺序：mysql service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`（workflow `env` 含 `DATABASE_URL` 与 `JWT_SECRET_KEY`）。
 
 ```bash
 # feature 分支手动触发远程 CI（CLI）
@@ -172,5 +193,6 @@ GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/g
 
 - [架构设计](docs/architecture.md)
 - [测试与数据库策略（ADR）](docs/decision/测试与数据库策略.md)
+- [集成测试 AsyncClient 与 Event Loop 冲突（排错）](docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [devbox MySQL 竞态条件排查](docs/troubleshooting/devbox-mysql-竞态条件.md)
 - [OpenSpec 变更](openspec/changes/)

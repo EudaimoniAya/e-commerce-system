@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +13,10 @@ class Settings(BaseSettings):
 
     database_url: str
     app_env: str = "development"
+    jwt_secret_key: str = Field(min_length=32)
+    jwt_issuer: str = "e-commerce-system"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
 
 
 @lru_cache

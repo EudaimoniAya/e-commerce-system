@@ -17,6 +17,7 @@ on:
 env:
   # CI 使用 TCP 连接 mysql service container（与本地 devbox unix socket 不同）
   DATABASE_URL: mysql+asyncmy://root@127.0.0.1:3306/ecommerce_test?charset=utf8mb4
+  JWT_SECRET_KEY: ci-test-secret-key-at-least-32-bytes!!
 
 jobs:
   ci:

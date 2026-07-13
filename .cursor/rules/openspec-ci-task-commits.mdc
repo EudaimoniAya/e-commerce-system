@@ -1,0 +1,74 @@
+---
+description: OpenSpec 默认不 commit/push；Task 聚焦本地测试与远程 CI 时自动 commit+push
+globs: openspec/changes/**/tasks.md,.github/workflows/**
+alwaysApply: false
+---
+
+# OpenSpec：提交与 Push 约定
+
+## 默认
+
+- Agent **只改代码/文档/tasks**，**不** `git commit`，**不** `git push`。
+- 完成后提供符合项目格式的 **建议 commit message**，由 **用户自行提交**。
+- 用户未明确要求时，**禁止**替用户 commit 或 push。
+
+## 例外：Task 聚焦「本地测试 & 远程 CI」
+
+**与 tasks.md 第几节无关**，看 **当前 Task 描述是否聚焦** 本地验证 + 远程 CI。命中时 Agent **自动 commit + push**（无需用户重复提醒）。
+
+### 判定信号（满足其一即可视为 CI Task）
+
+- 本地：`task migrate`、`task ci` / `task test`、`curl` 烟雾、DoD 本地全绿
+- 远程：`.github/workflows/ci.yml`、`JWT_SECRET_KEY` 等 CI env、`git push`、`GitHub Actions`、`workflow_dispatch`、`gh workflow run`、`gh run watch`
+- 文案：`本地验证`、`远程 CI`、`确认 CI 全绿`、`push 并确认`
+
+### 两次 commit / push（推荐，与 user-auth 范例一致）
+
+**第一次：本地验证 + CI 配置**
+
+1. 完成 Task（改 ci.yml、跑 migrate + task ci、必要时 curl）。
+2. **commit + push**。
+
+```text
+ci(<change-name>): [apply] Task <编号> <简短标题>：
+ * <本地 migrate + task ci 结果>；
+ * <curl 或关键验证>；
+ * ci.yml <具体 env 变更>；更新 tasks.md。
+```
+
+**第二次：远程 CI 全绿确认**
+
+1. `gh workflow run CI --ref <branch>`（feature 分支无 push 触发时）或确认 PR CI。
+2. `gh run watch <run-id> --exit-status` 等待 **success**。
+3. **再 commit + push**（勾选 tasks、附 Actions URL）。
+
+```text
+ci(<change-name>): [apply] Task <编号> 确认 GitHub Actions CI 全绿
+
+workflow_dispatch on <branch>: <run-url>
+```
+
+若用户将「本地验证」与「远程确认」写在 **同一个 Task** 里，可单次 commit+push，但须等 CI 全绿后再勾选完成。
+
+## 通用 commit message 格式
+
+```text
+<type>(<scope>): [apply] Task <编号> <主题>：
+ * <要点 1>；
+ * <要点 2>；
+```
+
+- **type**：`feat` / `test` / `ci` / `docs` / `build` 等
+- **scope**：change 名（如 `user-auth`）
+- 正文用 `*` 分条，中文简体
+
+## 禁止
+
+- 对 **非 CI 聚焦** Task 自动 commit 或 push（如纯实现、文档、archive）。
+- 在远程 CI 未绿前勾选「确认 CI 全绿」类 Task 或宣称 DoD 完成。
+- 把「CI 配置变更」与「CI 全绿确认」混在一个 commit 里（除非用户明确要求单次提交）。
+
+## 参考
+
+- 范例：`ci(user-auth): [apply] Task 6.1 ~6.2 …` / `Task 6.3 确认 GitHub Actions CI 全绿`（节号仅作编号，**非**触发条件）
+- DoD：README §Definition of Done

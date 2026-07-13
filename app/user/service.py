@@ -1,0 +1,89 @@
+"""user 域业务逻辑（注册、登录、密码哈希）。"""
+
+import uuid
+from datetime import datetime
+
+from fastapi import HTTPException, status
+from pwdlib import PasswordHash
+
+from app.infra.auth import create_access_token
+from app.user.repository import UserRepository
+from app.user.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+
+_hasher = PasswordHash.recommended()
+
+# 登录失败统一文案，不区分邮箱是否存在
+_INVALID_CREDENTIALS_MSG = "Invalid email or password"
+
+
+def _default_nickname() -> str:
+    """未提供昵称时生成默认昵称（用户_ + 毫秒级时间戳）。"""
+    now = datetime.now()
+    return f"用户_{now.strftime('%Y%m%d%H%M%S')}{now.microsecond // 1000:03d}"
+
+
+def _to_user_response(user) -> UserResponse:
+    """ORM 用户转对外 DTO。"""
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        nickname=user.nickname,
+        created_at=user.created_at,
+    )
+
+
+def _build_token_response(user) -> TokenResponse:
+    """签发 token 并组装响应。"""
+    user_uuid = uuid.UUID(str(user.id))
+    access_token, expires_in = create_access_token(user_uuid)
+    return TokenResponse(
+        access_token=access_token,
+        expires_in=expires_in,
+        user=_to_user_response(user),
+    )
+
+
+class UserService:
+    """用户注册与登录服务。"""
+
+    def __init__(self, repository: UserRepository) -> None:
+        self._repository = repository
+
+    async def register(self, data: RegisterRequest) -> TokenResponse:
+        """注册新用户并返回 access token。"""
+        existing = await self._repository.get_by_email(data.email)
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Email already registered",
+            )
+
+        nickname = data.nickname.strip() if data.nickname else ""
+        if not nickname:
+            nickname = _default_nickname()
+
+        password_hash = _hasher.hash(data.password)
+        user = await self._repository.create(
+            user_id=uuid.uuid4(),
+            email=data.email,
+            password_hash=password_hash,
+            nickname=nickname,
+        )
+        return _build_token_response(user)
+
+    async def login(self, data: LoginRequest) -> TokenResponse:
+        """校验凭据并返回 access token。"""
+        user = await self._repository.get_by_email(data.email)
+        if user is None or not _hasher.verify(data.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_INVALID_CREDENTIALS_MSG,
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is disabled",
+            )
+
+        return _build_token_response(user)

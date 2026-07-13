@@ -1,10 +1,12 @@
 """pytest 公共 fixture。"""
 
 import os
+import uuid
 from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.main import app
@@ -15,6 +17,9 @@ _DEFAULT_TEST_DATABASE_URL = (
     "?charset=utf8mb4&unix_socket=/tmp/e-commerce-system-mysql.sock"
 )
 
+# integration 测试默认密码（符合 8–32 位规则）
+_DEFAULT_TEST_PASSWORD = "password123"
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _integration_test_database_url() -> None:
@@ -24,6 +29,10 @@ def _integration_test_database_url() -> None:
         url = url.replace("ecommerce_dev", "ecommerce_test")
     os.environ["DATABASE_URL"] = url
     os.environ.setdefault("APP_ENV", "test")
+    # JWT 配置为 Settings 必填项；集成测试使用固定测试密钥
+    os.environ.setdefault(
+        "JWT_SECRET_KEY", "test-secret-key-at-least-32-bytes!!"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -32,11 +41,28 @@ def database_url() -> str:
     return os.environ["DATABASE_URL"]
 
 
+@pytest.fixture(autouse=True)
+async def _reset_global_database_engine(
+    request: pytest.FixtureRequest,
+) -> AsyncIterator[None]:
+    """integration 测试前后重置全局 engine，避免跨事件循环复用连接池。"""
+    if request.node.get_closest_marker("integration") is None:
+        yield
+        return
+
+    from app.infra.database import reset_engine
+
+    await reset_engine()
+    yield
+    await reset_engine()
+
+
 @pytest.fixture
-def client() -> TestClient:
-    """FastAPI TestClient，用于 HTTP 端点测试。"""
-    with TestClient(app) as test_client:
-        yield test_client
+async def client() -> AsyncIterator[AsyncClient]:
+    """httpx AsyncClient，与 pytest-asyncio 共用同一事件循环。"""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
 
 
 @pytest.fixture
@@ -52,3 +78,93 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
             await session.close()
             await trans.rollback()
     await engine.dispose()
+
+
+# --- auth integration 测试 helper ---
+
+
+def unique_email(prefix: str = "user") -> str:
+    """生成唯一测试邮箱，避免 integration 测试互相冲突。"""
+    return f"{prefix}-{uuid.uuid4().hex[:12]}@example.com"
+
+
+def auth_headers(access_token: str) -> dict[str, str]:
+    """构造 Bearer Authorization 请求头。"""
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+async def register_user(
+    client: AsyncClient,
+    *,
+    email: str | None = None,
+    password: str = _DEFAULT_TEST_PASSWORD,
+    nickname: str | None = None,
+) -> dict[str, Any]:
+    """调用 POST /auth/register，返回响应与请求上下文。"""
+    payload: dict[str, str] = {
+        "email": email or unique_email(),
+        "password": password,
+    }
+    if nickname is not None:
+        payload["nickname"] = nickname
+
+    response = await client.post("/auth/register", json=payload)
+    body: Any | None
+    if response.content:
+        body = response.json()
+    else:
+        body = None
+
+    return {
+        "response": response,
+        "status_code": response.status_code,
+        "json": body,
+        "email": payload["email"],
+        "password": password,
+    }
+
+
+async def login_user(
+    client: AsyncClient,
+    *,
+    email: str,
+    password: str = _DEFAULT_TEST_PASSWORD,
+) -> dict[str, Any]:
+    """调用 POST /auth/login，返回响应与请求上下文。"""
+    response = await client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+    )
+    body: Any | None
+    if response.content:
+        body = response.json()
+    else:
+        body = None
+
+    return {
+        "response": response,
+        "status_code": response.status_code,
+        "json": body,
+        "email": email,
+        "password": password,
+    }
+
+
+@pytest.fixture
+async def authenticated_user(client: AsyncClient) -> dict[str, Any]:
+    """注册成功并返回 access_token 与 Bearer 请求头（供 /users/me 等已认证端点）。"""
+    registered = await register_user(client)
+    if registered["status_code"] != 201 or not registered["json"]:
+        return {
+            **registered,
+            "access_token": None,
+            "headers": {},
+        }
+
+    access_token = registered["json"]["access_token"]
+    return {
+        **registered,
+        "access_token": access_token,
+        "headers": auth_headers(access_token),
+        "user": registered["json"].get("user"),
+    }

@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：构建最简电商 MVP（用户、商品、订单），不含 AI 功能
+- **当前阶段**：user 域认证垂直切片已交付（注册/登录/JWT/`users` 表）；继续扩展 catalog、ordering 等 MVP 域
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -56,7 +56,7 @@
 
 | 域 | 职责 | 核心实体 | 阶段 |
 |----|------|----------|------|
-| `user` | 注册、登录、JWT、用户资料 | User | MVP |
+| `user` | 注册、登录、JWT、用户资料 | User | **MVP（已实现）** |
 | `catalog` | 商品 CRUD、类目、库存、上下架 | Product, Category | MVP |
 | `ordering` | 订单、购物车、下单扣库存 | Order, OrderItem, CartItem | MVP + 购物车 |
 | `engagement` | 收藏、浏览记录 | UserFavorite, BrowseEvent | Phase 2 |
@@ -112,61 +112,42 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（工程壳 + infra 数据库基础设施）
+### 5.1 当前骨架（user 认证 + infra）
 
 ```text
 e-commerce-system/
 ├── app/
-│   ├── main.py                   # FastAPI 入口，挂载 health / readiness 路由
+│   ├── main.py                   # FastAPI 入口，挂载 health / readiness / user 路由
 │   ├── infra/
-│   │   ├── config.py             # pydantic-settings：DATABASE_URL、APP_ENV
-│   │   ├── database.py           # async engine、AsyncSession、Base、get_db
+│   │   ├── config.py             # DATABASE_URL、APP_ENV、jwt_* 配置
+│   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
+│   │   ├── auth.py               # PyJWT、OAuth2PasswordBearer、get_current_user_id
 │   │   ├── health/               # 存活探针 GET /health
-│   │   │   ├── router.py
-│   │   │   ├── service.py
-│   │   │   └── schemas.py
 │   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL 检查）
-│   │   │   ├── router.py
-│   │   │   ├── service.py
-│   │   │   └── schemas.py
 │   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
-│   │       ├── migration_smoke.py
-│   │       └── __init__.py
-│   └── user/                     # 纵切：用户域（占位）
-│       └── __init__.py
-├── alembic/                      # MySQL 迁移（Alembic）
-│   ├── env.py
-│   ├── script.py.mako
+│   └── user/                     # 用户域（router → service → repository → model）
+│       ├── router.py             # POST /auth/register|login，GET /users/me
+│       ├── service.py            # 注册/登录、pwdlib 哈希
+│       ├── repository.py
+│       ├── models.py             # users 表（UUID 主键）
+│       ├── schemas.py
+│       └── deps.py               # get_current_user
+├── alembic/
 │   └── versions/
-│       └── 001_create_infra_migration_smoke.py
-├── scripts/                      # devbox MySQL 运维（须在 devbox shell 内）
-│   ├── devbox_mysql_up.sh
-│   ├── devbox_mysql_down.sh
-│   └── devbox_mysql_reset.sh
+│       ├── 001_create_infra_migration_smoke.py
+│       └── 002_create_users.py
 ├── tests/
-│   ├── conftest.py               # TestClient、db_session rollback、test DATABASE_URL
+│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth helper
 │   ├── health/
-│   │   └── test_health.py
-│   └── infra/                    # integration 测试（@pytest.mark.integration）
-│       ├── test_database.py
-│       ├── test_migration_smoke.py
-│       └── test_readiness.py
-├── .github/workflows/ci.yml      # PR/push → dev、main；workflow_dispatch；mysql service + task ci
-├── devbox.json                   # Python 3.13、uv、go-task、MySQL 8.0
-├── devbox.d/mysql80/my.cnf       # 本地 socket、datadir
-├── Taskfile.yml                  # sync / ruff / test / ci / dev / db:* / migrate:*
-├── pyproject.toml
-├── uv.lock
-├── docs/
-│   └── decision/
-│       └── 测试与数据库策略.md    # devbox vs CI、双库、rollback、asyncmy
-├── openspec/
+│   ├── infra/
+│   └── user/                     # 注册/登录/me integration（12 项）
+├── .github/workflows/ci.yml      # DATABASE_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
 
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充 `catalog/`、`ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。各域内部采用 router → service → repository → model + schemas 分层。
+随垂直切片增量补充 `catalog/`、`ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。`user/` 与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -174,27 +155,21 @@ app/
 ├── infra/
 │   ├── health/                   # 已实现
 │   ├── readiness/                # 已实现
-│   ├── config.py                 # 已实现
+│   ├── config.py                 # 已实现（含 jwt_*）
 │   ├── database.py               # 已实现
-│   └── auth.py                   # 后续
-├── user/
+│   └── auth.py                   # 已实现
+├── user/                         # 已实现（认证垂直切片）
 │   ├── router.py
 │   ├── service.py
 │   ├── repository.py
 │   ├── models.py
-│   └── schemas.py
-├── catalog/                      # MVP
-├── ordering/                     # MVP
+│   ├── schemas.py
+│   └── deps.py
+├── catalog/                      # MVP（待实现）
+├── ordering/                     # MVP（待实现）
 ├── engagement/                   # Phase 2
 ├── events/                       # 后期
 └── ai/                           # 后期
-    ├── tools/
-    ├── rag/
-    ├── recommend/
-    ├── assistant/
-    ├── buddy/
-    └── sync/
-├── alembic/                      # business 迁移（MySQL，已初始化）
 ```
 
 ## 6. 电商 MVP 范围
@@ -272,4 +247,5 @@ pending → confirmed → completed
 
 - [单体多域架构决策](./decision/单体多域架构.md)
 - [测试与数据库策略（ADR）](./decision/测试与数据库策略.md)
+- [集成测试 AsyncClient 与 Event Loop 冲突（排错）](./troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)

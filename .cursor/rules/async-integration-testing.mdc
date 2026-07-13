@@ -1,0 +1,56 @@
+---
+description: 异步 FastAPI 集成测试须用 AsyncClient，禁止 TestClient 测 I/O
+globs: tests/**/*.py,tests/conftest.py
+alwaysApply: false
+---
+
+# 异步集成测试：禁止 sync 桥接测 I/O
+
+## 核心原则
+
+**异步代码必须用异步方式测试。** 强行同步适配（Starlette `TestClient` / AnyIO `BlockingPortal`）只适合测**纯计算、无 I/O 单例**的逻辑，**绝不适合**测 I/O 密集型资源（数据库、Redis、全局 `AsyncEngine` 连接池）。
+
+`TestClient` 会在后台线程另开 event loop 跑 ASGI app，与 pytest-asyncio / 全局 async 单例绑定的 loop 冲突，典型报错：
+
+```text
+RuntimeError: ... got Future attached to a different loop
+```
+
+## 禁止
+
+```python
+# ✗ 访问 DB / get_db / 全局 AsyncEngine 时不要用 TestClient
+from fastapi.testclient import TestClient
+
+def test_register(client: TestClient):
+    client.post("/auth/register", json={...})
+```
+
+## 正确
+
+```python
+# ✓ httpx AsyncClient + ASGITransport，与 pytest-asyncio 同一 loop
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+@pytest.mark.asyncio
+async def test_register(client: AsyncClient):
+    response = await client.post("/auth/register", json={...})
+    assert response.status_code == 201
+```
+
+`tests/conftest.py` 已提供 async `client` fixture；integration 测试前后会 `reset_engine()`。
+
+## 细则
+
+| 场景 | 做法 |
+|------|------|
+| HTTP + DB / Redis | `@pytest.mark.asyncio` + `await client.*` |
+| 纯 JWT / 纯函数 | 直接测模块函数，不必启 client |
+| 探针不碰全局 engine | 仍统一 AsyncClient，保持一致 |
+| 独立 DB 探测（如 readiness ping） | service 内独立 `create_async_engine`，见 readiness |
+
+## 参考
+
+- [docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md](../../docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
+- [docs/decision/测试与数据库策略.md](../../docs/decision/测试与数据库策略.md)
