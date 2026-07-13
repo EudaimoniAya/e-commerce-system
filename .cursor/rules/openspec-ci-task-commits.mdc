@@ -8,12 +8,14 @@ alwaysApply: false
 
 当用户要求完成 OpenSpec change 中 **§6 本地验证与 CI**（或 tasks 描述含 push / GitHub Actions / `ci.yml` / `workflow_dispatch`）时，**自动**执行以下流程，无需用户重复提醒。
 
-## 两次 commit / push
+## 两次 commit / push（仅 CI 相关 Task）
 
-### 第一次：CI 配置与本地验证（Task 6.1 ~ 6.2）
+**默认 OpenSpec apply 只做本地 commit，不 push。** 仅当 tasks 属于 **§6 本地验证与 CI**（或含 push / GitHub Actions / `ci.yml` / `workflow_dispatch`）时，才 **自动 push**。
+
+### 第一次 push：CI 配置与本地验证（Task 6.1 ~ 6.2）
 
 1. 改 `.github/workflows/ci.yml`（如 `JWT_SECRET_KEY`）、本地 `task migrate` + `task ci`、必要时 curl 烟雾测试。
-2. **commit + push**（用户未禁止 push 时默认 push）。
+2. **commit**；**push**（CI Task 默认 push，其余 Task 不 push 除非用户明确要求）。
 3. commit message 格式：
 
 ```text
@@ -23,12 +25,12 @@ ci(<change-name>): [apply] Task 6.1 ~6.2 <简短标题>：
  * ci.yml <具体 env 变更>；更新 tasks.md §6.1~6.2。
 ```
 
-### 第二次：远程 CI 全绿后（Task 6.3）
+### 第二次 push：远程 CI 全绿后（Task 6.3）
 
 1. `git push -u origin HEAD`（若第一次已 push 则跳过）。
 2. `gh workflow run CI --ref <branch>`（feature 分支无 push 触发时）或确认 PR CI。
 3. `gh run watch <run-id> --exit-status` 等待 **success**。
-4. **再 commit + push**：仅更新 `tasks.md` 勾选 6.3，正文附 Actions run URL。
+4. **再 commit**；**push**（更新 tasks.md 勾选 6.3，正文附 Actions run URL）。
 
 ```text
 ci(<change-name>): [apply] Task 6.3 确认 GitHub Actions CI 全绿
@@ -55,6 +57,7 @@ workflow_dispatch on <branch>: <run-url>
 
 - 在远程 CI 未绿前勾选 Task 6.3 或宣称 DoD 完成。
 - 把「配置变更」与「CI 全绿确认」混在一个 commit 里（除非用户明确要求单次提交）。
+- 对非 CI Task（如 §7 文档）**自动 push**（除非用户明确要求）。
 
 ## 参考
 
