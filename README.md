@@ -193,6 +193,6 @@ GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/g
 
 - [架构设计](docs/architecture.md)
 - [测试与数据库策略（ADR）](docs/decision/测试与数据库策略.md)
-- [集成测试 AsyncClient 与 Event Loop 冲突（ADR）](docs/decision/集成测试AsyncClient与EventLoop线程冲突.md)
+- [集成测试 AsyncClient 与 Event Loop 冲突（排错）](docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [devbox MySQL 竞态条件排查](docs/troubleshooting/devbox-mysql-竞态条件.md)
 - [OpenSpec 变更](openspec/changes/)

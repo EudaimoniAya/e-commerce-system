@@ -52,5 +52,5 @@ async def test_register(client: AsyncClient):
 
 ## 参考
 
-- [docs/decision/集成测试AsyncClient与EventLoop线程冲突.md](../../docs/decision/集成测试AsyncClient与EventLoop线程冲突.md)
+- [docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md](../../docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [docs/decision/测试与数据库策略.md](../../docs/decision/测试与数据库策略.md)

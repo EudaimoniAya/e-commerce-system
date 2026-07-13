@@ -247,5 +247,5 @@ pending → confirmed → completed
 
 - [单体多域架构决策](./decision/单体多域架构.md)
 - [测试与数据库策略（ADR）](./decision/测试与数据库策略.md)
-- [集成测试 AsyncClient 与 Event Loop 冲突（ADR）](./decision/集成测试AsyncClient与EventLoop线程冲突.md)
+- [集成测试 AsyncClient 与 Event Loop 冲突（排错）](./troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)
