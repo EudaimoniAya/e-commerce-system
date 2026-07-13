@@ -12,10 +12,11 @@ _DEFAULT_NICKNAME_PATTERN = re.compile(r"^用户_\d{14,17}$")
 
 
 @pytest.mark.integration
-def test_register_success_returns_201_and_token(client) -> None:
+@pytest.mark.asyncio
+async def test_register_success_returns_201_and_token(client) -> None:
     """有效邮箱与密码注册成功，返回 201、token 与用户资料。"""
     email = unique_email()
-    result = register_user(client, email=email)
+    result = await register_user(client, email=email)
 
     assert result["status_code"] == 201
     body = result["json"]
@@ -34,13 +35,14 @@ def test_register_success_returns_201_and_token(client) -> None:
 
 
 @pytest.mark.integration
-def test_register_duplicate_email_returns_422(client) -> None:
+@pytest.mark.asyncio
+async def test_register_duplicate_email_returns_422(client) -> None:
     """重复邮箱注册返回 422 与 detail 字段。"""
     email = unique_email()
-    first = register_user(client, email=email)
+    first = await register_user(client, email=email)
     assert first["status_code"] == 201
 
-    second = register_user(client, email=email)
+    second = await register_user(client, email=email)
     assert second["status_code"] == 422
     body = second["json"]
     assert body is not None
@@ -48,25 +50,28 @@ def test_register_duplicate_email_returns_422(client) -> None:
 
 
 @pytest.mark.integration
-def test_register_password_too_short_returns_422(client) -> None:
+@pytest.mark.asyncio
+async def test_register_password_too_short_returns_422(client) -> None:
     """密码长度小于 8 返回 422。"""
-    result = register_user(client, password="short")
+    result = await register_user(client, password="short")
 
     assert result["status_code"] == 422
 
 
 @pytest.mark.integration
-def test_register_password_too_long_returns_422(client) -> None:
+@pytest.mark.asyncio
+async def test_register_password_too_long_returns_422(client) -> None:
     """密码长度大于 32 返回 422。"""
-    result = register_user(client, password="a" * 33)
+    result = await register_user(client, password="a" * 33)
 
     assert result["status_code"] == 422
 
 
 @pytest.mark.integration
-def test_register_default_nickname_when_omitted(client) -> None:
+@pytest.mark.asyncio
+async def test_register_default_nickname_when_omitted(client) -> None:
     """未提供 nickname 时使用默认昵称（用户_ + 时间戳）。"""
-    result = register_user(client)
+    result = await register_user(client)
 
     assert result["status_code"] == 201
     body = result["json"]

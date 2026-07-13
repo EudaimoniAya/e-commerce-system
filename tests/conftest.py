@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.main import app
@@ -41,11 +41,28 @@ def database_url() -> str:
     return os.environ["DATABASE_URL"]
 
 
+@pytest.fixture(autouse=True)
+async def _reset_global_database_engine(
+    request: pytest.FixtureRequest,
+) -> AsyncIterator[None]:
+    """integration 测试前后重置全局 engine，避免跨事件循环复用连接池。"""
+    if request.node.get_closest_marker("integration") is None:
+        yield
+        return
+
+    from app.infra.database import reset_engine
+
+    await reset_engine()
+    yield
+    await reset_engine()
+
+
 @pytest.fixture
-def client() -> TestClient:
-    """FastAPI TestClient，用于 HTTP 端点测试。"""
-    with TestClient(app) as test_client:
-        yield test_client
+async def client() -> AsyncIterator[AsyncClient]:
+    """httpx AsyncClient，与 pytest-asyncio 共用同一事件循环。"""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
 
 
 @pytest.fixture
@@ -76,8 +93,8 @@ def auth_headers(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 
-def register_user(
-    client: TestClient,
+async def register_user(
+    client: AsyncClient,
     *,
     email: str | None = None,
     password: str = _DEFAULT_TEST_PASSWORD,
@@ -91,7 +108,7 @@ def register_user(
     if nickname is not None:
         payload["nickname"] = nickname
 
-    response = client.post("/auth/register", json=payload)
+    response = await client.post("/auth/register", json=payload)
     body: Any | None
     if response.content:
         body = response.json()
@@ -107,14 +124,14 @@ def register_user(
     }
 
 
-def login_user(
-    client: TestClient,
+async def login_user(
+    client: AsyncClient,
     *,
     email: str,
     password: str = _DEFAULT_TEST_PASSWORD,
 ) -> dict[str, Any]:
     """调用 POST /auth/login，返回响应与请求上下文。"""
-    response = client.post(
+    response = await client.post(
         "/auth/login",
         json={"email": email, "password": password},
     )
@@ -134,9 +151,9 @@ def login_user(
 
 
 @pytest.fixture
-def authenticated_user(client: TestClient) -> dict[str, Any]:
+async def authenticated_user(client: AsyncClient) -> dict[str, Any]:
     """注册成功并返回 access_token 与 Bearer 请求头（供 /users/me 等已认证端点）。"""
-    registered = register_user(client)
+    registered = await register_user(client)
     if registered["status_code"] != 201 or not registered["json"]:
         return {
             **registered,

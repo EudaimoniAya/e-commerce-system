@@ -179,6 +179,8 @@ GET /users/me
 
 - 严格 TDD：先写 `tests/user/`（`@pytest.mark.integration`），再实现
 - `conftest.py` 提供 helper（`unique_email`、`auth_headers`、`register_user`、`login_user`）与 `authenticated_user` fixture（注册成功并返回 token/headers）
+- **HTTP 集成测试统一 `httpx.AsyncClient + ASGITransport`**（不用 Starlette `TestClient`）：与 pytest-asyncio 共用同一 event loop，避免全局 `AsyncEngine` 跨 Portal 双 loop 冲突；详见 ADR《集成测试 AsyncClient 与 Event Loop 线程冲突》
+- integration 测试前后 `reset_engine()`；`test_get_db` 使用独立 engine，不污染全局单例
 - 覆盖：注册成功/重复 422、登录成功/错误 422/inactive 403、me 200/401
 - CI：migrate 后跑 pytest；设置 `JWT_SECRET_KEY`
 
@@ -194,6 +196,7 @@ GET /users/me
 | UUID 主键索引略大于 BIGINT | MVP 规模可忽略；外键统一 UUID |
 | JSON 登录非 OAuth2 表单，Swagger「Authorize」体验略差 | `OAuth2PasswordBearer` 仍用于 Bearer 提取；文档注明 login 用 JSON |
 | 默认昵称时间戳碰撞（极低概率） | 可接受；后期允许用户改昵称 |
+| TestClient 与全局 AsyncEngine 跨 event loop 冲突 | 集成测试统一 `httpx.AsyncClient`；integration 前后 `reset_engine()`；见 ADR |
 
 ## Migration Plan
 

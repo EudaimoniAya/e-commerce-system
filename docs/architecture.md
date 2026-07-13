@@ -144,7 +144,7 @@ e-commerce-system/
 │   ├── devbox_mysql_down.sh
 │   └── devbox_mysql_reset.sh
 ├── tests/
-│   ├── conftest.py               # TestClient、db_session rollback、test DATABASE_URL
+│   ├── conftest.py               # httpx AsyncClient、db_session rollback、test DATABASE_URL
 │   ├── health/
 │   │   └── test_health.py
 │   └── infra/                    # integration 测试（@pytest.mark.integration）

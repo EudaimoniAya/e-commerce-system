@@ -2,15 +2,17 @@
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_db_select_one() -> None:
-    """get_db 依赖注入返回可用 AsyncSession，可执行 SELECT 1。"""
-    from app.infra.database import get_db
-
-    async for session in get_db():
-        result = await session.execute(text("SELECT 1"))
-        assert result.scalar() == 1
-        break
+async def test_get_db_select_one(database_url: str) -> None:
+    """AsyncSession 可执行 SELECT 1（独立 engine，不污染全局单例）。"""
+    engine = create_async_engine(database_url)
+    try:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            result = await session.execute(text("SELECT 1"))
+            assert result.scalar() == 1
+    finally:
+        await engine.dispose()

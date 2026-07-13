@@ -32,6 +32,15 @@ _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
+async def reset_engine() -> None:
+    """释放全局 engine 并重置（测试隔离用，避免跨事件循环复用连接池）。"""
+    global _engine, _session_factory
+    if _engine is not None:
+        await _engine.dispose()
+    _engine = None
+    _session_factory = None
+
+
 def get_engine() -> AsyncEngine:
     """懒加载 async SQLAlchemy engine。"""
     global _engine

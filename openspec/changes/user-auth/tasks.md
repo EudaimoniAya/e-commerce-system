@@ -23,8 +23,9 @@
 
 ## 5. user 域实现（绿 · 业务）
 
-- [ ] 5.1 实现 `app/user/schemas.py`、`repository.py`、`service.py`（pwdlib 哈希、注册/登录、默认昵称、422/403 规则）
-- [ ] 5.2 实现 `app/user/deps.py`（`get_current_user`）与 `router.py`（`/auth/register`、`/auth/login`、`/users/me`）；在 `app/main.py` 挂载路由
+- [x] 5.1 实现 `app/user/schemas.py`、`repository.py`、`service.py`（pwdlib 哈希、注册/登录、默认昵称、422/403 规则）
+- [x] 5.2 实现 `app/user/deps.py`（`get_current_user`）与 `router.py`（`/auth/register`、`/auth/login`、`/users/me`）；在 `app/main.py` 挂载路由
+- [x] 5.3 解决 Event Loop 线程冲突：弃用 `TestClient`，集成测试统一 `httpx.AsyncClient`；`reset_engine()` + ADR《集成测试 AsyncClient 与 Event Loop 线程冲突》
 
 ## 6. 本地验证与 CI
 
