@@ -6,7 +6,7 @@
 
 ## 2. ADR（个人学习笔记）
 
-- [ ] 2.1 编写 `docs/decision/单例与线程锁在FastAPI中的适用场景.md`（JWT 不用 Singleton 的理由；不进 OpenSpec）
+- [x] 2.1 编写 `docs/decision/单例与线程锁在FastAPI中的适用场景.md`（JWT 不用 Singleton 的理由；不进 OpenSpec）
 
 ## 3. TDD — 失败测试（红）
 
