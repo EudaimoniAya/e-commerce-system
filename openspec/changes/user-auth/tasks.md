@@ -11,15 +11,15 @@
 ## 3. TDD — 失败测试（红）
 
 - [x] 3.1 扩展 `tests/conftest.py`：helper（`unique_email`、`auth_headers`、`register_user`、`login_user`）与 `authenticated_user` fixture（integration）
-- [x] 3.2 按 `specs/user-auth/spec.md` 编写 `tests/user/test_register.py`（201、重复 422、密码长度 422、默认昵称）；**不编写** user 实现
-- [x] 3.3 按 `specs/user-auth/spec.md` 编写 `tests/user/test_login.py`（200、凭据错误 422、inactive 403）；**不编写** 实现
+- [x] 3.2 按 `specs/user-auth/spec.md` 编写 `tests/user/test_register.py`（201、重复 422、密码长度（过长/过短） 422、默认昵称）；**不编写** user 实现
+- [x] 3.3 按 `specs/user-auth/spec.md` 编写 `tests/user/test_login.py`（200、邮箱不存在 422、密码错误 422、inactive 403）；**不编写** 实现
 - [x] 3.4 按 `specs/user-auth/spec.md` 编写 `tests/user/test_me.py`（200、无 token 401、无效 token 401）；**不编写** 实现
 - [x] 3.5 运行 `task db:up` 后 `task test`，确认 `tests/user/` 相关测试失败（红），在 tasks 或 commit 消息中记录预期失败原因
 
 ## 4. 迁移与 infra 认证（绿 · 基础）
 
-- [ ] 4.1 实现 `app/user/models.py`（UUID 主键 `User` ORM）；`alembic/env.py` 导入 `app.user.models`；新增 migration `002_create_users`
-- [ ] 4.2 实现 `app/infra/auth.py`（PyJWT 编解码、`OAuth2PasswordBearer`、`get_current_user_id`）；使 token 编解码相关单元逻辑可被测试间接验证
+- [x] 4.1 实现 `app/user/models.py`（UUID 主键 `User` ORM）；`alembic/env.py` 导入 `app.user.models`；新增 migration `002_create_users`
+- [x] 4.2 实现 `app/infra/auth.py`（PyJWT 编解码、`OAuth2PasswordBearer`、`get_current_user_id`）；使 token 编解码相关单元逻辑可被测试间接验证
 
 ## 5. user 域实现（绿 · 业务）
 

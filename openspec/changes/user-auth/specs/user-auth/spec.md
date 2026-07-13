@@ -39,10 +39,17 @@
 - **AND** 响应体 JSON SHALL 包含 `access_token`、`token_type`（`bearer`）、`expires_in`
 - **AND** 响应体 SHALL 包含 `user` 对象（同注册成功时的字段约束）
 
-#### Scenario: 邮箱或密码错误返回 422
+#### Scenario: 邮箱不存在返回 422
 
-- **WHEN** 客户端提交的 `email` 不存在或 `password` 不正确
+- **WHEN** 客户端提交的 `email` 不存在于 `users` 表
 - **THEN** 响应状态码 SHALL 为 422
+- **AND** 响应 SHALL 为 FastAPI 校验/业务错误格式（`detail` 字段）
+
+#### Scenario: 密码错误返回 422
+
+- **WHEN** 客户端提交的 `email` 存在但 `password` 不正确
+- **THEN** 响应状态码 SHALL 为 422
+- **AND** 响应 SHALL 为 FastAPI 校验/业务错误格式（`detail` 字段）
 - **AND** 响应 SHALL NOT 区分「邮箱不存在」与「密码错误」（防止用户枚举）
 
 #### Scenario: 用户已禁用返回 403
