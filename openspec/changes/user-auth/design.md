@@ -82,7 +82,7 @@ alembic/
     └── 002_create_users.py
 
 tests/
-├── conftest.py                  # auth_headers fixture、registered_user fixture
+├── conftest.py                  # auth helper + authenticated_user fixture
 └── user/
     ├── test_register.py
     ├── test_login.py
@@ -178,7 +178,7 @@ GET /users/me
 ### 9. 测试策略
 
 - 严格 TDD：先写 `tests/user/`（`@pytest.mark.integration`），再实现
-- `conftest.py` 提供 `register_and_login` helper 返回 token
+- `conftest.py` 提供 helper（`unique_email`、`auth_headers`、`register_user`、`login_user`）与 `authenticated_user` fixture（注册成功并返回 token/headers）
 - 覆盖：注册成功/重复 422、登录成功/错误 422/inactive 403、me 200/401
 - CI：migrate 后跑 pytest；设置 `JWT_SECRET_KEY`
 

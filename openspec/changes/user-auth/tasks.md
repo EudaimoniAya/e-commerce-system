@@ -10,7 +10,7 @@
 
 ## 3. TDD — 失败测试（红）
 
-- [ ] 3.1 扩展 `tests/conftest.py`：`auth_headers` / `register_user` 等 helper（integration）
+- [x] 3.1 扩展 `tests/conftest.py`：helper（`unique_email`、`auth_headers`、`register_user`、`login_user`）与 `authenticated_user` fixture（integration）
 - [ ] 3.2 按 `specs/user-auth/spec.md` 编写 `tests/user/test_register.py`（201、重复 422、密码长度 422、默认昵称）；**不编写** user 实现
 - [ ] 3.3 按 `specs/user-auth/spec.md` 编写 `tests/user/test_login.py`（200、凭据错误 422、inactive 403）；**不编写** 实现
 - [ ] 3.4 按 `specs/user-auth/spec.md` 编写 `tests/user/test_me.py`（200、无 token 401、无效 token 401）；**不编写** 实现
