@@ -24,6 +24,10 @@ def _integration_test_database_url() -> None:
         url = url.replace("ecommerce_dev", "ecommerce_test")
     os.environ["DATABASE_URL"] = url
     os.environ.setdefault("APP_ENV", "test")
+    # JWT 配置为 Settings 必填项；集成测试使用固定测试密钥
+    os.environ.setdefault(
+        "JWT_SECRET_KEY", "test-secret-key-at-least-32-bytes!!"
+    )
 
 
 @pytest.fixture(scope="session")

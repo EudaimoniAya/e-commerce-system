@@ -1,8 +1,8 @@
 ## 1. 依赖与配置
 
-- [ ] 1.1 在 `pyproject.toml` 添加 `pyjwt`、`pwdlib`、`email-validator`；执行 `uv sync`
-- [ ] 1.2 扩展 `app/infra/config.py`：`jwt_secret_key`、`jwt_issuer`、`jwt_algorithm`、`jwt_access_token_expire_minutes`；更新 `.env.example`
-- [ ] 1.3 在 `app/infra/database.py` 为 `Base` 添加 `metadata.naming_convention`（见 design.md §6）
+- [x] 1.1 在 `pyproject.toml` 添加 `pyjwt`、`pwdlib`、`email-validator`；执行 `uv sync`
+- [x] 1.2 扩展 `app/infra/config.py`：`jwt_secret_key`、`jwt_issuer`、`jwt_algorithm`、`jwt_access_token_expire_minutes`；更新 `.env.example`
+- [x] 1.3 在 `app/infra/database.py` 为 `Base` 添加 `metadata.naming_convention`（见 design.md §6）
 
 ## 2. ADR（个人学习笔记）
 

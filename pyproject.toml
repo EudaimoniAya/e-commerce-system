@@ -10,6 +10,9 @@ dependencies = [
     "asyncmy",
     "alembic",
     "pydantic-settings",
+    "pyjwt",
+    "pwdlib",
+    "email-validator",
 ]
 
 [dependency-groups]
