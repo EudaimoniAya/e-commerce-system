@@ -25,7 +25,7 @@
 ## 5. 本地验证与 CI
 
 - [x] 5.1 运行 `task migrate` 后 `task ci` 确认本地全绿；手动 `curl` 注册 → 开店 → `/shops/me` → patch closed → 公开 GET
-- [ ] 5.2 确认 GitHub Actions / 远程 CI 全绿（`workflow_dispatch` 或 PR）
+- [x] 5.2 确认 GitHub Actions / 远程 CI 全绿（`workflow_dispatch` 或 PR）
 
 ## 6. 文档与 DoD
 
