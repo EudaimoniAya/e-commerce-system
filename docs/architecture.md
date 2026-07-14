@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域认证垂直切片已交付（注册/登录/JWT/`users` 表）；继续扩展 catalog、ordering 等 MVP 域
+- **当前阶段**：user 域认证与 **catalog 域店铺垂直切片** 已交付（注册/登录/JWT、`shops` 表、开店/me/patch/公开 GET）；继续扩展 catalog 商品、ordering 等 MVP 域
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -56,8 +56,8 @@
 
 | 域 | 职责 | 核心实体 | 阶段 |
 |----|------|----------|------|
-| `user` | 注册、登录、JWT、用户资料 | User | **MVP（已实现）** |
-| `catalog` | 商品 CRUD、类目、库存、上下架 | Product, Category | MVP |
+| `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
+| `catalog` | 店铺（shop）；后续商品 CRUD、类目、库存 | Shop, Product, Category | **MVP（shop 已实现）** |
 | `ordering` | 订单、购物车、下单扣库存 | Order, OrderItem, CartItem | MVP + 购物车 |
 | `engagement` | 收藏、浏览记录 | UserFavorite, BrowseEvent | Phase 2 |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
@@ -112,12 +112,12 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（user 认证 + infra）
+### 5.1 当前骨架（user + catalog shop + infra）
 
 ```text
 e-commerce-system/
 ├── app/
-│   ├── main.py                   # FastAPI 入口，挂载 health / readiness / user 路由
+│   ├── main.py                   # FastAPI 入口，挂载 health / readiness / user / catalog 路由
 │   ├── infra/
 │   │   ├── config.py             # DATABASE_URL、APP_ENV、jwt_* 配置
 │   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
@@ -125,29 +125,42 @@ e-commerce-system/
 │   │   ├── health/               # 存活探针 GET /health
 │   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL 检查）
 │   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
-│   └── user/                     # 用户域（router → service → repository → model）
-│       ├── router.py             # POST /auth/register|login，GET /users/me
-│       ├── service.py            # 注册/登录、pwdlib 哈希
+│   ├── user/                     # 用户域（router → service → repository → model）
+│   │   ├── router.py             # POST /auth/register|login，GET /users/me
+│   │   ├── service.py            # 注册/登录、pwdlib 哈希
+│   │   ├── repository.py
+│   │   ├── models.py             # users 表（含 is_admin）
+│   │   ├── schemas.py
+│   │   └── deps.py               # get_current_user
+│   └── catalog/                  # 商品目录域（shop 子模块已实现）
+│       ├── router.py             # POST /shops，GET/PATCH /shops/me，GET /shops/{shop_id}
+│       ├── service.py            # 开店、me、patch、公开 get
 │       ├── repository.py
-│       ├── models.py             # users 表（UUID 主键）
+│       ├── models.py             # shops 表（owner_user_id UNIQUE FK → users.id）
 │       ├── schemas.py
-│       └── deps.py               # get_current_user
+│       └── deps.py               # get_current_shop
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
-│       └── 002_create_users.py
+│       ├── 002_create_users.py
+│       └── 003_catalog_shop.py   # users.is_admin + shops 表 + seed 管理员
 ├── tests/
-│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth helper
+│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop helper
 │   ├── health/
 │   ├── infra/
-│   └── user/                     # 注册/登录/me integration（12 项）
+│   ├── user/                     # 注册/登录/me integration（12 项）
+│   └── catalog/                  # 店铺 + migration seed integration（16 项）
+├── scripts/
+│   └── catalog_shop_curl_smoke.sh
 ├── .github/workflows/ci.yml      # DATABASE_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
 
+**`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_url`、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
+
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充 `catalog/`、`ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。`user/` 与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
+随垂直切片增量补充 `catalog/` 商品子模块、`ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。`user/`、`catalog/`（shop）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -165,7 +178,13 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── catalog/                      # MVP（待实现）
+├── catalog/                      # MVP（shop 已实现；商品/类目待 catalog-products change）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   └── deps.py
 ├── ordering/                     # MVP（待实现）
 ├── engagement/                   # Phase 2
 ├── events/                       # 后期

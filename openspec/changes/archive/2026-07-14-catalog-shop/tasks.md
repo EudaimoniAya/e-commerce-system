@@ -29,8 +29,8 @@
 
 ## 6. 文档与 DoD
 
-- [ ] 6.1 更新 `README.md`（店铺 API 演示）与 `docs/architecture.md`（`app/catalog/`、`shops` 表、003 migration）
-- [ ] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿、文档已更新；可执行 `/opsx:archive` 归档
+- [x] 6.1 更新 `README.md`（店铺 API 演示）与 `docs/architecture.md`（`app/catalog/`、`shops` 表、003 migration）
+- [x] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿、文档已更新；可执行 `/opsx:archive` 归档
 
 > **Apply 约定**：严格 TDD，§2 完成前不得开始 §3–§4；每个 apply 会话建议只完成 1–2 个 task。
 

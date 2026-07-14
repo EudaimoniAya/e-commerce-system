@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前处于 **user 业务域（认证）** 阶段：在数据库基础设施之上已交付用户注册/登录、JWT、`GET /users/me` 与 `users` 表迁移；health/readiness 探针与 CI integration 测试（24 项）已就绪。
+AI 赋能电商个人练习项目。当前处于 **catalog 店铺域** 阶段：在 user 认证之上已交付店铺开店/查询/更新（`POST/GET/PATCH /shops*`）、`shops` 表与 migration `003`（含 `users.is_admin` 与 seed 管理员）；health/readiness 探针与 CI integration 测试（**40 项**）已就绪。
 
 ## 前置条件
 
@@ -68,6 +68,35 @@ curl -X POST http://127.0.0.1:8000/auth/login \
 # 当前用户（Bearer token）
 curl http://127.0.0.1:8000/users/me \
   -H "Authorization: Bearer <access_token>"
+```
+
+店铺 API（须已认证；`POST /shops` 需 Bearer token）：
+
+```bash
+# 开店（201）
+curl -X POST http://127.0.0.1:8000/shops \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"name":"我的店铺","description":"简介","logo_url":"https://example.com/logo.png"}'
+
+# 当前用户的店铺（200；无店 404）
+curl http://127.0.0.1:8000/shops/me \
+  -H "Authorization: Bearer <access_token>"
+
+# 更新店铺（200；可设 status 为 closed 关店）
+curl -X PATCH http://127.0.0.1:8000/shops/me \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"name":"新店名","status":"closed"}'
+
+# 公开店铺详情（无需认证；closed 仍 200）
+curl http://127.0.0.1:8000/shops/<shop_id>
+```
+
+一键烟雾测试（注册 → 开店 → me → patch closed → 公开 GET）：
+
+```bash
+bash scripts/catalog_shop_curl_smoke.sh
 ```
 
 验证 MySQL 双库（可选）：
