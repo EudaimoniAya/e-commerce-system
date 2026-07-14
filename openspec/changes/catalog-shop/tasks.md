@@ -19,8 +19,8 @@
 
 ## 4. catalog 域实现（绿 · 业务）
 
-- [ ] 4.1 实现 `app/catalog/schemas.py`、`repository.py`、`service.py`（开店、me、patch、公开 get；422/404 规则）
-- [ ] 4.2 实现 `app/catalog/deps.py`（`get_current_shop`）与 `router.py`；在 `app/main.py` 挂载路由
+- [x] 4.1 实现 `app/catalog/schemas.py`、`repository.py`、`service.py`（开店、me、patch、公开 get；422/404 规则）
+- [x] 4.2 实现 `app/catalog/deps.py`（`get_current_shop`）与 `router.py`；在 `app/main.py` 挂载路由
 
 ## 5. 本地验证与 CI
 
