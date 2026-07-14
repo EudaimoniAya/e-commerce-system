@@ -168,3 +168,80 @@ async def authenticated_user(client: AsyncClient) -> dict[str, Any]:
         "headers": auth_headers(access_token),
         "user": registered["json"].get("user"),
     }
+
+
+# --- catalog shop integration 测试 helper ---
+
+
+def unique_shop_name(prefix: str = "shop") -> str:
+    """生成唯一店名，避免 integration 测试互相冲突。"""
+    return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+def create_shop_payload(
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    logo_url: str | None = None,
+) -> dict[str, str]:
+    """构造 POST /shops 请求体。"""
+    payload: dict[str, str] = {"name": name or unique_shop_name()}
+    if description is not None:
+        payload["description"] = description
+    if logo_url is not None:
+        payload["logo_url"] = logo_url
+    return payload
+
+
+async def register_and_open_shop(
+    client: AsyncClient,
+    *,
+    email: str | None = None,
+    password: str = _DEFAULT_TEST_PASSWORD,
+    shop_name: str | None = None,
+    description: str | None = None,
+    logo_url: str | None = None,
+) -> dict[str, Any]:
+    """注册用户并调用 POST /shops，返回注册与开店上下文。"""
+    registered = await register_user(client, email=email, password=password)
+    if registered["status_code"] != 201 or not registered["json"]:
+        return {
+            **registered,
+            "access_token": None,
+            "headers": {},
+            "shop_payload": create_shop_payload(name=shop_name),
+            "register": registered,
+        }
+
+    access_token = registered["json"]["access_token"]
+    headers = auth_headers(access_token)
+    shop_payload = create_shop_payload(
+        name=shop_name,
+        description=description,
+        logo_url=logo_url,
+    )
+    shop_response = await client.post("/shops", json=shop_payload, headers=headers)
+    shop_body: Any | None
+    if shop_response.content:
+        shop_body = shop_response.json()
+    else:
+        shop_body = None
+
+    return {
+        "response": shop_response,
+        "status_code": shop_response.status_code,
+        "json": shop_body,
+        "email": registered["email"],
+        "password": registered["password"],
+        "access_token": access_token,
+        "headers": headers,
+        "user": registered["json"].get("user"),
+        "shop_payload": shop_payload,
+        "register": registered,
+    }
+
+
+@pytest.fixture
+async def shop_owner(client: AsyncClient) -> dict[str, Any]:
+    """注册并开店成功，返回 token、headers 与店铺资料（供 catalog integration 测试）。"""
+    return await register_and_open_shop(client)
