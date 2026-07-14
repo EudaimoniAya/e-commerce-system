@@ -7,9 +7,9 @@
 
 - [x] 2.1 扩展 `tests/conftest.py`：shop helpers（`create_shop_payload`、`register_and_open_shop`）与 `shop_owner` fixture（integration）
 - [x] 2.2 按 `specs/catalog-shop/spec.md` 编写 `tests/catalog/test_create_shop.py`（201、重复开店 422、店名冲突 422、未认证 401）；**不编写** catalog 实现
-- [ ] 2.3 按 spec 编写 `tests/catalog/test_my_shop.py`（me 200/404、patch 200/404/422、closed）；**不编写** 实现
-- [ ] 2.4 按 spec 编写 `tests/catalog/test_public_shop.py`（公开 get active/closed 200、不存在 404）；**不编写** 实现
-- [ ] 2.5 编写 `tests/catalog/test_admin_seed.py`：migration 后断言 `114514yyut@qq.com` 存在且 `is_admin=true`；**不编写** 实现
+- [x] 2.3 按 spec 编写 `tests/catalog/test_my_shop.py`（me 200/404、patch 200/404/422、closed）；**不编写** 实现
+- [x] 2.4 按 spec 编写 `tests/catalog/test_public_shop.py`（公开 get active/closed 200、不存在 404）；**不编写** 实现
+- [x] 2.5 编写 `tests/catalog/test_admin_seed.py`：migration 后断言 `114514yyut@qq.com` 存在且 `is_admin=true`；**不编写** 实现
 - [ ] 2.6 运行 `task db:up` 后 `task test`，确认 `tests/catalog/` 相关测试失败（红），记录预期失败原因
 
 ## 3. 迁移与 catalog 模型（绿 · 基础）
