@@ -1,7 +1,7 @@
 ## 1. user 域 — is_admin 与 ORM
 
-- [ ] 1.1 在 `app/user/models.py` 增加 `is_admin: Mapped[bool]`（默认 false）；不修改 `UserResponse` 暴露该字段
-- [ ] 1.2 编写 migration `003` 前半：`users.is_admin` 列；`alembic/env.py` 保持导入 `app.user.models`
+- [x] 1.1 在 `app/user/models.py` 增加 `is_admin: Mapped[bool]`（默认 false）；不修改 `UserResponse` 暴露该字段
+- [x] 1.2 编写 migration `003` 前半：`users.is_admin` 列；`alembic/env.py` 保持导入 `app.user.models`
 
 ## 2. TDD — 失败测试（红）
 
