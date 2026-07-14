@@ -14,8 +14,8 @@
 
 ## 3. 迁移与 catalog 模型（绿 · 基础）
 
-- [ ] 3.1 实现 `app/catalog/models.py`（`Shop` ORM）；`alembic/env.py` 导入 `app.catalog.models`
-- [ ] 3.2 完成 migration `003`：`shops` 表 + seed 管理员（email `114514yyut@qq.com`；明文密码 `1919810810`；pwdlib hash 写入 `password_hash`）
+- [x] 3.1 实现 `app/catalog/models.py`（`Shop` ORM）；`alembic/env.py` 导入 `app.catalog.models`
+- [x] 3.2 完成 migration `003`：`shops` 表 + seed 管理员（email `114514yyut@qq.com`；明文密码 `1919810810`；pwdlib hash 写入 `password_hash`）
 
 ## 4. catalog 域实现（绿 · 业务）
 
