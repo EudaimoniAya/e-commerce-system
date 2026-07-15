@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前处于 **catalog 店铺域** 阶段：在 user 认证之上已交付店铺开店/查询/更新（`POST/GET/PATCH /shops*`）、`shops` 表与 migration `003`（含 `users.is_admin` 与 seed 管理员）；health/readiness 探针与 CI integration 测试（**40 项**）已就绪。
+AI 赋能电商个人练习项目。当前处于 **catalog 类目与商品域** 阶段：在 user 认证与店铺 API 之上已交付平台类目（admin 创建）、商品 CRUD/上下架、公开浏览与店主分页查询；migration `004` 新增 `categories` / `products` / `product_categories` 三表；health/readiness 探针与 CI integration 测试（**65 项**）已就绪。
 
 ## 前置条件
 
@@ -91,6 +91,50 @@ curl -X PATCH http://127.0.0.1:8000/shops/me \
 
 # 公开店铺详情（无需认证；closed 仍 200）
 curl http://127.0.0.1:8000/shops/<shop_id>
+```
+
+类目 API（`POST /categories` 须 seed 管理员 Bearer token；`GET /categories` 公开）：
+
+```bash
+# 管理员登录（migration 003 seed；本地 dev 库）
+curl -X POST http://127.0.0.1:8000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"114514yyut@qq.com","password":"1919810810"}'
+
+# 创建类目（201；非 admin 403）
+curl -X POST http://127.0.0.1:8000/categories \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <admin_access_token>" \
+  -d '{"name":"数码"}'
+
+# 扁平类目列表（200；空库返回 []）
+curl http://127.0.0.1:8000/categories
+```
+
+商品 API（`POST/PATCH /products`、`GET /shops/me/products` 须店主 Bearer token 且店铺 active；公开列表/详情无需认证）：
+
+```bash
+# 店主创建并上架商品（201；须 category_ids + primary_category_id）
+curl -X POST http://127.0.0.1:8000/products \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <shop_owner_token>" \
+  -d '{"name":"示例商品","price":"99.00","stock":10,"is_published":true,"category_ids":["<category_id>"],"primary_category_id":"<category_id>"}'
+
+# 店主分页查询本店商品（200；含未上架）
+curl "http://127.0.0.1:8000/shops/me/products?limit=20&offset=0" \
+  -H "Authorization: Bearer <shop_owner_token>"
+
+# 更新商品（200；非本店 403；closed 店铺 422）
+curl -X PATCH http://127.0.0.1:8000/products/<product_id> \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <shop_owner_token>" \
+  -d '{"stock":0,"is_published":false}'
+
+# 公开商品列表（仅已上架且店铺 active；可选 ?category_id=）
+curl "http://127.0.0.1:8000/products?limit=20&offset=0"
+
+# 公开商品详情（未上架或 closed 店铺 404）
+curl http://127.0.0.1:8000/products/<product_id>
 ```
 
 一键烟雾测试（注册 → 开店 → me → patch closed → 公开 GET）：

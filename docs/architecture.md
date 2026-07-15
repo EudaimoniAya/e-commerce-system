@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域认证与 **catalog 域店铺垂直切片** 已交付（注册/登录/JWT、`shops` 表、开店/me/patch/公开 GET）；继续扩展 catalog 商品、ordering 等 MVP 域
+- **当前阶段**：user 域认证、**catalog 域店铺 + 类目/商品垂直切片** 已交付（注册/登录/JWT、`shops` 表、开店/me/patch/公开 GET；平台类目树、商品 CRUD/上下架、公开浏览）；继续扩展 ordering 等 MVP 域
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -57,7 +57,7 @@
 | 域 | 职责 | 核心实体 | 阶段 |
 |----|------|----------|------|
 | `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
-| `catalog` | 店铺（shop）；后续商品 CRUD、类目、库存 | Shop, Product, Category | **MVP（shop 已实现）** |
+| `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
 | `ordering` | 订单、购物车、下单扣库存 | Order, OrderItem, CartItem | MVP + 购物车 |
 | `engagement` | 收藏、浏览记录 | UserFavorite, BrowseEvent | Phase 2 |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
@@ -112,7 +112,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（user + catalog shop + infra）
+### 5.1 当前骨架（user + catalog + infra）
 
 ```text
 e-commerce-system/
@@ -131,25 +131,26 @@ e-commerce-system/
 │   │   ├── repository.py
 │   │   ├── models.py             # users 表（含 is_admin）
 │   │   ├── schemas.py
-│   │   └── deps.py               # get_current_user
-│   └── catalog/                  # 商品目录域（shop 子模块已实现）
-│       ├── router.py             # POST /shops，GET/PATCH /shops/me，GET /shops/{shop_id}
-│       ├── service.py            # 开店、me、patch、公开 get
+│   │   └── deps.py               # get_current_user、require_admin
+│   └── catalog/                  # 商品目录域（shop + 类目/商品已实现）
+│       ├── router.py             # categories/products/shops 路由
+│       ├── service.py            # 类目、商品、店铺业务逻辑
 │       ├── repository.py
-│       ├── models.py             # shops 表（owner_user_id UNIQUE FK → users.id）
+│       ├── models.py             # shops、categories、products、product_categories
 │       ├── schemas.py
 │       └── deps.py               # get_current_shop
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
 │       ├── 002_create_users.py
-│       └── 003_catalog_shop.py   # users.is_admin + shops 表 + seed 管理员
+│       ├── 003_catalog_shop.py   # users.is_admin + shops 表 + seed 管理员
+│       └── 004_catalog_products.py  # categories、products、product_categories（无 seed）
 ├── tests/
-│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop helper
+│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop/category helper
 │   ├── health/
 │   ├── infra/
 │   ├── user/                     # 注册/登录/me integration（12 项）
-│   └── catalog/                  # 店铺 + migration seed integration（16 项）
+│   └── catalog/                  # 店铺 + 类目/商品 + seed integration（41 项）
 ├── scripts/
 │   └── catalog_shop_curl_smoke.sh
 ├── .github/workflows/ci.yml      # DATABASE_URL + JWT_SECRET_KEY；migrate + task ci
@@ -158,9 +159,15 @@ e-commerce-system/
 
 **`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_url`、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
 
+**`categories` 表（catalog 域）**：`id`（UUID PK）、`parent_id`（FK → `categories.id`，NULL 为根）、`name`（VARCHAR 64）、`created_at`、`updated_at`；`UNIQUE(parent_id, name)` 同级不重名；**无 seed**，空库起步。
+
+**`products` 表（catalog 域）**：`id`（UUID PK）、`shop_id`（FK → `shops.id`）、`name`、`description`、`price`（DECIMAL 10,2，CNY）、`stock`、`is_published`（默认 false）、`image_url`、`created_at`、`updated_at`；索引 `ix_products_shop_id`、`ix_products_is_published`。
+
+**`product_categories` 表（catalog 域）**：`(product_id, category_id)` 复合 PK、`is_primary`（BOOLEAN）；service 保证每个商品至多一个主类目；`primary_category_id` 必须 ∈ `category_ids`。
+
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充 `catalog/` 商品子模块、`ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。`user/`、`catalog/`（shop）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
+随垂直切片增量补充 `ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。`user/`、`catalog/`（shop + 类目/商品）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -178,7 +185,7 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── catalog/                      # MVP（shop 已实现；商品/类目待 catalog-products change）
+├── catalog/                      # MVP（shop + 类目/商品已实现）
 │   ├── router.py
 │   ├── service.py
 │   ├── repository.py
