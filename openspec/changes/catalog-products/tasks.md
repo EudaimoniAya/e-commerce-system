@@ -26,7 +26,7 @@
 
 ## 5. 本地验证与 CI
 
-- [ ] 5.1 运行 `task migrate` 后 `task ci` 全绿；手动 curl：admin 建类目 → 商家上架 → 公开 GET
+- [x] 5.1 运行 `task migrate` 后 `task ci` 全绿；手动 curl：admin 建类目 → 商家上架 → 公开 GET
 - [ ] 5.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
 
 ## 6. 文档与 DoD

@@ -8,7 +8,7 @@ from tests.catalog.test_create_product import (
     _PRODUCT_FIELDS,
     _create_category_for_product,
 )
-from tests.conftest import create_category, register_and_open_shop, unique_category_name
+from tests.conftest import create_category, unique_category_name
 
 _PAGINATED_FIELDS = {"items", "total", "limit", "offset"}
 

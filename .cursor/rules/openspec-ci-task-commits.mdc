@@ -30,7 +30,7 @@ alwaysApply: false
 2. **commit + push**。
 
 ```text
-ci(<change-name>): [apply] Task <编号> <简短标题>：
+ci(<change-name>): Task <编号> <简短标题>：
  * <本地 migrate + task ci 结果>；
  * <curl 或关键验证>；
  * ci.yml <具体 env 变更>；更新 tasks.md。
@@ -43,7 +43,7 @@ ci(<change-name>): [apply] Task <编号> <简短标题>：
 3. **再 commit + push**（勾选 tasks、附 Actions URL）。
 
 ```text
-ci(<change-name>): [apply] Task <编号> 确认 GitHub Actions CI 全绿
+ci(<change-name>): Task <编号> 确认 GitHub Actions CI 全绿
 
 workflow_dispatch on <branch>: <run-url>
 ```
@@ -53,7 +53,7 @@ workflow_dispatch on <branch>: <run-url>
 ## 通用 commit message 格式
 
 ```text
-<type>(<scope>): [apply] Task <编号> <主题>：
+<type>(<scope>): Task <编号> <主题>：
  * <要点 1>；
  * <要点 2>；
 ```
@@ -70,5 +70,5 @@ workflow_dispatch on <branch>: <run-url>
 
 ## 参考
 
-- 范例：`ci(user-auth): [apply] Task 6.1 ~6.2 …` / `Task 6.3 确认 GitHub Actions CI 全绿`（节号仅作编号，**非**触发条件）
+- 范例：`ci(user-auth): Task 6.1 ~6.2 …` / `Task 6.3 确认 GitHub Actions CI 全绿`（节号仅作编号，**非**触发条件）
 - DoD：README §Definition of Done
