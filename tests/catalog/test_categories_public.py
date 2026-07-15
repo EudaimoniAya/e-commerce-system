@@ -66,6 +66,8 @@ async def test_list_categories_empty_returns_200_and_empty_array(
         # 红阶段 categories 表可能尚未创建，忽略清理失败
         for stmt in (
             "DELETE FROM product_categories",
+            "DELETE FROM products",
+            "DELETE FROM categories WHERE parent_id IS NOT NULL",
             "DELETE FROM categories",
         ):
             try:

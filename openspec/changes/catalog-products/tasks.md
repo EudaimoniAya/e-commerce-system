@@ -20,9 +20,9 @@
 
 ## 4. catalog 域实现（绿 · 业务）
 
-- [ ] 4.1 扩展 `schemas.py`（Category*、ProductCreate/Update/Response、PaginatedProducts）；`repository.py`（类目/商品/关联 CRUD）
-- [ ] 4.2 扩展 `service.py`（create_category、list_categories、create/update/list/get products；closed/403/422 规则；is_primary 校验）
-- [ ] 4.3 扩展 `router.py`（注册顺序：`/shops/me/products` 先于 `/shops/{shop_id}`）；挂载 categories + products 路由（`POST /categories` 依赖 `require_admin`）
+- [x] 4.1 扩展 `schemas.py`（Category*、ProductCreate/Update/Response、PaginatedProducts）；`repository.py`（类目/商品/关联 CRUD）
+- [x] 4.2 扩展 `service.py`（create_category、list_categories、create/update/list/get products；closed/403/422 规则；is_primary 校验）
+- [x] 4.3 扩展 `router.py`（注册顺序：`/shops/me/products` 先于 `/shops/{shop_id}`）；挂载 categories + products 路由（`POST /categories` 依赖 `require_admin`）
 
 ## 5. 本地验证与 CI
 

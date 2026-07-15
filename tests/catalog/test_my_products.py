@@ -105,6 +105,7 @@ async def test_get_my_products_supports_pagination(
     client, admin_auth_headers, shop_owner, product_payload
 ) -> None:
     """GET /shops/me/products 支持 limit 与 offset 分页。"""
+    assert admin_auth_headers["status_code"] == 200
     assert shop_owner["status_code"] == 201
 
     created_ids: list[str] = []
