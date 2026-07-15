@@ -245,3 +245,97 @@ async def register_and_open_shop(
 async def shop_owner(client: AsyncClient) -> dict[str, Any]:
     """注册并开店成功，返回 token、headers 与店铺资料（供 catalog integration 测试）。"""
     return await register_and_open_shop(client)
+
+
+# --- catalog category/product integration 测试 helper ---
+
+# migration 003 seed 管理员凭据（见 alembic/versions/003_catalog_shop.py）
+_ADMIN_SEED_EMAIL = "114514yyut@qq.com"
+_ADMIN_SEED_PASSWORD = "1919810810"
+
+
+def unique_category_name(prefix: str = "cat") -> str:
+    """生成唯一类目名，避免 integration 测试互相冲突。"""
+    return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+@pytest.fixture
+async def admin_auth_headers(client: AsyncClient) -> dict[str, Any]:
+    """seed 管理员登录，返回 token 与 Bearer 请求头（供 POST /categories 等 admin 端点）。"""
+    logged_in = await login_user(
+        client,
+        email=_ADMIN_SEED_EMAIL,
+        password=_ADMIN_SEED_PASSWORD,
+    )
+    if logged_in["status_code"] != 200 or not logged_in["json"]:
+        return {
+            **logged_in,
+            "access_token": None,
+            "headers": {},
+        }
+
+    access_token = logged_in["json"]["access_token"]
+    return {
+        **logged_in,
+        "access_token": access_token,
+        "headers": auth_headers(access_token),
+    }
+
+
+async def create_category(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    name: str | None = None,
+    parent_id: str | None = None,
+) -> dict[str, Any]:
+    """调用 POST /categories，返回响应与请求上下文。"""
+    payload: dict[str, str] = {"name": name or unique_category_name()}
+    if parent_id is not None:
+        payload["parent_id"] = parent_id
+
+    response = await client.post("/categories", json=payload, headers=headers)
+    body: Any | None
+    if response.content:
+        body = response.json()
+    else:
+        body = None
+
+    return {
+        "response": response,
+        "status_code": response.status_code,
+        "json": body,
+        "payload": payload,
+    }
+
+
+@pytest.fixture
+def product_payload() -> Any:
+    """返回构造 POST /products 请求体的工厂函数（需传入 category_ids 与 primary_category_id）。"""
+
+    def _product_payload(
+        *,
+        name: str | None = None,
+        price: str = "99.00",
+        stock: int = 10,
+        description: str | None = None,
+        image_url: str | None = None,
+        is_published: bool = False,
+        category_ids: list[str],
+        primary_category_id: str,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "name": name or f"product-{uuid.uuid4().hex[:12]}",
+            "price": price,
+            "stock": stock,
+            "is_published": is_published,
+            "category_ids": category_ids,
+            "primary_category_id": primary_category_id,
+        }
+        if description is not None:
+            payload["description"] = description
+        if image_url is not None:
+            payload["image_url"] = image_url
+        return payload
+
+    return _product_payload

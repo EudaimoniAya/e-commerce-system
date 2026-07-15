@@ -1,7 +1,7 @@
 ## 1. TDD — 失败测试（红）
 
-- [ ] 1.1 扩展 `tests/conftest.py`：`admin_auth_headers`（seed 管理员登录）、`create_category` helper、`product_payload` fixture
-- [ ] 1.2 编写 `tests/catalog/test_admin_categories.py`（POST 201/403/401/422 同级重名）；**不编写** 实现
+- [x] 1.1 扩展 `tests/conftest.py`：`admin_auth_headers`（seed 管理员登录）、`create_category` helper、`product_payload` fixture
+- [x] 1.2 编写 `tests/catalog/test_admin_categories.py`（POST 201/403/401/422 同级重名）；**不编写** 实现
 - [ ] 1.3 编写 `tests/catalog/test_categories_public.py`（GET 扁平/空数组）；**不编写** 实现
 - [ ] 1.4 编写 `tests/catalog/test_create_product.py`（POST 201、closed 422、无店 404、类目/primary 422）；**不编写** 实现
 - [ ] 1.5 编写 `tests/catalog/test_my_products.py`（GET /shops/me/products 200/404、分页）；**不编写** 实现
