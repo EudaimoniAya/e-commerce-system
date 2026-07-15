@@ -16,7 +16,7 @@
 
 ## 3. user 域 — require_admin
 
-- [ ] 3.1 在 `app/user/deps.py` 实现 `require_admin`（查库 `is_admin`；false→403，无用户/token 无效→401）
+- [x] 3.1 在 `app/user/deps.py` 实现 `require_admin`（查库 `is_admin`；false→403，无用户/token 无效→401）
 
 ## 4. catalog 域实现（绿 · 业务）
 
