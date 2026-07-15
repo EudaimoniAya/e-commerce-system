@@ -39,3 +39,23 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return _to_user_response(user)
+
+
+async def require_admin(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    repository: UserRepository = Depends(get_user_repository),
+) -> uuid.UUID:
+    """解析 JWT 并查库验证管理员；非 admin → 403，用户不存在 → 401。"""
+    user = await repository.get_by_id(user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user_id

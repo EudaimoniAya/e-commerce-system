@@ -9,30 +9,49 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.main import app
-
 # 本地 integration 测试默认连接 test 库（unix socket，与 .env.example 一致）
 _DEFAULT_TEST_DATABASE_URL = (
     "mysql+asyncmy://root@localhost/ecommerce_test"
     "?charset=utf8mb4&unix_socket=/tmp/e-commerce-system-mysql.sock"
 )
 
+# integration 测试固定 JWT（须 ≥32 字节；与 .env 中 dev 密钥隔离，避免签验不一致）
+_DEFAULT_TEST_JWT_SECRET = "test-secret-key-at-least-32-bytes!!"
+
 # integration 测试默认密码（符合 8–32 位规则）
 _DEFAULT_TEST_PASSWORD = "password123"
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _integration_test_database_url() -> None:
-    """集成测试统一使用 ecommerce_test 库。"""
+def _configure_integration_test_env() -> None:
+    """注入 integration 测试环境变量（须在 import app 之前调用）。"""
     url = os.environ.get("DATABASE_URL", _DEFAULT_TEST_DATABASE_URL)
     if "ecommerce_dev" in url:
         url = url.replace("ecommerce_dev", "ecommerce_test")
     os.environ["DATABASE_URL"] = url
-    os.environ.setdefault("APP_ENV", "test")
-    # JWT 配置为 Settings 必填项；集成测试使用固定测试密钥
-    os.environ.setdefault(
-        "JWT_SECRET_KEY", "test-secret-key-at-least-32-bytes!!"
-    )
+    os.environ["APP_ENV"] = "test"
+    # 强制覆盖，避免 .env / shell 中 dev JWT 与测试签发密钥不一致导致 401
+    os.environ["JWT_SECRET_KEY"] = _DEFAULT_TEST_JWT_SECRET
+
+
+def _reset_settings_cache() -> None:
+    """清除 Settings 单例缓存，使后续 get_settings() 读取最新环境变量。"""
+    from app.infra.config import get_settings
+
+    get_settings.cache_clear()
+
+
+# import app 前配置 env 并清缓存，避免 get_settings() 缓存 .env 中的 dev 配置
+_configure_integration_test_env()
+_reset_settings_cache()
+
+from app.main import app  # noqa: E402
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _integration_test_database_url() -> None:
+    """session 级再次确保测试 env 与 Settings 缓存一致。"""
+    _configure_integration_test_env()
+    _reset_settings_cache()
 
 
 @pytest.fixture(scope="session")
@@ -50,6 +69,7 @@ async def _reset_global_database_engine(
         yield
         return
 
+    _reset_settings_cache()
     from app.infra.database import reset_engine
 
     await reset_engine()
@@ -245,3 +265,99 @@ async def register_and_open_shop(
 async def shop_owner(client: AsyncClient) -> dict[str, Any]:
     """注册并开店成功，返回 token、headers 与店铺资料（供 catalog integration 测试）。"""
     return await register_and_open_shop(client)
+
+
+# --- catalog category/product integration 测试 helper ---
+
+# migration 003 seed 管理员凭据（见 alembic/versions/003_catalog_shop.py）
+_ADMIN_SEED_EMAIL = "114514yyut@qq.com"
+_ADMIN_SEED_PASSWORD = "1919810810"
+
+
+def unique_category_name(prefix: str = "cat") -> str:
+    """生成唯一类目名，避免 integration 测试互相冲突。"""
+    return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+@pytest.fixture
+async def admin_auth_headers(client: AsyncClient) -> dict[str, Any]:
+    """seed 管理员登录，返回 token 与 Bearer 请求头（供 POST /categories 等 admin 端点）。"""
+    logged_in = await login_user(
+        client,
+        email=_ADMIN_SEED_EMAIL,
+        password=_ADMIN_SEED_PASSWORD,
+    )
+    if logged_in["status_code"] != 200 or not logged_in["json"]:
+        pytest.fail(
+            f"seed 管理员登录失败（status={logged_in['status_code']}），"
+            "请确认 ecommerce_test 已 migrate 且 seed admin 存在"
+        )
+
+    access_token = logged_in["json"]["access_token"]
+    if not access_token:
+        pytest.fail("seed 管理员登录响应缺少 access_token")
+
+    return {
+        **logged_in,
+        "access_token": access_token,
+        "headers": auth_headers(access_token),
+    }
+
+
+async def create_category(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    name: str | None = None,
+    parent_id: str | None = None,
+) -> dict[str, Any]:
+    """调用 POST /categories，返回响应与请求上下文。"""
+    payload: dict[str, str] = {"name": name or unique_category_name()}
+    if parent_id is not None:
+        payload["parent_id"] = parent_id
+
+    response = await client.post("/categories", json=payload, headers=headers)
+    body: Any | None
+    if response.content:
+        body = response.json()
+    else:
+        body = None
+
+    return {
+        "response": response,
+        "status_code": response.status_code,
+        "json": body,
+        "payload": payload,
+    }
+
+
+@pytest.fixture
+def product_payload() -> Any:
+    """返回构造 POST /products 请求体的工厂函数（需传入 category_ids 与 primary_category_id）。"""
+
+    def _product_payload(
+        *,
+        name: str | None = None,
+        price: str = "99.00",
+        stock: int = 10,
+        description: str | None = None,
+        image_url: str | None = None,
+        is_published: bool = False,
+        category_ids: list[str],
+        primary_category_id: str,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "name": name or f"product-{uuid.uuid4().hex[:12]}",
+            "price": price,
+            "stock": stock,
+            "is_published": is_published,
+            "category_ids": category_ids,
+            "primary_category_id": primary_category_id,
+        }
+        if description is not None:
+            payload["description"] = description
+        if image_url is not None:
+            payload["image_url"] = image_url
+        return payload
+
+    return _product_payload
