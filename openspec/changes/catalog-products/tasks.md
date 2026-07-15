@@ -11,8 +11,8 @@
 
 ## 2. 迁移与 ORM（绿 · 基础）
 
-- [ ] 2.1 在 `app/catalog/models.py` 增加 `Category`、`Product`、`ProductCategory` ORM；`alembic/env.py` 已导入 catalog models
-- [ ] 2.2 新增 migration `004`：`categories`、`products`、`product_categories`（**不** seed 类目）
+- [x] 2.1 在 `app/catalog/models.py` 增加 `Category`、`Product`、`ProductCategory` ORM；`alembic/env.py` 已导入 catalog models
+- [x] 2.2 新增 migration `004`：`categories`、`products`、`product_categories`（**不** seed 类目）
 
 ## 3. user 域 — require_admin
 
