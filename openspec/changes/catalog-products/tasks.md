@@ -27,12 +27,12 @@
 ## 5. 本地验证与 CI
 
 - [x] 5.1 运行 `task migrate` 后 `task ci` 全绿；手动 curl：admin 建类目 → 商家上架 → 公开 GET
-- [ ] 5.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
+- [x] 5.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
 
 ## 6. 文档与 DoD
 
-- [ ] 6.1 更新 `README.md`（类目/商品 API）与 `docs/architecture.md`（004 migration、products 表）
-- [ ] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
+- [x] 6.1 更新 `README.md`（类目/商品 API）与 `docs/architecture.md`（004 migration、products 表）
+- [x] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§4；§2 完成后做 §3（`require_admin`），再做 §4；每个 apply 会话建议只完成 1–2 个 task。
 
