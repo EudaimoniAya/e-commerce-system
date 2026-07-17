@@ -6,10 +6,10 @@
 
 ## 2. conftest 重构
 
-- [ ] 2.1 重构 `register_user`、`login_user` 返回 Result dataclass；2xx 时用 `TokenResponse.model_validate`；移除 dict 返回
-- [ ] 2.2 重构 `create_category`（及拆出的 `create_shop` 若需要）返回 Result dataclass
-- [ ] 2.3 重构 fixture：`authenticated_user` → `AuthContext`，`admin_auth_headers` → `AdminAuthContext`，`shop_owner` → `ShopOwnerContext`；删除 `create_shop_payload` 与 `product_payload` fixture，改用 builders
-- [ ] 2.4 保留 `client`、`db_session`、env 配置与 engine reset fixture 行为不变
+- [x] 2.1 重构 `register_user`、`login_user` 返回 Result dataclass；2xx 时用 `TokenResponse.model_validate`；移除 dict 返回
+- [x] 2.2 重构 `create_category`（及拆出的 `create_shop` 若需要）返回 Result dataclass
+- [x] 2.3 重构 fixture：`authenticated_user` → `AuthContext`，`admin_auth_headers` → `AdminAuthContext`，`shop_owner` → `ShopOwnerContext`；删除 `create_shop_payload` 与 `product_payload` fixture，改用 builders
+- [x] 2.4 保留 `client`、`db_session`、env 配置与 engine reset fixture 行为不变
 
 ## 3. user integration 测试迁移
 
