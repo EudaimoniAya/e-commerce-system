@@ -1,12 +1,12 @@
 ## 1. tests/unit 目录与 user schema 单测
 
-- [ ] 1.1 新增 `tests/unit/__init__.py`、`tests/unit/user/__init__.py`
-- [ ] 1.2 新增 `tests/unit/user/test_user_schema.py`：模块级非法 password 参数表；`RegisterRequest` 与 `LoginRequest` 各一个 `@pytest.mark.parametrize` 测试；仅 `pytest.raises(ValidationError)`
+- [x] 1.1 新增 `tests/unit/__init__.py`、`tests/unit/user/__init__.py`
+- [x] 1.2 新增 `tests/unit/user/test_user_schema.py`：模块级非法 password 参数表；`RegisterRequest` 与 `LoginRequest` 各一个 `@pytest.mark.parametrize` 测试；仅 `pytest.raises(ValidationError)`
 
 ## 2. catalog schema 单测
 
-- [ ] 2.1 新增 `tests/unit/catalog/__init__.py`、`tests/unit/catalog/test_catalog_schema.py`：`_valid_product_create_kwargs` helper
-- [ ] 2.2 parametrize 覆盖 `category_ids=[]` 与 primary ∉ category_ids（合法 UUID 字符串）；仅断言 `ValidationError`
+- [x] 2.1 新增 `tests/unit/catalog/__init__.py`、`tests/unit/catalog/test_catalog_schema.py`：`_valid_product_create_kwargs` helper
+- [x] 2.2 parametrize 覆盖 `category_ids=[]` 与 primary ∉ category_ids（合法 UUID 字符串）；仅断言 `ValidationError`
 
 ## 3. 删除冗余 integration 格式用例
 
