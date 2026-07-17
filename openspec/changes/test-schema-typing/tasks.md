@@ -24,9 +24,9 @@
 
 ## 5. 验证与 DoD
 
-- [ ] 5.1 确认 `tests/infra/`、`tests/health/` 无因 conftest 删除符号而 broken import
-- [ ] 5.2 运行 `devbox run -- task db:up`、`devbox run -- task migrate`、`devbox run -- task ci` 全绿
-- [ ] 5.3 确认无 `app/*/schemas.py` 变更；grep 测试目录无新增 `result["json"]` / `shop_owner["headers"]` 模式（格式 TODO 用例除外）
+- [x] 5.1 确认 `tests/infra/`、`tests/health/` 无因 conftest 删除符号而 broken import
+- [x] 5.2 运行 `devbox run -- task db:up`、`devbox run -- task migrate`、`devbox run -- task ci` 全绿
+- [x] 5.3 确认无 `app/*/schemas.py` 变更；grep 测试目录无新增 `result["json"]` / `shop_owner["headers"]` 模式（格式 TODO 用例除外）
 
 > **Apply 约定**：建议顺序 §1 → §2 → §3 → §4 → §5；每个 apply 会话完成 1–2 个 task。本 change 为测试重构，**不**改业务实现；每完成一节可运行 `task test` 验证。
 
