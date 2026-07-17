@@ -13,8 +13,8 @@
 
 ## 3. user integration 测试迁移
 
-- [ ] 3.1 迁移 `tests/user/test_register.py`：typed 断言；4 条中 2 条格式用例（password too short/long）加 `TODO(test-schema-unit-tests)`，最小改动
-- [ ] 3.2 迁移 `tests/user/test_login.py` 与 `tests/user/test_me.py`：使用 Context/Result 属性访问
+- [x] 3.1 迁移 `tests/user/test_register.py`：typed 断言；4 条中 2 条格式用例（password too short/long）加 `TODO(test-schema-unit-tests)`，最小改动
+- [x] 3.2 迁移 `tests/user/test_login.py` 与 `tests/user/test_me.py`：使用 Context/Result 属性访问
 
 ## 4. catalog integration 测试迁移
 

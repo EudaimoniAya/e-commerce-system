@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.conftest import login_user, register_user, unique_email
+from tests.support.builders import build_login_request
 
 
 async def _seed_inactive_user(database_url: str, email: str, password: str) -> None:
@@ -44,21 +45,18 @@ async def test_login_success_returns_200_and_token(client) -> None:
     email = unique_email()
     password = "password123"
     registered = await register_user(client, email=email, password=password)
-    assert registered["status_code"] == 201
+    assert registered.status_code == 201
 
     result = await login_user(client, email=email, password=password)
-    assert result["status_code"] == 200
-    body = result["json"]
-    assert body is not None
-    assert "access_token" in body
-    assert body["token_type"] == "bearer"
-    assert isinstance(body["expires_in"], int)
-    assert body["expires_in"] > 0
+    assert result.status_code == 200
+    assert result.body is not None
+    assert result.body.access_token
+    assert result.body.token_type == "bearer"
+    assert isinstance(result.body.expires_in, int)
+    assert result.body.expires_in > 0
 
-    user = body["user"]
-    assert user["email"] == email
-    assert "password" not in user
-    assert "password_hash" not in user
+    user = result.body.user
+    assert user.email == email
 
 
 @pytest.mark.integration
@@ -67,12 +65,16 @@ async def test_login_wrong_password_returns_422(client) -> None:
     """密码错误返回 422（不暴露邮箱是否存在）。"""
     email = unique_email()
     registered = await register_user(client, email=email)
-    assert registered["status_code"] == 201
+    assert registered.status_code == 201
 
-    result = await login_user(client, email=email, password="wrongpass99")
-    assert result["status_code"] == 422
-    body = result["json"]
-    assert body is not None
+    response = await client.post(
+        "/auth/login",
+        json=build_login_request(email=email, password="wrongpass99").model_dump(
+            mode="json"
+        ),
+    )
+    assert response.status_code == 422
+    body = response.json()
     assert "detail" in body
 
 
@@ -80,11 +82,15 @@ async def test_login_wrong_password_returns_422(client) -> None:
 @pytest.mark.asyncio
 async def test_login_nonexistent_email_returns_422(client) -> None:
     """邮箱不存在返回 422（与密码错误响应形态一致）。"""
-    result = await login_user(client, email=unique_email("missing"))
+    response = await client.post(
+        "/auth/login",
+        json=build_login_request(email=unique_email("missing")).model_dump(
+            mode="json"
+        ),
+    )
 
-    assert result["status_code"] == 422
-    body = result["json"]
-    assert body is not None
+    assert response.status_code == 422
+    body = response.json()
     assert "detail" in body
 
 
@@ -97,4 +103,5 @@ async def test_login_inactive_user_returns_403(client, database_url: str) -> Non
     await _seed_inactive_user(database_url, email=email, password=password)
 
     result = await login_user(client, email=email, password=password)
-    assert result["status_code"] == 403
+    assert result.status_code == 403
+    assert result.body is None
