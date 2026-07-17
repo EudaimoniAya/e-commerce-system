@@ -7,13 +7,14 @@ from httpx import Response
 
 from tests.conftest import create_category, unique_category_name
 from tests.support.builders import build_category_create
+from tests.support.contexts import AdminAuthContext, AuthContext
 from tests.support.results import CategoryResult
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_root_category_success_returns_201(
-    client, admin_auth_headers
+    client, admin_auth_headers: AdminAuthContext
 ) -> None:
     """管理员创建根类目成功，返回 201 与完整类目资料。"""
     assert admin_auth_headers.status_code == 200
@@ -35,7 +36,7 @@ async def test_create_root_category_success_returns_201(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_child_category_success_returns_201(
-    client, admin_auth_headers
+    client, admin_auth_headers: AdminAuthContext
 ) -> None:
     """管理员在父类目下创建子类目成功，返回 201。"""
     assert admin_auth_headers.status_code == 200
@@ -66,7 +67,7 @@ async def test_create_child_category_success_returns_201(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_category_duplicate_sibling_name_returns_422(
-    client, admin_auth_headers
+    client, admin_auth_headers: AdminAuthContext
 ) -> None:
     """同一 parent_id 下类目名重复返回 422。"""
     assert admin_auth_headers.status_code == 200
@@ -94,7 +95,7 @@ async def test_create_category_duplicate_sibling_name_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_category_non_admin_returns_403(
-    client, authenticated_user
+    client, authenticated_user: AuthContext
 ) -> None:
     """非管理员创建类目返回 403。"""
     assert authenticated_user.status_code == 201

@@ -6,11 +6,14 @@ import pytest
 from httpx import Response
 
 from app.catalog.schemas import ShopResponse
+from tests.support.contexts import ShopOwnerContext
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_public_shop_active_returns_200(client, shop_owner) -> None:
+async def test_get_public_shop_active_returns_200(
+    client, shop_owner: ShopOwnerContext
+) -> None:
     """活跃店铺公开 GET 返回 200 与 status active。"""
     assert shop_owner.status_code == 201
     assert shop_owner.shop is not None
@@ -26,7 +29,9 @@ async def test_get_public_shop_active_returns_200(client, shop_owner) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_public_shop_closed_returns_200(client, shop_owner) -> None:
+async def test_get_public_shop_closed_returns_200(
+    client, shop_owner: ShopOwnerContext
+) -> None:
     """已关闭店铺公开 GET 仍返回 200 与 status closed。"""
     assert shop_owner.status_code == 201
     assert shop_owner.shop is not None

@@ -5,12 +5,15 @@ from httpx import Response
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.catalog.test_create_product import _create_product
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_returns_200_with_all_products(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 GET /shops/me/products 返回 200，含未上架商品。"""
     assert shop_owner.status_code == 201
@@ -49,7 +52,7 @@ async def test_get_my_products_returns_200_with_all_products(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_returns_404_when_no_shop(
-    client, authenticated_user
+    client, authenticated_user: AuthContext
 ) -> None:
     """已认证但无店铺的用户 GET /shops/me/products 返回 404。"""
     assert authenticated_user.status_code == 201
@@ -67,7 +70,9 @@ async def test_get_my_products_returns_404_when_no_shop(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_supports_pagination(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """GET /shops/me/products 支持 limit 与 offset 分页。"""
     assert admin_auth_headers.status_code == 200
