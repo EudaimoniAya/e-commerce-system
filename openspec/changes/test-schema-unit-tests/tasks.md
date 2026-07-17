@@ -15,8 +15,8 @@
 
 ## 4. 验证与 DoD
 
-- [ ] 4.1 grep 确认无残留 `TODO(test-schema-unit-tests)`；`tests/unit/**` 无 `tests.support` / `client` fixture 依赖
-- [ ] 4.2 运行 `devbox run -- task db:up`、`devbox run -- task migrate`、`devbox run -- task ci` 全绿
+- [x] 4.1 grep 确认无残留 `TODO(test-schema-unit-tests)`；`tests/unit/**` 无 `tests.support` / `client` fixture 依赖
+- [x] 4.2 运行 `devbox run -- task db:up`、`devbox run -- task migrate`、`devbox run -- task ci` 全绿
 
 > **Apply 约定**：建议顺序 §1 → §2 → §3 → §4；每完成一节可运行 `devbox run -- task test` 验证。
 >
