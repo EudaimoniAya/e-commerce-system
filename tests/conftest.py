@@ -1,13 +1,56 @@
 """pytest 公共 fixture。"""
 
 import os
-import uuid
 from collections.abc import AsyncIterator
-from typing import Any
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+from app.catalog.schemas import CategoryResponse, ShopResponse
+from app.user.schemas import TokenResponse
+from tests.support.builders import (
+    build_category_create,
+    build_login_request,
+    build_register_request,
+    build_shop_create,
+    unique_category_name,
+    unique_email,
+    unique_shop_name,
+)
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.support.results import (
+    CategoryResult,
+    LoginResult,
+    RegisterResult,
+    ShopResult,
+)
+
+# 公开 re-export（含 unique_*，供测试模块 `from tests.conftest import ...`）
+__all__ = [
+    "AdminAuthContext",
+    "AuthContext",
+    "CategoryResult",
+    "LoginResult",
+    "RegisterResult",
+    "ShopOwnerContext",
+    "ShopResult",
+    "admin_auth_headers",
+    "auth_headers",
+    "authenticated_user",
+    "client",
+    "create_category",
+    "create_shop",
+    "database_url",
+    "db_session",
+    "login_user",
+    "register_and_open_shop",
+    "register_user",
+    "shop_owner",
+    "unique_category_name",
+    "unique_email",
+    "unique_shop_name",
+]
 
 # 本地 integration 测试默认连接 test 库（unix socket，与 .env.example 一致）
 _DEFAULT_TEST_DATABASE_URL = (
@@ -40,6 +83,12 @@ def _reset_settings_cache() -> None:
     get_settings.cache_clear()
 
 
+def _ensure_integration_auth_env() -> None:
+    """每次签发/校验 JWT 前确保测试 env 与 Settings 缓存一致。"""
+    _configure_integration_test_env()
+    _reset_settings_cache()
+
+
 # import app 前配置 env 并清缓存，避免 get_settings() 缓存 .env 中的 dev 配置
 _configure_integration_test_env()
 _reset_settings_cache()
@@ -69,7 +118,7 @@ async def _reset_global_database_engine(
         yield
         return
 
-    _reset_settings_cache()
+    _ensure_integration_auth_env()
     from app.infra.database import reset_engine
 
     await reset_engine()
@@ -103,14 +152,55 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
 # --- auth integration 测试 helper ---
 
 
-def unique_email(prefix: str = "user") -> str:
-    """生成唯一测试邮箱，避免 integration 测试互相冲突。"""
-    return f"{prefix}-{uuid.uuid4().hex[:12]}@example.com"
-
-
 def auth_headers(access_token: str) -> dict[str, str]:
     """构造 Bearer Authorization 请求头。"""
     return {"Authorization": f"Bearer {access_token}"}
+
+
+def _parse_token_body(response: Response) -> TokenResponse | None:
+    """2xx 时解析 TokenResponse，否则返回 None。"""
+    if 200 <= response.status_code < 300 and response.content:
+        return TokenResponse.model_validate(response.json())
+    return None
+
+
+def _parse_shop_body(response: Response) -> ShopResponse | None:
+    """2xx 时解析 ShopResponse，否则返回 None。"""
+    if 200 <= response.status_code < 300 and response.content:
+        return ShopResponse.model_validate(response.json())
+    return None
+
+
+def _parse_category_body(response: Response) -> CategoryResponse | None:
+    """2xx 时解析 CategoryResponse，否则返回 None。"""
+    if 200 <= response.status_code < 300 and response.content:
+        return CategoryResponse.model_validate(response.json())
+    return None
+
+
+def _auth_context_from_register(registered: RegisterResult) -> AuthContext:
+    """由 RegisterResult 构造 AuthContext。"""
+    if registered.status_code != 201 or registered.body is None:
+        return AuthContext(
+            status_code=registered.status_code,
+            body=registered.body,
+            email=registered.email,
+            password=registered.password,
+            access_token=None,
+            headers={},
+            user=None,
+        )
+
+    access_token = registered.body.access_token
+    return AuthContext(
+        status_code=registered.status_code,
+        body=registered.body,
+        email=registered.email,
+        password=registered.password,
+        access_token=access_token,
+        headers=auth_headers(access_token),
+        user=registered.body.user,
+    )
 
 
 async def register_user(
@@ -119,29 +209,24 @@ async def register_user(
     email: str | None = None,
     password: str = _DEFAULT_TEST_PASSWORD,
     nickname: str | None = None,
-) -> dict[str, Any]:
-    """调用 POST /auth/register，返回响应与请求上下文。"""
-    payload: dict[str, str] = {
-        "email": email or unique_email(),
-        "password": password,
-    }
-    if nickname is not None:
-        payload["nickname"] = nickname
-
-    response = await client.post("/auth/register", json=payload)
-    body: Any | None
-    if response.content:
-        body = response.json()
-    else:
-        body = None
-
-    return {
-        "response": response,
-        "status_code": response.status_code,
-        "json": body,
-        "email": payload["email"],
-        "password": password,
-    }
+) -> RegisterResult:
+    """调用 POST /auth/register，返回 RegisterResult。"""
+    _ensure_integration_auth_env()
+    request = build_register_request(
+        email=email,
+        password=password,
+        nickname=nickname,
+    )
+    response: Response = await client.post(
+        "/auth/register",
+        json=request.model_dump(mode="json"),
+    )
+    return RegisterResult(
+        status_code=response.status_code,
+        body=_parse_token_body(response),
+        email=str(request.email),
+        password=password,
+    )
 
 
 async def login_user(
@@ -149,68 +234,58 @@ async def login_user(
     *,
     email: str,
     password: str = _DEFAULT_TEST_PASSWORD,
-) -> dict[str, Any]:
-    """调用 POST /auth/login，返回响应与请求上下文。"""
-    response = await client.post(
+) -> LoginResult:
+    """调用 POST /auth/login，返回 LoginResult。"""
+    _ensure_integration_auth_env()
+    request = build_login_request(email=email, password=password)
+    response: Response = await client.post(
         "/auth/login",
-        json={"email": email, "password": password},
+        json=request.model_dump(mode="json"),
     )
-    body: Any | None
-    if response.content:
-        body = response.json()
-    else:
-        body = None
-
-    return {
-        "response": response,
-        "status_code": response.status_code,
-        "json": body,
-        "email": email,
-        "password": password,
-    }
+    return LoginResult(
+        status_code=response.status_code,
+        body=_parse_token_body(response),
+        email=str(request.email),
+        password=password,
+    )
 
 
 @pytest.fixture
-async def authenticated_user(client: AsyncClient) -> dict[str, Any]:
+async def authenticated_user(client: AsyncClient) -> AuthContext:
     """注册成功并返回 access_token 与 Bearer 请求头（供 /users/me 等已认证端点）。"""
-    registered = await register_user(client)
-    if registered["status_code"] != 201 or not registered["json"]:
-        return {
-            **registered,
-            "access_token": None,
-            "headers": {},
-        }
-
-    access_token = registered["json"]["access_token"]
-    return {
-        **registered,
-        "access_token": access_token,
-        "headers": auth_headers(access_token),
-        "user": registered["json"].get("user"),
-    }
+    _ensure_integration_auth_env()
+    registered: RegisterResult = await register_user(client)
+    return _auth_context_from_register(registered)
 
 
 # --- catalog shop integration 测试 helper ---
 
 
-def unique_shop_name(prefix: str = "shop") -> str:
-    """生成唯一店名，避免 integration 测试互相冲突。"""
-    return f"{prefix}-{uuid.uuid4().hex[:12]}"
-
-
-def create_shop_payload(
+async def create_shop(
+    client: AsyncClient,
     *,
+    headers: dict[str, str],
     name: str | None = None,
     description: str | None = None,
     logo_url: str | None = None,
-) -> dict[str, str]:
-    """构造 POST /shops 请求体。"""
-    payload: dict[str, str] = {"name": name or unique_shop_name()}
-    if description is not None:
-        payload["description"] = description
-    if logo_url is not None:
-        payload["logo_url"] = logo_url
-    return payload
+) -> ShopResult:
+    """调用 POST /shops，返回 ShopResult。"""
+    _ensure_integration_auth_env()
+    request = build_shop_create(
+        name=name,
+        description=description,
+        logo_url=logo_url,
+    )
+    response: Response = await client.post(
+        "/shops",
+        json=request.model_dump(mode="json"),
+        headers=headers,
+    )
+    return ShopResult(
+        status_code=response.status_code,
+        body=_parse_shop_body(response),
+        request=request,
+    )
 
 
 async def register_and_open_shop(
@@ -221,48 +296,53 @@ async def register_and_open_shop(
     shop_name: str | None = None,
     description: str | None = None,
     logo_url: str | None = None,
-) -> dict[str, Any]:
-    """注册用户并调用 POST /shops，返回注册与开店上下文。"""
-    registered = await register_user(client, email=email, password=password)
-    if registered["status_code"] != 201 or not registered["json"]:
-        return {
-            **registered,
-            "access_token": None,
-            "headers": {},
-            "shop_payload": create_shop_payload(name=shop_name),
-            "register": registered,
-        }
-
-    access_token = registered["json"]["access_token"]
-    headers = auth_headers(access_token)
-    shop_payload = create_shop_payload(
+) -> ShopOwnerContext:
+    """注册用户并调用 POST /shops，返回 ShopOwnerContext。"""
+    _ensure_integration_auth_env()
+    registered: RegisterResult = await register_user(client, email=email, password=password)
+    auth = _auth_context_from_register(registered)
+    shop_request = build_shop_create(
         name=shop_name,
         description=description,
         logo_url=logo_url,
     )
-    shop_response = await client.post("/shops", json=shop_payload, headers=headers)
-    shop_body: Any | None
-    if shop_response.content:
-        shop_body = shop_response.json()
-    else:
-        shop_body = None
 
-    return {
-        "response": shop_response,
-        "status_code": shop_response.status_code,
-        "json": shop_body,
-        "email": registered["email"],
-        "password": registered["password"],
-        "access_token": access_token,
-        "headers": headers,
-        "user": registered["json"].get("user"),
-        "shop_payload": shop_payload,
-        "register": registered,
-    }
+    if registered.status_code != 201 or registered.body is None:
+        # 注册未完整成功时不得沿用 201，避免后续用空 headers 触发 401
+        failed_status = registered.status_code if registered.status_code != 201 else 0
+        return ShopOwnerContext(
+            status_code=failed_status,
+            body=None,
+            auth=auth,
+            shop=None,
+            shop_request=shop_request,
+            headers={},
+            email=registered.email,
+            password=registered.password,
+        )
+
+    _ensure_integration_auth_env()
+    shop_result: ShopResult = await create_shop(
+        client,
+        headers=auth.headers,
+        name=shop_name,
+        description=description,
+        logo_url=logo_url,
+    )
+    return ShopOwnerContext(
+        status_code=shop_result.status_code,
+        body=shop_result.body,
+        auth=auth,
+        shop=shop_result.body,
+        shop_request=shop_result.request,
+        headers=auth.headers,
+        email=registered.email,
+        password=registered.password,
+    )
 
 
 @pytest.fixture
-async def shop_owner(client: AsyncClient) -> dict[str, Any]:
+async def shop_owner(client: AsyncClient) -> ShopOwnerContext:
     """注册并开店成功，返回 token、headers 与店铺资料（供 catalog integration 测试）。"""
     return await register_and_open_shop(client)
 
@@ -274,34 +354,33 @@ _ADMIN_SEED_EMAIL = "114514yyut@qq.com"
 _ADMIN_SEED_PASSWORD = "1919810810"
 
 
-def unique_category_name(prefix: str = "cat") -> str:
-    """生成唯一类目名，避免 integration 测试互相冲突。"""
-    return f"{prefix}-{uuid.uuid4().hex[:12]}"
-
-
 @pytest.fixture
-async def admin_auth_headers(client: AsyncClient) -> dict[str, Any]:
+async def admin_auth_headers(client: AsyncClient) -> AdminAuthContext:
     """seed 管理员登录，返回 token 与 Bearer 请求头（供 POST /categories 等 admin 端点）。"""
-    logged_in = await login_user(
+    _ensure_integration_auth_env()
+    logged_in: LoginResult = await login_user(
         client,
         email=_ADMIN_SEED_EMAIL,
         password=_ADMIN_SEED_PASSWORD,
     )
-    if logged_in["status_code"] != 200 or not logged_in["json"]:
+    if logged_in.status_code != 200 or logged_in.body is None:
         pytest.fail(
-            f"seed 管理员登录失败（status={logged_in['status_code']}），"
+            f"seed 管理员登录失败（status={logged_in.status_code}），"
             "请确认 ecommerce_test 已 migrate 且 seed admin 存在"
         )
 
-    access_token = logged_in["json"]["access_token"]
+    access_token = logged_in.body.access_token
     if not access_token:
         pytest.fail("seed 管理员登录响应缺少 access_token")
 
-    return {
-        **logged_in,
-        "access_token": access_token,
-        "headers": auth_headers(access_token),
-    }
+    return AdminAuthContext(
+        status_code=logged_in.status_code,
+        body=logged_in.body,
+        email=logged_in.email,
+        password=logged_in.password,
+        access_token=access_token,
+        headers=auth_headers(access_token),
+    )
 
 
 async def create_category(
@@ -310,54 +389,17 @@ async def create_category(
     headers: dict[str, str],
     name: str | None = None,
     parent_id: str | None = None,
-) -> dict[str, Any]:
-    """调用 POST /categories，返回响应与请求上下文。"""
-    payload: dict[str, str] = {"name": name or unique_category_name()}
-    if parent_id is not None:
-        payload["parent_id"] = parent_id
-
-    response = await client.post("/categories", json=payload, headers=headers)
-    body: Any | None
-    if response.content:
-        body = response.json()
-    else:
-        body = None
-
-    return {
-        "response": response,
-        "status_code": response.status_code,
-        "json": body,
-        "payload": payload,
-    }
-
-
-@pytest.fixture
-def product_payload() -> Any:
-    """返回构造 POST /products 请求体的工厂函数（需传入 category_ids 与 primary_category_id）。"""
-
-    def _product_payload(
-        *,
-        name: str | None = None,
-        price: str = "99.00",
-        stock: int = 10,
-        description: str | None = None,
-        image_url: str | None = None,
-        is_published: bool = False,
-        category_ids: list[str],
-        primary_category_id: str,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "name": name or f"product-{uuid.uuid4().hex[:12]}",
-            "price": price,
-            "stock": stock,
-            "is_published": is_published,
-            "category_ids": category_ids,
-            "primary_category_id": primary_category_id,
-        }
-        if description is not None:
-            payload["description"] = description
-        if image_url is not None:
-            payload["image_url"] = image_url
-        return payload
-
-    return _product_payload
+) -> CategoryResult:
+    """调用 POST /categories，返回 CategoryResult。"""
+    _ensure_integration_auth_env()
+    request = build_category_create(name=name, parent_id=parent_id)
+    response: Response = await client.post(
+        "/categories",
+        json=request.model_dump(mode="json"),
+        headers=headers,
+    )
+    return CategoryResult(
+        status_code=response.status_code,
+        body=_parse_category_body(response),
+        request=request,
+    )

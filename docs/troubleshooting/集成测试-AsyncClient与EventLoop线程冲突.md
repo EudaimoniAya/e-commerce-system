@@ -113,6 +113,7 @@ task ci
 - `.cursor/rules/async-integration-testing.mdc` — 测试纪律
 - `docs/decision/测试与数据库策略.md` — 双库与 integration 惯例
 - `docs/decision/单例与线程锁在FastAPI中的适用场景.md` — Engine 单例在生产中的合理性
+- [docs/troubleshooting/集成测试-JWT-Settings缓存与401.md](./集成测试-JWT-Settings缓存与401.md) — JWT / Settings 缓存与 401（互补）
 
 ## 参考
 

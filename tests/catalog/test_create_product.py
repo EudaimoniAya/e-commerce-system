@@ -3,103 +3,117 @@
 import uuid
 
 import pytest
+from httpx import Response
 
+from app.catalog.schemas import ProductResponse
 from tests.conftest import create_category, unique_category_name
-
-_PRODUCT_FIELDS = {
-    "id",
-    "shop_id",
-    "name",
-    "description",
-    "price",
-    "stock",
-    "is_published",
-    "image_url",
-    "categories",
-    "created_at",
-    "updated_at",
-}
-
-_CATEGORY_ITEM_FIELDS = {"id", "name", "is_primary"}
+from tests.support.builders import build_product_create
+from tests.support.contexts import AdminAuthContext, ShopOwnerContext
+from tests.support.results import CategoryResult
 
 
-async def _create_category_for_product(client, admin_auth_headers) -> str:
+async def _create_category_for_product(
+    client, admin_auth_headers: AdminAuthContext
+) -> str:
     """管理员创建测试用类目，返回 category id。"""
-    assert admin_auth_headers["status_code"] == 200
-    result = await create_category(
+    assert admin_auth_headers.status_code == 200
+    result: CategoryResult = await create_category(
         client,
-        headers=admin_auth_headers["headers"],
+        headers=admin_auth_headers.headers,
         name=unique_category_name("product"),
     )
-    assert result["status_code"] == 201
-    return result["json"]["id"]
+    assert result.status_code == 201
+    assert result.body is not None
+    return result.body.id
+
+
+async def _create_product(
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
+    *,
+    is_published: bool = False,
+    category_id: str | None = None,
+) -> ProductResponse:
+    """店主创建商品并返回 ProductResponse。"""
+    if category_id is None:
+        category_id = await _create_category_for_product(client, admin_auth_headers)
+    product_request = build_product_create(
+        category_ids=[category_id],
+        primary_category_id=category_id,
+        is_published=is_published,
+    )
+    response: Response = await client.post(
+        "/products",
+        json=product_request.model_dump(mode="json"),
+        headers=shop_owner.headers,
+    )
+    assert response.status_code == 201
+    return ProductResponse.model_validate(response.json())
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_success_returns_201(
-    client, admin_auth_headers, shop_owner, product_payload
+    client, admin_auth_headers, shop_owner
 ) -> None:
     """店主在 active 店铺下创建商品成功，返回 201 与 ProductResponse。"""
-    assert shop_owner["status_code"] == 201
+    assert shop_owner.status_code == 201
+    assert shop_owner.shop is not None
 
     category_id = await _create_category_for_product(client, admin_auth_headers)
-    payload = product_payload(
+    product_request = build_product_create(
         description="测试商品简介",
         category_ids=[category_id],
         primary_category_id=category_id,
     )
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
-        json=payload,
-        headers=shop_owner["headers"],
+        json=product_request.model_dump(mode="json"),
+        headers=shop_owner.headers,
     )
 
     assert response.status_code == 201
-    body = response.json()
-    assert body is not None
-    assert set(body.keys()) >= _PRODUCT_FIELDS
-    assert body["name"] == payload["name"]
-    assert body["description"] == payload["description"]
-    assert body["price"] == payload["price"]
-    assert body["stock"] == payload["stock"]
-    assert body["is_published"] is False
-    assert body["shop_id"] == shop_owner["json"]["id"]
-    uuid.UUID(body["id"])
+    body = ProductResponse.model_validate(response.json())
+    assert body.name == product_request.name
+    assert body.description == product_request.description
+    assert body.price == str(product_request.price)
+    assert body.stock == product_request.stock
+    assert body.is_published is False
+    assert body.shop_id == shop_owner.shop.id
+    uuid.UUID(body.id)
 
-    assert isinstance(body["categories"], list)
-    assert len(body["categories"]) >= 1
-    primary = next(c for c in body["categories"] if c["is_primary"])
-    assert set(primary.keys()) >= _CATEGORY_ITEM_FIELDS
-    assert primary["id"] == category_id
+    assert len(body.categories) >= 1
+    primary = next(c for c in body.categories if c.is_primary)
+    assert primary.id == category_id
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_closed_shop_returns_422(
-    client, admin_auth_headers, shop_owner, product_payload
+    client, admin_auth_headers, shop_owner
 ) -> None:
     """店铺 status 为 closed 时 POST /products 返回 422。"""
-    assert shop_owner["status_code"] == 201
+    assert shop_owner.status_code == 201
 
-    patch_response = await client.patch(
+    patch_response: Response = await client.patch(
         "/shops/me",
         json={"status": "closed"},
-        headers=shop_owner["headers"],
+        headers=shop_owner.headers,
     )
     assert patch_response.status_code == 200
 
     category_id = await _create_category_for_product(client, admin_auth_headers)
-    payload = product_payload(
+    product_request = build_product_create(
         category_ids=[category_id],
         primary_category_id=category_id,
     )
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
-        json=payload,
-        headers=shop_owner["headers"],
+        json=product_request.model_dump(mode="json"),
+        headers=shop_owner.headers,
     )
 
     assert response.status_code == 422
@@ -111,21 +125,21 @@ async def test_create_product_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_no_shop_returns_404(
-    client, admin_auth_headers, authenticated_user, product_payload
+    client, admin_auth_headers, authenticated_user
 ) -> None:
     """已认证但无店铺的用户 POST /products 返回 404。"""
-    assert authenticated_user["status_code"] == 201
+    assert authenticated_user.status_code == 201
 
     category_id = await _create_category_for_product(client, admin_auth_headers)
-    payload = product_payload(
+    product_request = build_product_create(
         category_ids=[category_id],
         primary_category_id=category_id,
     )
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
-        json=payload,
-        headers=authenticated_user["headers"],
+        json=product_request.model_dump(mode="json"),
+        headers=authenticated_user.headers,
     )
 
     assert response.status_code == 404
@@ -137,20 +151,23 @@ async def test_create_product_no_shop_returns_404(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_empty_category_ids_returns_422(
-    client, shop_owner, product_payload
+    client, shop_owner
 ) -> None:
     """category_ids 为空时 POST /products 返回 422。"""
-    assert shop_owner["status_code"] == 201
+    # TODO(test-schema-unit-tests): 迁至 schema 单测后删除
+    assert shop_owner.status_code == 201
 
-    payload = product_payload(
-        category_ids=[],
-        primary_category_id=str(uuid.uuid4()),
-    )
-
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
-        json=payload,
-        headers=shop_owner["headers"],
+        json={
+            "name": "product-empty-categories",
+            "price": "99.00",
+            "stock": 10,
+            "is_published": False,
+            "category_ids": [],
+            "primary_category_id": str(uuid.uuid4()),
+        },
+        headers=shop_owner.headers,
     )
 
     assert response.status_code == 422
@@ -162,21 +179,25 @@ async def test_create_product_empty_category_ids_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_invalid_primary_category_returns_422(
-    client, admin_auth_headers, shop_owner, product_payload
+    client, admin_auth_headers, shop_owner
 ) -> None:
     """primary_category_id 不在 category_ids 中时 POST /products 返回 422。"""
-    assert shop_owner["status_code"] == 201
+    # TODO(test-schema-unit-tests): 迁至 schema 单测后删除
+    assert shop_owner.status_code == 201
 
     category_id = await _create_category_for_product(client, admin_auth_headers)
-    payload = product_payload(
-        category_ids=[category_id],
-        primary_category_id=str(uuid.uuid4()),
-    )
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
-        json=payload,
-        headers=shop_owner["headers"],
+        json={
+            "name": "product-invalid-primary",
+            "price": "99.00",
+            "stock": 10,
+            "is_published": False,
+            "category_ids": [category_id],
+            "primary_category_id": str(uuid.uuid4()),
+        },
+        headers=shop_owner.headers,
     )
 
     assert response.status_code == 422
