@@ -83,6 +83,12 @@ def _reset_settings_cache() -> None:
     get_settings.cache_clear()
 
 
+def _ensure_integration_auth_env() -> None:
+    """每次签发/校验 JWT 前确保测试 env 与 Settings 缓存一致。"""
+    _configure_integration_test_env()
+    _reset_settings_cache()
+
+
 # import app 前配置 env 并清缓存，避免 get_settings() 缓存 .env 中的 dev 配置
 _configure_integration_test_env()
 _reset_settings_cache()
@@ -112,7 +118,7 @@ async def _reset_global_database_engine(
         yield
         return
 
-    _reset_settings_cache()
+    _ensure_integration_auth_env()
     from app.infra.database import reset_engine
 
     await reset_engine()
@@ -205,6 +211,7 @@ async def register_user(
     nickname: str | None = None,
 ) -> RegisterResult:
     """调用 POST /auth/register，返回 RegisterResult。"""
+    _ensure_integration_auth_env()
     request = build_register_request(
         email=email,
         password=password,
@@ -229,6 +236,7 @@ async def login_user(
     password: str = _DEFAULT_TEST_PASSWORD,
 ) -> LoginResult:
     """调用 POST /auth/login，返回 LoginResult。"""
+    _ensure_integration_auth_env()
     request = build_login_request(email=email, password=password)
     response = await client.post(
         "/auth/login",
@@ -245,6 +253,7 @@ async def login_user(
 @pytest.fixture
 async def authenticated_user(client: AsyncClient) -> AuthContext:
     """注册成功并返回 access_token 与 Bearer 请求头（供 /users/me 等已认证端点）。"""
+    _ensure_integration_auth_env()
     registered = await register_user(client)
     return _auth_context_from_register(registered)
 
@@ -261,6 +270,7 @@ async def create_shop(
     logo_url: str | None = None,
 ) -> ShopResult:
     """调用 POST /shops，返回 ShopResult。"""
+    _ensure_integration_auth_env()
     request = build_shop_create(
         name=name,
         description=description,
@@ -288,6 +298,7 @@ async def register_and_open_shop(
     logo_url: str | None = None,
 ) -> ShopOwnerContext:
     """注册用户并调用 POST /shops，返回 ShopOwnerContext。"""
+    _ensure_integration_auth_env()
     registered = await register_user(client, email=email, password=password)
     auth = _auth_context_from_register(registered)
     shop_request = build_shop_create(
@@ -297,8 +308,10 @@ async def register_and_open_shop(
     )
 
     if registered.status_code != 201 or registered.body is None:
+        # 注册未完整成功时不得沿用 201，避免后续用空 headers 触发 401
+        failed_status = registered.status_code if registered.status_code != 201 else 0
         return ShopOwnerContext(
-            status_code=registered.status_code,
+            status_code=failed_status,
             body=None,
             auth=auth,
             shop=None,
@@ -308,6 +321,7 @@ async def register_and_open_shop(
             password=registered.password,
         )
 
+    _ensure_integration_auth_env()
     shop_result = await create_shop(
         client,
         headers=auth.headers,
@@ -343,6 +357,7 @@ _ADMIN_SEED_PASSWORD = "1919810810"
 @pytest.fixture
 async def admin_auth_headers(client: AsyncClient) -> AdminAuthContext:
     """seed 管理员登录，返回 token 与 Bearer 请求头（供 POST /categories 等 admin 端点）。"""
+    _ensure_integration_auth_env()
     logged_in = await login_user(
         client,
         email=_ADMIN_SEED_EMAIL,
@@ -376,6 +391,7 @@ async def create_category(
     parent_id: str | None = None,
 ) -> CategoryResult:
     """调用 POST /categories，返回 CategoryResult。"""
+    _ensure_integration_auth_env()
     request = build_category_create(name=name, parent_id=parent_id)
     response = await client.post(
         "/categories",

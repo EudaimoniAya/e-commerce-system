@@ -4,45 +4,46 @@ import uuid
 
 import pytest
 
-from tests.catalog.test_create_shop import _SHOP_FIELDS
+from app.catalog.schemas import ShopResponse
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_shop_active_returns_200(client, shop_owner) -> None:
     """活跃店铺公开 GET 返回 200 与 status active。"""
-    assert shop_owner["status_code"] == 201
-    shop_id = shop_owner["json"]["id"]
+    assert shop_owner.status_code == 201
+    assert shop_owner.shop is not None
+    shop_id = shop_owner.shop.id
 
     response = await client.get(f"/shops/{shop_id}")
 
     assert response.status_code == 200
-    body = response.json()
-    assert set(body.keys()) >= _SHOP_FIELDS
-    assert body["id"] == shop_id
-    assert body["status"] == "active"
+    body = ShopResponse.model_validate(response.json())
+    assert body.id == shop_id
+    assert body.status == "active"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_shop_closed_returns_200(client, shop_owner) -> None:
     """已关闭店铺公开 GET 仍返回 200 与 status closed。"""
-    assert shop_owner["status_code"] == 201
-    shop_id = shop_owner["json"]["id"]
+    assert shop_owner.status_code == 201
+    assert shop_owner.shop is not None
+    shop_id = shop_owner.shop.id
 
     patch_response = await client.patch(
         "/shops/me",
         json={"status": "closed"},
-        headers=shop_owner["headers"],
+        headers=shop_owner.headers,
     )
     assert patch_response.status_code == 200
 
     response = await client.get(f"/shops/{shop_id}")
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["id"] == shop_id
-    assert body["status"] == "closed"
+    body = ShopResponse.model_validate(response.json())
+    assert body.id == shop_id
+    assert body.status == "closed"
 
 
 @pytest.mark.integration

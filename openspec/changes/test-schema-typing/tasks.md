@@ -18,9 +18,9 @@
 
 ## 4. catalog integration 测试迁移
 
-- [ ] 4.1 迁移 `tests/catalog/test_create_shop.py`、`test_my_shop.py`、`test_public_shop.py`
-- [ ] 4.2 迁移 `tests/catalog/test_admin_categories.py`、`test_categories_public.py`
-- [ ] 4.3 迁移 `tests/catalog/test_create_product.py`（含 2 条格式 TODO）、`test_update_product.py`、`test_my_products.py`、`test_public_products.py`
+- [x] 4.1 迁移 `tests/catalog/test_create_shop.py`、`test_my_shop.py`、`test_public_shop.py`
+- [x] 4.2 迁移 `tests/catalog/test_admin_categories.py`、`test_categories_public.py`
+- [x] 4.3 迁移 `tests/catalog/test_create_product.py`（含 2 条格式 TODO）、`test_update_product.py`、`test_my_products.py`、`test_public_products.py`
 
 ## 5. 验证与 DoD
 
