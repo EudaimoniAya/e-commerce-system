@@ -1,4 +1,4 @@
-"""异步数据库引擎、Session 与 ORM Base。"""
+"""异步数据库引擎依赖、Session 与 ORM Base。"""
 
 from collections.abc import AsyncIterator
 
