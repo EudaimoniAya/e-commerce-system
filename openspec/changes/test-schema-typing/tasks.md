@@ -1,8 +1,8 @@
 ## 1. tests/support 基础设施
 
-- [ ] 1.1 新增 `tests/support/builders.py`：`build_register_request`、`build_login_request`、`build_shop_create`、`build_category_create`、`build_product_create`；迁移 `unique_email` / `unique_shop_name` / `unique_category_name`（或从 conftest re-export）
-- [ ] 1.2 新增 `tests/support/contexts.py`：`AuthContext`、`AdminAuthContext`、`ShopOwnerContext`（含嵌套 `auth`；`ShopOwnerContext.status_code` 指开店步骤）
-- [ ] 1.3 新增 `tests/support/results.py`：`RegisterResult`、`LoginResult`、`CategoryResult`（及需要的 `ShopResult`）；字段含 `status_code` 与 `body: XxxResponse | None`
+- [x] 1.1 新增 `tests/support/builders.py`：`build_register_request`、`build_login_request`、`build_shop_create`、`build_category_create`、`build_product_create`；迁移 `unique_email` / `unique_shop_name` / `unique_category_name`（或从 conftest re-export）
+- [x] 1.2 新增 `tests/support/contexts.py`：`AuthContext`、`AdminAuthContext`、`ShopOwnerContext`（含嵌套 `auth`；`ShopOwnerContext.status_code` 指开店步骤）
+- [x] 1.3 新增 `tests/support/results.py`：`RegisterResult`、`LoginResult`、`CategoryResult`（及需要的 `ShopResult`）；字段含 `status_code` 与 `body: XxxResponse | None`
 
 ## 2. conftest 重构
 

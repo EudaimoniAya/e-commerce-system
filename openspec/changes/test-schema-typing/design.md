@@ -27,11 +27,13 @@
 
 ### 1. 三层类型分工
 
-| 层次 | 位置 | 用途 |
-|------|------|------|
-| domain schema | `app/*/schemas.py` | API 契约；factory `build_*` 与 `model_validate` 复用 |
-| Context | `tests/support/contexts.py` | fixture 返回值；组合 schema + `headers` + `status_code` |
-| ActionResult | `tests/support/results.py` 或 conftest 旁 | helper 返回值；`status_code` + `body \| None` + 必要上下文字段 |
+
+| 层次            | 位置                                      | 用途                                                 |
+| ------------- | --------------------------------------- | -------------------------------------------------- |
+| domain schema | `app/*/schemas.py`                      | API 契约；factory `build_`* 与 `model_validate` 复用     |
+| Context       | `tests/support/contexts.py`             | fixture 返回值；组合 schema + `headers` + `status_code`  |
+| ActionResult  | `tests/support/results.py` 或 conftest 旁 | helper 返回值；`status_code` + `body | None` + 必要上下文字段 |
+
 
 **Rationale:** 避免污染 domain schema，同时让测试具备 IDE 补全。Context 与 ActionResult 不叫 schema，仅 **包含** domain schema 字段。
 
@@ -66,7 +68,7 @@ class RegisterResult:
 - `2xx`：`body = TokenResponse.model_validate(response.json())`（失败则测试报错）
 - 非 `2xx`：`body = None`；需要断言 `detail` 时保留 `response.json()` 到可选字段或局部变量（首版可不统一 `raw_json`）
 
-### 4. builders：`build_*` 函数式工厂
+### 4. builders：`build_`* 函数式工厂
 
 - `build_register_request`、`build_shop_create`、`build_product_create` 等
 - 返回合法 domain schema；构造时 Pydantic 校验
@@ -109,3 +111,4 @@ Rollback：revert 单 commit/分支；无 DB migration、无 API 变更。
 ## Open Questions
 
 - （无阻塞项）后续 change 是否引入统一 `raw_json` 字段 — 本 change 按需在单测内局部处理 `detail`
+
