@@ -13,13 +13,15 @@ from tests.conftest import (
     unique_shop_name,
 )
 from tests.support.builders import build_shop_create
-from tests.support.contexts import ShopOwnerContext
+from tests.support.contexts import AuthContext, ShopOwnerContext
 from tests.support.results import RegisterResult
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_shop_success_returns_201(client, authenticated_user) -> None:
+async def test_create_shop_success_returns_201(
+    client, authenticated_user: AuthContext
+) -> None:
     """已认证用户提交有效店名开店成功，返回 201 与完整店铺资料。"""
     assert authenticated_user.status_code == 201
     assert authenticated_user.user is not None
@@ -46,7 +48,9 @@ async def test_create_shop_success_returns_201(client, authenticated_user) -> No
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_shop_duplicate_returns_422(client, shop_owner) -> None:
+async def test_create_shop_duplicate_returns_422(
+    client, shop_owner: ShopOwnerContext
+) -> None:
     """同一用户重复开店返回 422。"""
     assert shop_owner.status_code == 201
 

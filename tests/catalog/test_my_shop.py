@@ -5,12 +5,14 @@ from httpx import Response
 
 from app.catalog.schemas import ShopResponse
 from tests.conftest import register_and_open_shop, unique_shop_name
-from tests.support.contexts import ShopOwnerContext
+from tests.support.contexts import AuthContext, ShopOwnerContext
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_my_shop_returns_200_when_owner_has_shop(client, shop_owner) -> None:
+async def test_get_my_shop_returns_200_when_owner_has_shop(
+    client, shop_owner: ShopOwnerContext
+) -> None:
     """已认证店主查询 /shops/me 返回 200 与完整店铺对象。"""
     assert shop_owner.status_code == 201
     assert shop_owner.shop is not None
@@ -27,7 +29,9 @@ async def test_get_my_shop_returns_200_when_owner_has_shop(client, shop_owner) -
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_my_shop_returns_404_when_no_shop(client, authenticated_user) -> None:
+async def test_get_my_shop_returns_404_when_no_shop(
+    client, authenticated_user: AuthContext
+) -> None:
     """已认证但尚无店铺的用户查询 /shops/me 返回 404。"""
     assert authenticated_user.status_code == 201
 
@@ -50,7 +54,7 @@ async def test_get_my_shop_unauthenticated_returns_401(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_patch_my_shop_returns_200(client, shop_owner) -> None:
+async def test_patch_my_shop_returns_200(client, shop_owner: ShopOwnerContext) -> None:
     """店主 PATCH /shops/me 更新字段成功返回 200。"""
     assert shop_owner.status_code == 201
     new_name = unique_shop_name("updated")
@@ -69,7 +73,9 @@ async def test_patch_my_shop_returns_200(client, shop_owner) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_patch_my_shop_status_closed_returns_200(client, shop_owner) -> None:
+async def test_patch_my_shop_status_closed_returns_200(
+    client, shop_owner: ShopOwnerContext
+) -> None:
     """店主 PATCH /shops/me 设置 status 为 closed 返回 200。"""
     assert shop_owner.status_code == 201
 
@@ -87,7 +93,7 @@ async def test_patch_my_shop_status_closed_returns_200(client, shop_owner) -> No
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_my_shop_returns_404_when_no_shop(
-    client, authenticated_user
+    client, authenticated_user: AuthContext
 ) -> None:
     """已认证但尚无店铺的用户 PATCH /shops/me 返回 404。"""
     assert authenticated_user.status_code == 201

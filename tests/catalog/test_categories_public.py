@@ -9,13 +9,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.catalog.schemas import CategoryResponse
 from tests.conftest import create_category, unique_category_name
+from tests.support.contexts import AdminAuthContext
 from tests.support.results import CategoryResult
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_list_categories_returns_flat_list(
-    client, admin_auth_headers
+    client, admin_auth_headers: AdminAuthContext
 ) -> None:
     """GET /categories 无需认证，返回扁平类目列表。"""
     assert admin_auth_headers.status_code == 200

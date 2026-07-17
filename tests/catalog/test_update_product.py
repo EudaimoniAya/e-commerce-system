@@ -6,13 +6,15 @@ from httpx import Response
 from app.catalog.schemas import ProductResponse
 from tests.catalog.test_create_product import _create_product
 from tests.conftest import register_and_open_shop
-from tests.support.contexts import ShopOwnerContext
+from tests.support.contexts import AdminAuthContext, ShopOwnerContext
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_success_returns_200(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 PATCH 本店商品合法字段成功，返回 200 与 ProductResponse。"""
     assert shop_owner.status_code == 201
@@ -40,7 +42,7 @@ async def test_patch_product_success_returns_200(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_other_shop_returns_403(
-    client, admin_auth_headers
+    client, admin_auth_headers: AdminAuthContext
 ) -> None:
     """店主 PATCH 其他店铺商品返回 403。"""
     owner_a: ShopOwnerContext = await register_and_open_shop(client)
@@ -67,7 +69,9 @@ async def test_patch_product_other_shop_returns_403(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_closed_shop_returns_422(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """店铺 closed 时 PATCH 本店商品返回 422。"""
     assert shop_owner.status_code == 201
@@ -100,7 +104,9 @@ async def test_patch_product_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_stock_zero_returns_200(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 PATCH 本店商品 stock 为 0 成功返回 200。"""
     assert shop_owner.status_code == 201
@@ -126,7 +132,9 @@ async def test_patch_product_stock_zero_returns_200(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_delist_sets_is_published_false(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """店主通过 PATCH is_published=false 下架商品，公开 GET 返回 404。"""
     assert shop_owner.status_code == 201

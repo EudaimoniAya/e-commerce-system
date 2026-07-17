@@ -72,17 +72,18 @@ Setup fixture（如 `authenticated_user`、`shop_owner`、`admin_auth_headers`�
 - **WHEN** 测试比较响应中的 shop id 与 fixture 中的 shop id
 - **THEN** 测试代码 SHALL 使用 `shop_owner.shop.id` 等属性路径（在 `shop` 非 None 前提下）
 
-### Requirement: Format boundary HTTP tests deferred
+### Requirement: Format boundaries belong to schema unit tests
 
-下列格式边界 integration 用例在本 change SHALL 保留且仅最小改动（TODO 注释），完整迁移至 schema 单测 SHALL 由后续 `test-schema-unit-tests` change 完成：
+DTO 格式/字段级非法输入（如 password 长度、`ProductCreate` 空 `category_ids`、primary 不在列表）SHALL 在 `tests/unit/{domain}/test_{domain}_schema.py` 中测试。Integration 测试 SHALL NOT 重复上述格式的 HTTP 422 用例。Integration 仍 SHALL 覆盖业务规则导致的 422（如重复邮箱、closed shop 下创建商品）。
 
-- `test_register_password_too_short_returns_422`
-- `test_register_password_too_long_returns_422`
-- `test_create_product_empty_category_ids_returns_422`
-- `test_create_product_invalid_primary_category_returns_422`
+#### Scenario: no duplicate password length HTTP test in integration
 
-#### Scenario: 格式用例保留 TODO 标记
+- **WHEN** 实现本 change 后审查 `tests/user/test_register.py`
+- **THEN** SHALL NOT 存在仅断言 password 长度导致 HTTP 422 的 integration 用例
+- **AND** 对应校验 SHALL 存在于 `tests/unit/user/test_user_schema.py`
 
-- **WHEN** 实现本 change
-- **THEN** 上述 4 个测试 SHALL 仍存在于原模块
-- **AND** SHALL 带有指向 `test-schema-unit-tests` 的 TODO 注释
+#### Scenario: no duplicate product category format HTTP test in integration
+
+- **WHEN** 实现本 change 后审查 `tests/catalog/test_create_product.py`
+- **THEN** SHALL NOT 存在仅断言 `category_ids` 格式/组合导致 HTTP 422 的 integration 用例（空列表、primary 不在列表）
+- **AND** 对应校验 SHALL 存在于 `tests/unit/catalog/test_catalog_schema.py`

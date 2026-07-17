@@ -5,11 +5,14 @@ from httpx import Response
 
 from app.user.schemas import UserResponse
 from tests.conftest import auth_headers
+from tests.support.contexts import AuthContext
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_me_returns_200_with_valid_token(client, authenticated_user) -> None:
+async def test_me_returns_200_with_valid_token(
+    client, authenticated_user: AuthContext
+) -> None:
     """有效 Bearer token 返回当前用户资料。"""
     assert authenticated_user.status_code == 201
     assert authenticated_user.user is not None

@@ -8,13 +8,16 @@ from httpx import Response
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.catalog.test_create_product import _create_product
 from tests.conftest import create_category, unique_category_name
+from tests.support.contexts import AdminAuthContext, ShopOwnerContext
 from tests.support.results import CategoryResult
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_products_returns_only_published_active(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """GET /products 仅返回已上架且店铺 active 的商品。"""
     assert shop_owner.status_code == 201
@@ -46,7 +49,9 @@ async def test_get_public_products_returns_only_published_active(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_products_filters_by_category_id(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """GET /products?category_id= 仅返回关联该类目的已上架商品。"""
     assert admin_auth_headers.status_code == 200
@@ -99,7 +104,9 @@ async def test_get_public_products_filters_by_category_id(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_product_detail_returns_200_when_published(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """已上架且店铺 active 时 GET /products/{id} 返回 200。"""
     assert shop_owner.status_code == 201
@@ -123,7 +130,9 @@ async def test_get_public_product_detail_returns_200_when_published(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_product_detail_returns_404_when_unpublished(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """未上架商品 GET /products/{id} 返回 404。"""
     assert shop_owner.status_code == 201
@@ -146,7 +155,9 @@ async def test_get_public_product_detail_returns_404_when_unpublished(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_product_detail_returns_404_when_shop_closed(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """所属店铺 closed 时 GET /products/{id} 返回 404。"""
     assert shop_owner.status_code == 201

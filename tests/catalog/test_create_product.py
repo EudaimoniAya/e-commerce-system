@@ -8,7 +8,7 @@ from httpx import Response
 from app.catalog.schemas import ProductResponse
 from tests.conftest import create_category, unique_category_name
 from tests.support.builders import build_product_create
-from tests.support.contexts import AdminAuthContext, ShopOwnerContext
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.results import CategoryResult
 
 
@@ -55,7 +55,9 @@ async def _create_product(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_success_returns_201(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """店主在 active 店铺下创建商品成功，返回 201 与 ProductResponse。"""
     assert shop_owner.status_code == 201
@@ -92,7 +94,9 @@ async def test_create_product_success_returns_201(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_closed_shop_returns_422(
-    client, admin_auth_headers, shop_owner
+    client,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """店铺 status 为 closed 时 POST /products 返回 422。"""
     assert shop_owner.status_code == 201
@@ -125,7 +129,9 @@ async def test_create_product_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_no_shop_returns_404(
-    client, admin_auth_headers, authenticated_user
+    client,
+    admin_auth_headers: AdminAuthContext,
+    authenticated_user: AuthContext,
 ) -> None:
     """已认证但无店铺的用户 POST /products 返回 404。"""
     assert authenticated_user.status_code == 201
@@ -143,64 +149,6 @@ async def test_create_product_no_shop_returns_404(
     )
 
     assert response.status_code == 404
-    body = response.json()
-    assert body is not None
-    assert "detail" in body
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_create_product_empty_category_ids_returns_422(
-    client, shop_owner
-) -> None:
-    """category_ids 为空时 POST /products 返回 422。"""
-    # TODO(test-schema-unit-tests): 迁至 schema 单测后删除
-    assert shop_owner.status_code == 201
-
-    response: Response = await client.post(
-        "/products",
-        json={
-            "name": "product-empty-categories",
-            "price": "99.00",
-            "stock": 10,
-            "is_published": False,
-            "category_ids": [],
-            "primary_category_id": str(uuid.uuid4()),
-        },
-        headers=shop_owner.headers,
-    )
-
-    assert response.status_code == 422
-    body = response.json()
-    assert body is not None
-    assert "detail" in body
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_create_product_invalid_primary_category_returns_422(
-    client, admin_auth_headers, shop_owner
-) -> None:
-    """primary_category_id 不在 category_ids 中时 POST /products 返回 422。"""
-    # TODO(test-schema-unit-tests): 迁至 schema 单测后删除
-    assert shop_owner.status_code == 201
-
-    category_id = await _create_category_for_product(client, admin_auth_headers)
-
-    response: Response = await client.post(
-        "/products",
-        json={
-            "name": "product-invalid-primary",
-            "price": "99.00",
-            "stock": 10,
-            "is_published": False,
-            "category_ids": [category_id],
-            "primary_category_id": str(uuid.uuid4()),
-        },
-        headers=shop_owner.headers,
-    )
-
-    assert response.status_code == 422
     body = response.json()
     assert body is not None
     assert "detail" in body
