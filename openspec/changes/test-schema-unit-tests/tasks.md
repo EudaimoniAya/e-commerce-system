@@ -10,8 +10,8 @@
 
 ## 3. 删除冗余 integration 格式用例
 
-- [ ] 3.1 从 `tests/user/test_register.py` **整函数删除** `test_register_password_too_short_returns_422`、`test_register_password_too_long_returns_422`（不得半留 HTTP 格式断言）
-- [ ] 3.2 从 `tests/catalog/test_create_product.py` **整函数删除** `test_create_product_empty_category_ids_returns_422`、`test_create_product_invalid_primary_category_returns_422`
+- [x] 3.1 从 `tests/user/test_register.py` **整函数删除** `test_register_password_too_short_returns_422`、`test_register_password_too_long_returns_422`（不得半留 HTTP 格式断言）
+- [x] 3.2 从 `tests/catalog/test_create_product.py` **整函数删除** `test_create_product_empty_category_ids_returns_422`、`test_create_product_invalid_primary_category_returns_422`
 
 ## 4. 验证与 DoD
 

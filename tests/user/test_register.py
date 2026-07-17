@@ -53,32 +53,6 @@ async def test_register_duplicate_email_returns_422(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_password_too_short_returns_422(client) -> None:
-    """密码长度小于 8 返回 422。"""
-    # TODO(test-schema-unit-tests): 迁至 schema 单测后删除
-    response: Response = await client.post(
-        "/auth/register",
-        json={"email": unique_email(), "password": "short"},
-    )
-
-    assert response.status_code == 422
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_register_password_too_long_returns_422(client) -> None:
-    """密码长度大于 32 返回 422。"""
-    # TODO(test-schema-unit-tests): 迁至 schema 单测后删除
-    response: Response = await client.post(
-        "/auth/register",
-        json={"email": unique_email(), "password": "a" * 33},
-    )
-
-    assert response.status_code == 422
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
 async def test_register_default_nickname_when_omitted(client) -> None:
     """未提供 nickname 时使用默认昵称（用户_ + 时间戳）。"""
     result: RegisterResult = await register_user(client)
