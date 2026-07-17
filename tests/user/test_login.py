@@ -3,11 +3,13 @@
 import uuid
 
 import pytest
+from httpx import Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.conftest import login_user, register_user, unique_email
 from tests.support.builders import build_login_request
+from tests.support.results import LoginResult, RegisterResult
 
 
 async def _seed_inactive_user(database_url: str, email: str, password: str) -> None:
@@ -44,10 +46,10 @@ async def test_login_success_returns_200_and_token(client) -> None:
     """正确凭据且用户 active 时登录返回 200 与 token。"""
     email = unique_email()
     password = "password123"
-    registered = await register_user(client, email=email, password=password)
+    registered: RegisterResult = await register_user(client, email=email, password=password)
     assert registered.status_code == 201
 
-    result = await login_user(client, email=email, password=password)
+    result: LoginResult = await login_user(client, email=email, password=password)
     assert result.status_code == 200
     assert result.body is not None
     assert result.body.access_token
@@ -64,10 +66,10 @@ async def test_login_success_returns_200_and_token(client) -> None:
 async def test_login_wrong_password_returns_422(client) -> None:
     """密码错误返回 422（不暴露邮箱是否存在）。"""
     email = unique_email()
-    registered = await register_user(client, email=email)
+    registered: RegisterResult = await register_user(client, email=email)
     assert registered.status_code == 201
 
-    response = await client.post(
+    response: Response = await client.post(
         "/auth/login",
         json=build_login_request(email=email, password="wrongpass99").model_dump(
             mode="json"
@@ -82,7 +84,7 @@ async def test_login_wrong_password_returns_422(client) -> None:
 @pytest.mark.asyncio
 async def test_login_nonexistent_email_returns_422(client) -> None:
     """邮箱不存在返回 422（与密码错误响应形态一致）。"""
-    response = await client.post(
+    response: Response = await client.post(
         "/auth/login",
         json=build_login_request(email=unique_email("missing")).model_dump(
             mode="json"
@@ -102,6 +104,6 @@ async def test_login_inactive_user_returns_403(client, database_url: str) -> Non
     password = "password123"
     await _seed_inactive_user(database_url, email=email, password=password)
 
-    result = await login_user(client, email=email, password=password)
+    result: LoginResult = await login_user(client, email=email, password=password)
     assert result.status_code == 403
     assert result.body is None

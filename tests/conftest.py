@@ -217,7 +217,7 @@ async def register_user(
         password=password,
         nickname=nickname,
     )
-    response = await client.post(
+    response: Response = await client.post(
         "/auth/register",
         json=request.model_dump(mode="json"),
     )
@@ -238,7 +238,7 @@ async def login_user(
     """调用 POST /auth/login，返回 LoginResult。"""
     _ensure_integration_auth_env()
     request = build_login_request(email=email, password=password)
-    response = await client.post(
+    response: Response = await client.post(
         "/auth/login",
         json=request.model_dump(mode="json"),
     )
@@ -254,7 +254,7 @@ async def login_user(
 async def authenticated_user(client: AsyncClient) -> AuthContext:
     """注册成功并返回 access_token 与 Bearer 请求头（供 /users/me 等已认证端点）。"""
     _ensure_integration_auth_env()
-    registered = await register_user(client)
+    registered: RegisterResult = await register_user(client)
     return _auth_context_from_register(registered)
 
 
@@ -276,7 +276,7 @@ async def create_shop(
         description=description,
         logo_url=logo_url,
     )
-    response = await client.post(
+    response: Response = await client.post(
         "/shops",
         json=request.model_dump(mode="json"),
         headers=headers,
@@ -299,7 +299,7 @@ async def register_and_open_shop(
 ) -> ShopOwnerContext:
     """注册用户并调用 POST /shops，返回 ShopOwnerContext。"""
     _ensure_integration_auth_env()
-    registered = await register_user(client, email=email, password=password)
+    registered: RegisterResult = await register_user(client, email=email, password=password)
     auth = _auth_context_from_register(registered)
     shop_request = build_shop_create(
         name=shop_name,
@@ -322,7 +322,7 @@ async def register_and_open_shop(
         )
 
     _ensure_integration_auth_env()
-    shop_result = await create_shop(
+    shop_result: ShopResult = await create_shop(
         client,
         headers=auth.headers,
         name=shop_name,
@@ -358,7 +358,7 @@ _ADMIN_SEED_PASSWORD = "1919810810"
 async def admin_auth_headers(client: AsyncClient) -> AdminAuthContext:
     """seed 管理员登录，返回 token 与 Bearer 请求头（供 POST /categories 等 admin 端点）。"""
     _ensure_integration_auth_env()
-    logged_in = await login_user(
+    logged_in: LoginResult = await login_user(
         client,
         email=_ADMIN_SEED_EMAIL,
         password=_ADMIN_SEED_PASSWORD,
@@ -393,7 +393,7 @@ async def create_category(
     """调用 POST /categories，返回 CategoryResult。"""
     _ensure_integration_auth_env()
     request = build_category_create(name=name, parent_id=parent_id)
-    response = await client.post(
+    response: Response = await client.post(
         "/categories",
         json=request.model_dump(mode="json"),
         headers=headers,

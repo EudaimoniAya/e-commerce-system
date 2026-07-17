@@ -1,6 +1,7 @@
 """catalog 域 GET /shops/me/products integration 测试（TDD 红阶段）。"""
 
 import pytest
+from httpx import Response
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.catalog.test_create_product import _create_product
@@ -27,7 +28,7 @@ async def test_get_my_products_returns_200_with_all_products(
         is_published=False,
     )
 
-    response = await client.get(
+    response: Response = await client.get(
         "/shops/me/products",
         headers=shop_owner.headers,
     )
@@ -53,7 +54,7 @@ async def test_get_my_products_returns_404_when_no_shop(
     """已认证但无店铺的用户 GET /shops/me/products 返回 404。"""
     assert authenticated_user.status_code == 201
 
-    response = await client.get(
+    response: Response = await client.get(
         "/shops/me/products",
         headers=authenticated_user.headers,
     )
@@ -81,7 +82,7 @@ async def test_get_my_products_supports_pagination(
         )
         created_ids.append(product.id)
 
-    first_page = await client.get(
+    first_page: Response = await client.get(
         "/shops/me/products",
         params={"limit": 2, "offset": 0},
         headers=shop_owner.headers,
@@ -93,7 +94,7 @@ async def test_get_my_products_supports_pagination(
     assert len(first_body.items) == 2
     assert first_body.total >= 3
 
-    second_page = await client.get(
+    second_page: Response = await client.get(
         "/shops/me/products",
         params={"limit": 2, "offset": 2},
         headers=shop_owner.headers,

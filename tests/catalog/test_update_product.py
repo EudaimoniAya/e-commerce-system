@@ -1,10 +1,12 @@
 """catalog 域 PATCH /products/{id} integration 测试（TDD 红阶段）。"""
 
 import pytest
+from httpx import Response
 
 from app.catalog.schemas import ProductResponse
 from tests.catalog.test_create_product import _create_product
 from tests.conftest import register_and_open_shop
+from tests.support.contexts import ShopOwnerContext
 
 
 @pytest.mark.integration
@@ -22,7 +24,7 @@ async def test_patch_product_success_returns_200(
         is_published=False,
     )
 
-    response = await client.patch(
+    response: Response = await client.patch(
         f"/products/{product.id}",
         json={"is_published": True, "description": "更新后的简介"},
         headers=shop_owner.headers,
@@ -41,10 +43,10 @@ async def test_patch_product_other_shop_returns_403(
     client, admin_auth_headers
 ) -> None:
     """店主 PATCH 其他店铺商品返回 403。"""
-    owner_a = await register_and_open_shop(client)
+    owner_a: ShopOwnerContext = await register_and_open_shop(client)
     assert owner_a.status_code == 201
 
-    owner_b = await register_and_open_shop(client)
+    owner_b: ShopOwnerContext = await register_and_open_shop(client)
     assert owner_b.status_code == 201
 
     product = await _create_product(
@@ -53,7 +55,7 @@ async def test_patch_product_other_shop_returns_403(
         owner_a,
     )
 
-    response = await client.patch(
+    response: Response = await client.patch(
         f"/products/{product.id}",
         json={"name": "越权修改"},
         headers=owner_b.headers,
@@ -76,14 +78,14 @@ async def test_patch_product_closed_shop_returns_422(
         shop_owner,
     )
 
-    patch_shop = await client.patch(
+    patch_shop: Response = await client.patch(
         "/shops/me",
         json={"status": "closed"},
         headers=shop_owner.headers,
     )
     assert patch_shop.status_code == 200
 
-    response = await client.patch(
+    response: Response = await client.patch(
         f"/products/{product.id}",
         json={"name": "closed 店修改"},
         headers=shop_owner.headers,
@@ -110,7 +112,7 @@ async def test_patch_product_stock_zero_returns_200(
     )
     assert product.stock > 0
 
-    response = await client.patch(
+    response: Response = await client.patch(
         f"/products/{product.id}",
         json={"stock": 0},
         headers=shop_owner.headers,
@@ -136,7 +138,7 @@ async def test_patch_product_delist_sets_is_published_false(
         is_published=True,
     )
 
-    patch_response = await client.patch(
+    patch_response: Response = await client.patch(
         f"/products/{product.id}",
         json={"is_published": False},
         headers=shop_owner.headers,
@@ -144,5 +146,5 @@ async def test_patch_product_delist_sets_is_published_false(
     assert patch_response.status_code == 200
     assert ProductResponse.model_validate(patch_response.json()).is_published is False
 
-    public_response = await client.get(f"/products/{product.id}")
+    public_response: Response = await client.get(f"/products/{product.id}")
     assert public_response.status_code == 404

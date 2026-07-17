@@ -3,16 +3,21 @@
 import uuid
 
 import pytest
+from httpx import Response
 
 from app.catalog.schemas import ProductResponse
 from tests.conftest import create_category, unique_category_name
 from tests.support.builders import build_product_create
+from tests.support.contexts import AdminAuthContext, ShopOwnerContext
+from tests.support.results import CategoryResult
 
 
-async def _create_category_for_product(client, admin_auth_headers) -> str:
+async def _create_category_for_product(
+    client, admin_auth_headers: AdminAuthContext
+) -> str:
     """管理员创建测试用类目，返回 category id。"""
     assert admin_auth_headers.status_code == 200
-    result = await create_category(
+    result: CategoryResult = await create_category(
         client,
         headers=admin_auth_headers.headers,
         name=unique_category_name("product"),
@@ -24,8 +29,8 @@ async def _create_category_for_product(client, admin_auth_headers) -> str:
 
 async def _create_product(
     client,
-    admin_auth_headers,
-    shop_owner,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
     *,
     is_published: bool = False,
     category_id: str | None = None,
@@ -38,7 +43,7 @@ async def _create_product(
         primary_category_id=category_id,
         is_published=is_published,
     )
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
         json=product_request.model_dump(mode="json"),
         headers=shop_owner.headers,
@@ -63,7 +68,7 @@ async def test_create_product_success_returns_201(
         primary_category_id=category_id,
     )
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
         json=product_request.model_dump(mode="json"),
         headers=shop_owner.headers,
@@ -92,7 +97,7 @@ async def test_create_product_closed_shop_returns_422(
     """店铺 status 为 closed 时 POST /products 返回 422。"""
     assert shop_owner.status_code == 201
 
-    patch_response = await client.patch(
+    patch_response: Response = await client.patch(
         "/shops/me",
         json={"status": "closed"},
         headers=shop_owner.headers,
@@ -105,7 +110,7 @@ async def test_create_product_closed_shop_returns_422(
         primary_category_id=category_id,
     )
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
         json=product_request.model_dump(mode="json"),
         headers=shop_owner.headers,
@@ -131,7 +136,7 @@ async def test_create_product_no_shop_returns_404(
         primary_category_id=category_id,
     )
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
         json=product_request.model_dump(mode="json"),
         headers=authenticated_user.headers,
@@ -152,7 +157,7 @@ async def test_create_product_empty_category_ids_returns_422(
     # TODO(test-schema-unit-tests): 迁至 schema 单测后删除
     assert shop_owner.status_code == 201
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
         json={
             "name": "product-empty-categories",
@@ -182,7 +187,7 @@ async def test_create_product_invalid_primary_category_returns_422(
 
     category_id = await _create_category_for_product(client, admin_auth_headers)
 
-    response = await client.post(
+    response: Response = await client.post(
         "/products",
         json={
             "name": "product-invalid-primary",

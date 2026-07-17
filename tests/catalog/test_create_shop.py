@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+from httpx import Response
 
 from app.catalog.schemas import ShopResponse
 from tests.conftest import (
@@ -12,6 +13,8 @@ from tests.conftest import (
     unique_shop_name,
 )
 from tests.support.builders import build_shop_create
+from tests.support.contexts import ShopOwnerContext
+from tests.support.results import RegisterResult
 
 
 @pytest.mark.integration
@@ -25,7 +28,7 @@ async def test_create_shop_success_returns_201(client, authenticated_user) -> No
         description="测试店铺简介",
         logo_url="https://example.com/logo.png",
     )
-    response = await client.post(
+    response: Response = await client.post(
         "/shops",
         json=shop_request.model_dump(mode="json"),
         headers=authenticated_user.headers,
@@ -47,7 +50,7 @@ async def test_create_shop_duplicate_returns_422(client, shop_owner) -> None:
     """同一用户重复开店返回 422。"""
     assert shop_owner.status_code == 201
 
-    response = await client.post(
+    response: Response = await client.post(
         "/shops",
         json=build_shop_create().model_dump(mode="json"),
         headers=shop_owner.headers,
@@ -64,14 +67,14 @@ async def test_create_shop_duplicate_returns_422(client, shop_owner) -> None:
 async def test_create_shop_name_conflict_returns_422(client) -> None:
     """店名已被其他店铺使用时返回 422。"""
     shop_name = unique_shop_name("conflict")
-    first = await register_and_open_shop(client, shop_name=shop_name)
+    first: ShopOwnerContext = await register_and_open_shop(client, shop_name=shop_name)
     assert first.status_code == 201
 
-    second_user = await register_user(client)
+    second_user: RegisterResult = await register_user(client)
     assert second_user.status_code == 201
     assert second_user.body is not None
 
-    response = await client.post(
+    response: Response = await client.post(
         "/shops",
         json=build_shop_create(name=shop_name).model_dump(mode="json"),
         headers=auth_headers(second_user.body.access_token),
@@ -87,7 +90,7 @@ async def test_create_shop_name_conflict_returns_422(client) -> None:
 @pytest.mark.asyncio
 async def test_create_shop_unauthenticated_returns_401(client) -> None:
     """未携带 Bearer token 开店返回 401。"""
-    response = await client.post(
+    response: Response = await client.post(
         "/shops",
         json=build_shop_create().model_dump(mode="json"),
     )

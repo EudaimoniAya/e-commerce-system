@@ -3,10 +3,12 @@
 import uuid
 
 import pytest
+from httpx import Response
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.catalog.test_create_product import _create_product
 from tests.conftest import create_category, unique_category_name
+from tests.support.results import CategoryResult
 
 
 @pytest.mark.integration
@@ -30,7 +32,7 @@ async def test_get_public_products_returns_only_published_active(
         is_published=False,
     )
 
-    response = await client.get("/products")
+    response: Response = await client.get("/products")
 
     assert response.status_code == 200
     body = PaginatedProducts.model_validate(response.json())
@@ -50,7 +52,7 @@ async def test_get_public_products_filters_by_category_id(
     assert admin_auth_headers.status_code == 200
     assert shop_owner.status_code == 201
 
-    cat_a = await create_category(
+    cat_a: CategoryResult = await create_category(
         client,
         headers=admin_auth_headers.headers,
         name=unique_category_name("filter-a"),
@@ -59,7 +61,7 @@ async def test_get_public_products_filters_by_category_id(
     assert cat_a.body is not None
     cat_a_id = cat_a.body.id
 
-    cat_b = await create_category(
+    cat_b: CategoryResult = await create_category(
         client,
         headers=admin_auth_headers.headers,
         name=unique_category_name("filter-b"),
@@ -83,7 +85,7 @@ async def test_get_public_products_filters_by_category_id(
         category_id=cat_b_id,
     )
 
-    response = await client.get("/products", params={"category_id": cat_a_id})
+    response: Response = await client.get("/products", params={"category_id": cat_a_id})
 
     assert response.status_code == 200
     body = PaginatedProducts.model_validate(response.json())
@@ -109,7 +111,7 @@ async def test_get_public_product_detail_returns_200_when_published(
         is_published=True,
     )
 
-    response = await client.get(f"/products/{product.id}")
+    response: Response = await client.get(f"/products/{product.id}")
 
     assert response.status_code == 200
     body = ProductResponse.model_validate(response.json())
@@ -133,7 +135,7 @@ async def test_get_public_product_detail_returns_404_when_unpublished(
         is_published=False,
     )
 
-    response = await client.get(f"/products/{product.id}")
+    response: Response = await client.get(f"/products/{product.id}")
 
     assert response.status_code == 404
     body = response.json()
@@ -156,14 +158,14 @@ async def test_get_public_product_detail_returns_404_when_shop_closed(
         is_published=True,
     )
 
-    patch_response = await client.patch(
+    patch_response: Response = await client.patch(
         "/shops/me",
         json={"status": "closed"},
         headers=shop_owner.headers,
     )
     assert patch_response.status_code == 200
 
-    response = await client.get(f"/products/{product.id}")
+    response: Response = await client.get(f"/products/{product.id}")
 
     assert response.status_code == 404
     body = response.json()
