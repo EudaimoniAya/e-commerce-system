@@ -2,7 +2,14 @@
 
 from dataclasses import dataclass
 
-from app.catalog.schemas import CategoryCreate, CategoryResponse, ShopCreate, ShopResponse
+from app.catalog.schemas import (
+    CategoryCreate,
+    CategoryResponse,
+    ProductCreate,
+    ProductResponse,
+    ShopCreate,
+    ShopResponse,
+)
 from app.user.schemas import TokenResponse
 
 
@@ -68,3 +75,18 @@ class CategoryResult:
     status_code: int
     body: CategoryResponse | None
     request: CategoryCreate
+
+
+@dataclass
+class ProductResult:
+    """``POST /products`` 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时经 ``ProductResponse.model_validate`` 解析的响应体；非 2xx 时为 ``None``。
+        request: 本次请求发出的 ``ProductCreate`` 实例。
+    """
+
+    status_code: int
+    body: ProductResponse | None
+    request: ProductCreate

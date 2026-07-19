@@ -5,11 +5,11 @@
 
 ## 2. Support 层基础设施
 
-- [ ] 2.1 新增 `tests/support/pipeline.py`（或并入 `contexts.py`）：`PipelineResult`、`step()`、`all()`，精确 `type() is` 匹配
-- [ ] 2.2 新增 `ProductResult` 至 `tests/support/results.py`
-- [ ] 2.3 新增 `tests/support/projections.py`（或 `utils.py`）：`bearer_headers(result)` 纯函数
-- [ ] 2.4 新增 `tests/support/seeds.py`：迁移 `seed_inactive_user`（自 `test_login.py`）
-- [ ] 2.5 新增 `tests/support/actions.py`：自 `conftest.py` 迁移原子 helper 与 orchestrator
+- [x] 2.1 新增 `tests/support/pipeline.py`（或并入 `contexts.py`）：`PipelineResult`、`step()`、`all()`，精确 `type() is` 匹配
+- [x] 2.2 新增 `ProductResult` 至 `tests/support/results.py`
+- [x] 2.3 新增 `tests/support/projections.py`（或 `utils.py`）：`bearer_headers(result)` 纯函数
+- [x] 2.4 新增 `tests/support/seeds.py`：迁移 `seed_inactive_user`（自 `test_login.py`）
+- [x] 2.5 新增 `tests/support/actions.py`：自 `conftest.py` 迁移原子 helper 与 orchestrator
 
 ## 3. Context 与 orchestrator 重构
 
