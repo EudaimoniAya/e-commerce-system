@@ -4,7 +4,7 @@ import re
 import uuid
 
 import pytest
-from httpx import Response
+from httpx import AsyncClient, Response
 
 from tests.support.helpers import register_user
 from tests.support.builders import build_register_request, unique_email
@@ -15,7 +15,7 @@ _DEFAULT_NICKNAME_PATTERN = re.compile(r"^用户_\d{14,17}$")
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_success_returns_201_and_token(client) -> None:
+async def test_register_success_returns_201_and_token(client: AsyncClient) -> None:
     """有效邮箱与密码注册成功，返回 201、token 与用户资料。"""
     email = unique_email()
     result: RegisterResult = await register_user(client, email=email)
@@ -36,7 +36,7 @@ async def test_register_success_returns_201_and_token(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_duplicate_email_returns_422(client) -> None:
+async def test_register_duplicate_email_returns_422(client: AsyncClient) -> None:
     """重复邮箱注册返回 422 与 detail 字段。"""
     email = unique_email()
     first: RegisterResult = await register_user(client, email=email)
@@ -53,7 +53,7 @@ async def test_register_duplicate_email_returns_422(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_default_nickname_when_omitted(client) -> None:
+async def test_register_default_nickname_when_omitted(client: AsyncClient) -> None:
     """未提供 nickname 时使用默认昵称（用户_ + 时间戳）。"""
     result: RegisterResult = await register_user(client)
 

@@ -34,9 +34,9 @@
 
 ## 6. User 测试迁移
 
-- [ ] 6.1 迁移 `test_login.py`：使用 `seed_inactive_user` from support；移除 test 内 helper
-- [ ] 6.2 迁移 user tests Context/Result 访问路径与类型注解
-- [ ] 6.3 确认失败登录/注册 Case 仍 inline 调 helper 断言（无失败 fixture）
+- [x] 6.1 迁移 `test_login.py`：使用 `seed_inactive_user` from support；移除 test 内 helper
+- [x] 6.2 迁移 user tests Context/Result 访问路径与类型注解
+- [x] 6.3 确认失败登录/注册 Case 仍 inline 调 helper 断言（无失败 fixture）
 
 ## 7. 目录与 ops 探针
 
