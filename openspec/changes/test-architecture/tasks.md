@@ -54,3 +54,5 @@
 - [x] 9.1 `devbox run -- task ci` 全绿（测试场景与断言语义不变）
 - [x] 9.2 审查无 test 内可复用 helper、无 test 互 import、无 helper 返 Context
 - [x] 9.3 archive 时 sync `openspec/specs/test-architecture/` 与 `openspec/specs/integration-test-typing/`
+
+远程 CI（workflow_dispatch）：https://github.com/EudaimoniAya/e-commerce-system/actions/runs/29675680958
