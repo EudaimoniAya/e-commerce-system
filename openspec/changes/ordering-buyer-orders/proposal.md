@@ -14,7 +14,7 @@
 - **超时**：并入 `cancelled` + `cancel_reason=expired`；本 change **仅懒释放**（pay / 下单 / 读单等路径检查 `expires_at`），无 Redis、无 MQ、无周期扫描
 - **查询**：买家 `GET /orders`、`GET /orders/{id}`；卖家 `GET /shops/me/orders`
 - **跨域**：ordering 仅调用 `catalog.service` 预留/释放库存与读取可购商品信息；禁止 import `catalog.models` / repository
-- **业务规则**：仅 `is_published` 且店铺 `active` 可下单；**禁止店主购买本店商品**；多行须同店；非法状态迁移 → **409**
+- **业务规则**：仅 `is_published` 且店铺 `active` 可下单；**禁止店主购买本店商品**；多行须同店；建单业务约束失败（跨店/库存不足/未上架/店非 active）→ **422**；对已存在订单的非法生命周期动作 → **409**
 - 扩展 **pytest**：`tests/ordering/` integration（对齐四层测试架构）
 - 更新 **README.md** / **docs/architecture.md**（订单状态机、预留 TTL）
 

@@ -19,6 +19,18 @@
 
 ## Decisions
 
+### 0. HTTP 422 vs 409（全项目约定）
+
+业务 4xx 按「失败挂在谁身上」二分（非 RFC 本体论，而是本仓库评审/客户端稳定约定；与 user/catalog 既有 422 用法对齐）：
+
+| 码 | 含义 | ordering 例 |
+|----|------|-------------|
+| **422** | 要建/要写入的内容形态过了，相对业务语义或外部约束不成立 | 跨店、库存不足、未上架、店非 active；以及 catalog 侧店名占用、closed 禁写等 |
+| **409** | 资源已存在，针对它的动作与当前生命周期阶段不合 | 非法状态迁移、重复 pay、终态再 cancel、过期后再 pay |
+
+口诀：**422 = 建不成/按规则写不成；409 = 这份已存在资源拒收该操作。**  
+并发超卖与单人买超走同一条件更新失败路径，统一 **422**，不拆码。401/403 仍专管认证/授权。
+
 ### 1. 状态机（FSM）
 
 ```text
@@ -89,8 +101,8 @@ ordering **不得** import catalog ORM。预留与建单应在**同一 DB sessio
 
 ### 4. 可下单规则
 
-- 商品 `is_published=true` 且店铺 `status=active`
-- 所有行同店；`qty >= 1`；库存条件更新成功
+- 商品 `is_published=true` 且店铺 `status=active`；否则 → **422**
+- 所有行同店；`qty >= 1`；库存条件更新成功；跨店或库存不足 → **422**
 - **`buyer_user_id != shop.owner_user_id`** → 否则 **403**（禁自购）
 - 未认证 → 401
 
@@ -157,7 +169,7 @@ app/ordering/
 ### 9. 测试策略
 
 - `tests/ordering/` integration；support helpers（建单、pay、短 TTL）放 `tests/support/`，禁止 test 互 import
-- 覆盖：创建 201、自购 403、超卖 4xx、跨店行 422、pay、shipments、confirm-receipt、cancel 释放库存、短 TTL 过期后再 pay/读单库存还原、非法迁移 409
+- 覆盖：创建 201、自购 403、超卖 422、跨店行 422、未上架/非 active 422、pay、shipments、confirm-receipt、cancel 释放库存、短 TTL 过期后再 pay/读单库存还原、非法迁移 409
 - 提供可直接调用的 service 级 `expire_if_needed`（或等价）便于测试不依赖真实等待以外的路径——集成测仍可用 sleep + 读单触发懒释放
 
 ### 10. 配置

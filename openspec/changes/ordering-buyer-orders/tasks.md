@@ -1,8 +1,8 @@
 ## 1. TDD — 失败测试（红）
 
-- [ ] 1.1 扩展 `tests/support/`：订单相关 actions/seeds（如创建可购商品上下文、短 TTL 配置辅助）；**禁止** test 文件互 import；对齐四层架构
-- [ ] 1.2 编写 `tests/ordering/test_create_order.py`（201 多行同店、跨店 422、超卖 4xx、未上架/closed 店、自购 403、401）；**不编写** 实现
-- [ ] 1.3 编写 `tests/ordering/test_pay_order.py`（支付桩 200→confirmed、非买家 403、重复 pay 409、未认证 401、过期后 409 且库存还原）；**不编写** 实现
+- [x] 1.1 扩展 `tests/support/`：订单相关 actions/seeds（如创建可购商品上下文、短 TTL 配置辅助）；**禁止** test 文件互 import；对齐四层架构
+- [x] 1.2 编写 `tests/ordering/test_create_order.py`（201 多行同店、跨店 422、超卖 422、未上架/非 active 422、自购 403、401）；**不编写** 实现
+- [x] 1.3 编写 `tests/ordering/test_pay_order.py`（支付桩 200→confirmed、非买家 403、重复 pay 409、未认证 401、过期后 409 且库存还原）；**不编写** 实现
 - [ ] 1.4 编写 `tests/ordering/test_shipments_and_receipt.py`（shipments 201、非店主 403、非 confirmed 409、未认证 401、confirm-receipt 200→completed 与 401）；**不编写** 实现
 - [ ] 1.5 编写 `tests/ordering/test_cancel_order.py`（买家/卖家取消与库存加回、completed 409、未认证 401）；**不编写** 实现
 - [ ] 1.6 编写 `tests/ordering/test_list_orders.py`（买家列表、店主 `/shops/me/orders`、无关用户 GET 404、未认证 401、读单触发懒释放）；**不编写** 实现

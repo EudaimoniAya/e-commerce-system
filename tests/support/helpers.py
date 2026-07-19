@@ -7,19 +7,23 @@ from decimal import Decimal
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import CategoryResponse, ProductResponse, ShopResponse
+from app.ordering.schemas import OrderCreate, OrderResponse
 from app.user.schemas import TokenResponse
 from tests.support.builders import (
     build_category_create,
     build_login_request,
+    build_order_create,
     build_product_create,
     build_register_request,
     build_shop_create,
+    unique_category_name,
 )
 from tests.support.pipeline import PipelineResult
 from tests.support.projections import bearer_headers
 from tests.support.results import (
     CategoryResult,
     LoginResult,
+    OrderResult,
     ProductResult,
     RegisterResult,
     ShopResult,
@@ -284,4 +288,95 @@ async def create_product(
         status_code=response.status_code,
         body=_parse_product_body(response),
         request=request,
+    )
+
+
+def _parse_order_body(response: Response) -> OrderResponse | None:
+    """2xx 时解析 OrderResponse，否则返回 None。"""
+    if 200 <= response.status_code < 300 and response.content:
+        return OrderResponse.model_validate(response.json())
+    return None
+
+
+def override_order_reservation_ttl(seconds: int) -> None:
+    """覆盖订单预留 TTL（秒）并清除 Settings 缓存。
+
+    依赖 ``Settings.order_reservation_ttl_seconds``（Task 2.1）；
+    字段未落地前仅写入环境变量，供后续实现读取。
+    """
+    os.environ["ORDER_RESERVATION_TTL_SECONDS"] = str(seconds)
+    reset_settings_cache()
+
+
+async def arrange_purchasable_product(
+    client: AsyncClient,
+    *,
+    shop_owner: PipelineResult,
+    admin: PipelineResult,
+    stock: int = 10,
+    price: str | Decimal = "99.00",
+    name: str | None = None,
+    is_published: bool = True,
+) -> PipelineResult:
+    """Arrange：为店铺创建类目 + 可购商品。
+
+    返回 ``PipelineResult(steps=(CategoryResult, ProductResult))``。
+    扇入前置 ``shop_owner`` / ``admin`` 须由 Case 或 fixture 持有。
+    """
+    category = await create_category(
+        client,
+        headers=bearer_headers(admin.step(LoginResult)),
+        name=unique_category_name("order"),
+    )
+    product = await create_product(
+        client,
+        shop_owner=shop_owner,
+        category=category,
+        name=name,
+        price=price,
+        stock=stock,
+        is_published=is_published,
+    )
+    return PipelineResult(steps=(category, product))
+
+
+async def create_order(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    items: list[tuple[str, int]] | OrderCreate,
+) -> OrderResult:
+    """调用 POST /orders，返回 OrderResult（不 assert 成功状态码）。"""
+    ensure_integration_auth_env()
+    request = (
+        items if isinstance(items, OrderCreate) else build_order_create(items=items)
+    )
+    response: Response = await client.post(
+        "/orders",
+        json=request.model_dump(mode="json"),
+        headers=headers,
+    )
+    return OrderResult(
+        status_code=response.status_code,
+        body=_parse_order_body(response),
+        request=request,
+    )
+
+
+async def pay_order(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    order_id: str,
+) -> OrderResult:
+    """调用 POST /orders/{id}/pay，返回 OrderResult（不 assert 成功状态码）。"""
+    ensure_integration_auth_env()
+    response: Response = await client.post(
+        f"/orders/{order_id}/pay",
+        headers=headers,
+    )
+    return OrderResult(
+        status_code=response.status_code,
+        body=_parse_order_body(response),
+        request=None,
     )

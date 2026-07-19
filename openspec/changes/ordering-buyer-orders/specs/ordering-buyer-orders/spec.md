@@ -1,5 +1,24 @@
 ## ADDED Requirements
 
+### Requirement: HTTP 422 vs 409 convention
+
+系统在业务错误状态码上 SHALL 区分 **422** 与 **409**（与 user/catalog 既有用法对齐，全项目一致）：
+
+- **422**：请求体形态可被接受，但相对业务语义或外部约束不成立，因而**无法创建或按规则写入**（失败不落在「对已存在目标资源做非法生命周期动作」上）。ordering 下单侧包括但不限于：跨店商品、库存不足、商品未上架、店铺非 `active`。对已存在资源的 PATCH/写入若因外部约束失败（如店名占用、closed 禁写），亦为 **422**。
+- **409**：URL（或等价标识）指向的**资源已存在**，但当前生命周期状态**拒收该动作**（非法状态迁移、重复 pay、对 `completed`/`cancelled` 再 cancel、过期后对已终态化订单再 pay 等）。
+
+认证/授权失败仍分别为 **401** / **403**，不适用本条。
+
+#### Scenario: 建单业务约束失败使用 422
+
+- **WHEN** `POST /orders` 因跨店、库存不足、未上架或店铺非 `active` 而失败
+- **THEN** 响应状态码 SHALL 为 422（SHALL NOT 使用 409）
+
+#### Scenario: 对已存在订单的非法动作使用 409
+
+- **WHEN** 客户端对已存在订单请求当前 `status` 不允许的 pay、shipments、confirm-receipt 或 cancel
+- **THEN** 响应状态码 SHALL 为 409（SHALL NOT 使用 422）
+
 ### Requirement: Orders and order items tables
 
 系统 SHALL 在 **ordering 域** 拥有 `orders` 与 `order_items` 表（migration `005`）。订单 SHALL 通过 `buyer_user_id`、`shop_id` 关联用户与店铺（仅存 FK 字段，SHALL NOT 声明跨域 SQLAlchemy relationship）。订单行 SHALL 在创建时快照 `product_name`、`unit_price`、`qty`。
@@ -44,14 +63,14 @@
 #### Scenario: 库存不足不建单
 
 - **WHEN** 任一行 `qty` 超过当前可售库存
-- **THEN** 响应状态码 SHALL 为 4xx（409 或 422，实现选定一种并在全项目一致）
+- **THEN** 响应状态码 SHALL 为 422
 - **AND** SHALL NOT 创建订单
 - **AND** 所有商品库存 SHALL 保持扣减前的值（事务回滚）
 
 #### Scenario: 未上架或店铺非 active 不可下单
 
 - **WHEN** 商品未 `is_published` 或所属店铺非 `active`
-- **THEN** 响应状态码 SHALL 为 4xx
+- **THEN** 响应状态码 SHALL 为 422
 - **AND** SHALL NOT 创建订单
 
 #### Scenario: 店主购买本店商品返回 403

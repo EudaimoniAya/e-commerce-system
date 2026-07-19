@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 
 from app.catalog.schemas import CategoryCreate, ProductCreate, ShopCreate
+from app.ordering.schemas import OrderCreate, OrderItemCreate
 from app.user.schemas import LoginRequest, RegisterRequest
 
 # integration 测试默认密码（符合 8–32 位规则）
@@ -96,3 +97,21 @@ def build_product_create(
         category_ids=category_ids,
         primary_category_id=primary_category_id,
     )
+
+
+def build_order_create(
+    *,
+    items: list[tuple[str, int]] | list[OrderItemCreate],
+) -> OrderCreate:
+    """构造合法 OrderCreate。
+
+    ``items`` 可为 ``(product_id, qty)`` 元组列表，或已构造的 ``OrderItemCreate`` 列表。
+    """
+    order_items: list[OrderItemCreate] = []
+    for item in items:
+        if isinstance(item, OrderItemCreate):
+            order_items.append(item)
+        else:
+            product_id, qty = item
+            order_items.append(OrderItemCreate(product_id=product_id, qty=qty))
+    return OrderCreate(items=order_items)
