@@ -6,7 +6,7 @@ import sys
 
 import pytest
 from sqlalchemy import func, select, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 # 用于验证 transaction rollback 零副作用的标记行
 _ROLLBACK_MARKER_NOTE = "rollback-zero-side-effect-marker"
@@ -49,7 +49,7 @@ async def test_alembic_upgrade_head_creates_smoke_table(database_url: str) -> No
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_migration_smoke_crud(db_session) -> None:
+async def test_migration_smoke_crud(db_session: AsyncSession) -> None:
     """对 _infra_migration_smoke 插入并查询成功（事务内可见）。"""
     from app.infra.models.migration_smoke import InfraMigrationSmoke
 
@@ -68,7 +68,9 @@ async def test_migration_smoke_crud(db_session) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_migration_smoke_rollback_zero_side_effect(db_session) -> None:
+async def test_migration_smoke_rollback_zero_side_effect(
+    db_session: AsyncSession,
+) -> None:
     """前序测试 rollback 后标记行对本测试不可见（零副作用）。"""
     from app.infra.models.migration_smoke import InfraMigrationSmoke
 

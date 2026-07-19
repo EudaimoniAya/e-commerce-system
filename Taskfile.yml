@@ -11,6 +11,11 @@ tasks:
     cmds:
       - uv run ruff check .
 
+  check-test-imports:
+    desc: 禁止 tests 域内 test_ 模块互 import
+    cmds:
+      - bash scripts/check_no_test_cross_imports.sh
+
   test:
     desc: 运行 pytest
     cmds:
@@ -18,9 +23,10 @@ tasks:
       - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest']).returncode;sys.exit(0 if c in (0,5) else c)"
 
   ci:
-    desc: 本地 CI（ruff + test）
+    desc: 本地 CI（ruff + test-import 检查 + test）
     cmds:
       - task: ruff
+      - task: check-test-imports
       - task: test
 
   db:up:

@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from app.catalog.schemas import ProductCreate
 
 
-def _valid_product_create_kwargs(**overrides: Any) -> dict[str, Any]:
+def _valid_product_create_kwargs(**overrides: object) -> dict[str, Any]:
     """构造 ProductCreate 合法 baseline，供 override 非法字段。"""
     category_id = str(uuid.uuid4())
     base: dict[str, Any] = {

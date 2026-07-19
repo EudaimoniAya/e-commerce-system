@@ -1,11 +1,11 @@
-"""infra/health 存活探针端点测试（TDD 红阶段）。"""
+"""运维存活探针端点测试（ops）。"""
 
 import pytest
-from httpx import Response
+from httpx import AsyncClient, Response
 
 
 @pytest.mark.asyncio
-async def test_health_returns_200_with_ok_status(client) -> None:
+async def test_health_returns_200_with_ok_status(client: AsyncClient) -> None:
     """GET /health 在服务正常时返回 200 与 {"status": "ok"}。"""
     response: Response = await client.get("/health")
 
@@ -14,7 +14,7 @@ async def test_health_returns_200_with_ok_status(client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_content_type_is_json(client) -> None:
+async def test_health_content_type_is_json(client: AsyncClient) -> None:
     """GET /health 响应 Content-Type 包含 application/json。"""
     response: Response = await client.get("/health")
 

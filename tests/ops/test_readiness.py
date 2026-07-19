@@ -1,14 +1,14 @@
-"""infra/readiness 聚合探针端点测试（TDD 红阶段）。"""
+"""运维就绪探针端点测试（ops）。"""
 
 from unittest.mock import patch
 
 import pytest
-from httpx import Response
+from httpx import AsyncClient, Response
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_readiness_returns_200_when_mysql_ok(client) -> None:
+async def test_readiness_returns_200_when_mysql_ok(client: AsyncClient) -> None:
     """MySQL 可用时 GET /health/ready 返回 200 与 ready 响应体。"""
     response: Response = await client.get("/health/ready")
 
@@ -18,7 +18,7 @@ async def test_readiness_returns_200_when_mysql_ok(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_readiness_returns_503_when_mysql_unavailable(client) -> None:
+async def test_readiness_returns_503_when_mysql_unavailable(client: AsyncClient) -> None:
     """MySQL 不可用时 GET /health/ready 返回 503 与 not_ready 响应体。"""
     with patch(
         "app.infra.readiness.service.is_mysql_ready",
@@ -35,7 +35,7 @@ async def test_readiness_returns_503_when_mysql_unavailable(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_readiness_content_type_is_json(client) -> None:
+async def test_readiness_content_type_is_json(client: AsyncClient) -> None:
     """GET /health/ready 响应 Content-Type 包含 application/json。"""
     response: Response = await client.get("/health/ready")
 

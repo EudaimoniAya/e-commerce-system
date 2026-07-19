@@ -1,48 +1,17 @@
 """user 域登录端点 integration 测试（TDD 红阶段）。"""
 
-import uuid
-
 import pytest
-from httpx import Response
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from httpx import AsyncClient, Response
 
-from tests.conftest import login_user, register_user, unique_email
-from tests.support.builders import build_login_request
+from tests.support.helpers import login_user, register_user
+from tests.support.builders import build_login_request, unique_email
 from tests.support.results import LoginResult, RegisterResult
-
-
-async def _seed_inactive_user(database_url: str, email: str, password: str) -> None:
-    """向 users 表插入 is_active=false 用户（需 migration 002）。"""
-    from pwdlib import PasswordHash
-
-    user_id = str(uuid.uuid4())
-    password_hash = PasswordHash.recommended().hash(password)
-    engine = create_async_engine(database_url)
-    async with engine.begin() as conn:
-        await conn.execute(
-            text(
-                """
-                INSERT INTO users (
-                    id, email, password_hash, nickname, is_active, created_at, updated_at
-                ) VALUES (
-                    :id, :email, :password_hash, :nickname, 0, NOW(), NOW()
-                )
-                """
-            ),
-            {
-                "id": user_id,
-                "email": email,
-                "password_hash": password_hash,
-                "nickname": "inactive_user",
-            },
-        )
-    await engine.dispose()
+from tests.support.seeds import seed_inactive_user
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_success_returns_200_and_token(client) -> None:
+async def test_login_success_returns_200_and_token(client: AsyncClient) -> None:
     """正确凭据且用户 active 时登录返回 200 与 token。"""
     email = unique_email()
     password = "password123"
@@ -63,7 +32,7 @@ async def test_login_success_returns_200_and_token(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_wrong_password_returns_422(client) -> None:
+async def test_login_wrong_password_returns_422(client: AsyncClient) -> None:
     """密码错误返回 422（不暴露邮箱是否存在）。"""
     email = unique_email()
     registered: RegisterResult = await register_user(client, email=email)
@@ -82,7 +51,7 @@ async def test_login_wrong_password_returns_422(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_nonexistent_email_returns_422(client) -> None:
+async def test_login_nonexistent_email_returns_422(client: AsyncClient) -> None:
     """邮箱不存在返回 422（与密码错误响应形态一致）。"""
     response: Response = await client.post(
         "/auth/login",
@@ -98,11 +67,13 @@ async def test_login_nonexistent_email_returns_422(client) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_inactive_user_returns_403(client, database_url: str) -> None:
+async def test_login_inactive_user_returns_403(
+    client: AsyncClient, database_url: str
+) -> None:
     """is_active=false 用户凭据正确时返回 403。"""
     email = unique_email("inactive")
     password = "password123"
-    await _seed_inactive_user(database_url, email=email, password=password)
+    await seed_inactive_user(database_url, email=email, password=password)
 
     result: LoginResult = await login_user(client, email=email, password=password)
     assert result.status_code == 403
