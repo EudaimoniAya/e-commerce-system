@@ -1,7 +1,7 @@
 """catalog 域 GET /shops/me/products integration 测试（TDD 红阶段）。"""
 
 import pytest
-from httpx import Response
+from httpx import AsyncClient, Response
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.support.builders import unique_category_name
@@ -20,7 +20,7 @@ from tests.support.results import (
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_returns_200_with_all_products(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -77,7 +77,7 @@ async def test_get_my_products_returns_200_with_all_products(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_returns_404_when_no_shop(
-    client, authenticated_user: AuthContext
+    client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
     """已认证但无店铺的用户 GET /shops/me/products 返回 404。"""
     registered = authenticated_user.root.step(RegisterResult)
@@ -96,7 +96,7 @@ async def test_get_my_products_returns_404_when_no_shop(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_supports_pagination(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:

@@ -3,7 +3,7 @@
 import uuid
 
 import pytest
-from httpx import Response
+from httpx import AsyncClient, Response
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.support.builders import unique_category_name
@@ -16,7 +16,7 @@ from tests.support.results import CategoryResult, LoginResult, ProductResult, Re
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_products_returns_only_published_active(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -64,7 +64,7 @@ async def test_get_public_products_returns_only_published_active(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_products_filters_by_category_id(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -121,7 +121,7 @@ async def test_get_public_products_filters_by_category_id(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_product_detail_returns_200_when_published(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -159,7 +159,7 @@ async def test_get_public_product_detail_returns_200_when_published(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_product_detail_returns_404_when_unpublished(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -196,7 +196,7 @@ async def test_get_public_product_detail_returns_404_when_unpublished(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_public_product_detail_returns_404_when_shop_closed(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:

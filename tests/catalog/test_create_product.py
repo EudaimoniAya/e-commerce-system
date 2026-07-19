@@ -3,7 +3,7 @@
 import uuid
 
 import pytest
-from httpx import Response
+from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ProductResponse
 from tests.support.builders import build_product_create, unique_category_name
@@ -16,7 +16,7 @@ from tests.support.results import CategoryResult, LoginResult, RegisterResult, S
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_success_returns_201(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -66,7 +66,7 @@ async def test_create_product_success_returns_201(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_closed_shop_returns_422(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -112,7 +112,7 @@ async def test_create_product_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_no_shop_returns_404(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     authenticated_user: AuthContext,
 ) -> None:

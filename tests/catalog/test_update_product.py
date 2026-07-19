@@ -1,7 +1,7 @@
 """catalog 域 PATCH /products/{id} integration 测试（TDD 红阶段）。"""
 
 import pytest
-from httpx import Response
+from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ProductResponse
 from tests.support.builders import unique_category_name
@@ -21,7 +21,7 @@ from tests.support.results import (
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_success_returns_200(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -64,7 +64,7 @@ async def test_patch_product_success_returns_200(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_other_shop_returns_403(
-    client, admin_auth_headers: AdminAuthContext
+    client: AsyncClient, admin_auth_headers: AdminAuthContext
 ) -> None:
     """店主 PATCH 其他店铺商品返回 403。"""
     owner_a: PipelineResult = await register_and_open_shop(client)
@@ -103,7 +103,7 @@ async def test_patch_product_other_shop_returns_403(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_closed_shop_returns_422(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -151,7 +151,7 @@ async def test_patch_product_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_stock_zero_returns_200(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -192,7 +192,7 @@ async def test_patch_product_stock_zero_returns_200(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_delist_sets_is_published_false(
-    client,
+    client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
