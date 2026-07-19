@@ -29,6 +29,14 @@ packages = ["app"]
 line-length = 88
 target-version = "py313"
 
+[tool.ruff.lint]
+# tests/ 强制类型注解；app/alembic 暂不启用 ANN（见 per-file-ignores）
+extend-select = ["ANN"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/**/*.py" = ["ANN"]
+"alembic/**/*.py" = ["ANN"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

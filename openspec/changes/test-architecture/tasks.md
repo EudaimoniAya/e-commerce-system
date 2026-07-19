@@ -40,14 +40,14 @@
 
 ## 7. 目录与 ops 探针
 
-- [ ] 7.1 创建 `tests/ops/` 并迁移 `test_health.py`、`test_readiness.py`、`test_migration_smoke.py`
-- [ ] 7.2 添加 `tests/ops/__init__.py`；确认 pytest 收集路径正常
+- [x] 7.1 创建 `tests/ops/` 并迁移 `test_health.py`、`test_readiness.py`、`test_migration_smoke.py`
+- [x] 7.2 添加 `tests/ops/__init__.py`；确认 pytest 收集路径正常
 
 ## 8. Enforcement
 
-- [ ] 8.1 `pyproject.toml`：对 `tests/` 启用 ruff ANN 规则
-- [ ] 8.2 Taskfile/CI：grep 禁止 `from tests.<domain>.test_` 互 import
-- [ ] 8.3 `uv run ruff check .` 与 grep 脚本本地验证
+- [x] 8.1 `pyproject.toml`：对 `tests/` 启用 ruff ANN 规则
+- [x] 8.2 Taskfile/CI：grep 禁止 `from tests.<domain>.test_` 互 import
+- [x] 8.3 `uv run ruff check .` 与 grep 脚本本地验证
 
 ## 9. 验证与归档准备
 
