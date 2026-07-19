@@ -6,61 +6,11 @@ import pytest
 from httpx import Response
 
 from app.catalog.schemas import ProductResponse
-from tests.support.helpers import create_category
 from tests.support.builders import build_product_create, unique_category_name
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.pipeline import PipelineResult
+from tests.support.helpers import create_category
 from tests.support.projections import bearer_headers
 from tests.support.results import CategoryResult, LoginResult, RegisterResult, ShopResult
-
-
-def _owner_pipeline(owner: ShopOwnerContext | PipelineResult) -> PipelineResult:
-    """统一从 fixture Context 或 orchestrator Pipeline 取 PipelineResult。"""
-    if isinstance(owner, ShopOwnerContext):
-        return owner.root
-    return owner
-
-
-async def _create_category_for_product(
-    client, admin_auth_headers: AdminAuthContext
-) -> str:
-    """管理员创建测试用类目，返回 category id。"""
-    login = admin_auth_headers.root.step(LoginResult)
-    assert login.status_code == 200
-    result: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(login),
-        name=unique_category_name("product"),
-    )
-    assert result.status_code == 201
-    assert result.body is not None
-    return result.body.id
-
-
-async def _create_product(
-    client,
-    admin_auth_headers: AdminAuthContext,
-    shop_owner: ShopOwnerContext | PipelineResult,
-    *,
-    is_published: bool = False,
-    category_id: str | None = None,
-) -> ProductResponse:
-    """店主创建商品并返回 ProductResponse。"""
-    if category_id is None:
-        category_id = await _create_category_for_product(client, admin_auth_headers)
-    product_request = build_product_create(
-        category_ids=[category_id],
-        primary_category_id=category_id,
-        is_published=is_published,
-    )
-    pipeline = _owner_pipeline(shop_owner)
-    response: Response = await client.post(
-        "/products",
-        json=product_request.model_dump(mode="json"),
-        headers=bearer_headers(pipeline.step(RegisterResult)),
-    )
-    assert response.status_code == 201
-    return ProductResponse.model_validate(response.json())
 
 
 @pytest.mark.integration
@@ -75,7 +25,17 @@ async def test_create_product_success_returns_201(
     assert shop_result.status_code == 201
     assert shop_result.body is not None
 
-    category_id = await _create_category_for_product(client, admin_auth_headers)
+    admin_login = admin_auth_headers.root.step(LoginResult)
+    assert admin_login.status_code == 200
+    category: CategoryResult = await create_category(
+        client,
+        headers=bearer_headers(admin_login),
+        name=unique_category_name("product"),
+    )
+    assert category.status_code == 201
+    assert category.body is not None
+    category_id = category.body.id
+
     product_request = build_product_create(
         description="测试商品简介",
         category_ids=[category_id],
@@ -121,7 +81,17 @@ async def test_create_product_closed_shop_returns_422(
     )
     assert patch_response.status_code == 200
 
-    category_id = await _create_category_for_product(client, admin_auth_headers)
+    admin_login = admin_auth_headers.root.step(LoginResult)
+    assert admin_login.status_code == 200
+    category: CategoryResult = await create_category(
+        client,
+        headers=bearer_headers(admin_login),
+        name=unique_category_name("product"),
+    )
+    assert category.status_code == 201
+    assert category.body is not None
+    category_id = category.body.id
+
     product_request = build_product_create(
         category_ids=[category_id],
         primary_category_id=category_id,
@@ -150,7 +120,17 @@ async def test_create_product_no_shop_returns_404(
     registered = authenticated_user.root.step(RegisterResult)
     assert registered.status_code == 201
 
-    category_id = await _create_category_for_product(client, admin_auth_headers)
+    admin_login = admin_auth_headers.root.step(LoginResult)
+    assert admin_login.status_code == 200
+    category: CategoryResult = await create_category(
+        client,
+        headers=bearer_headers(admin_login),
+        name=unique_category_name("product"),
+    )
+    assert category.status_code == 201
+    assert category.body is not None
+    category_id = category.body.id
+
     product_request = build_product_create(
         category_ids=[category_id],
         primary_category_id=category_id,

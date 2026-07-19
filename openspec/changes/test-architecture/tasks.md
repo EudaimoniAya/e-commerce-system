@@ -27,8 +27,8 @@
 
 ## 5. Catalog 测试迁移
 
-- [ ] 5.1 删除 `test_create_product.py` 内 `_create_*` helper；改用 support `create_product` / `create_category`
-- [ ] 5.2 移除 `test_public_products.py`、`test_my_products.py`、`test_update_product.py` 对 `test_create_product` 的 cross-import
+- [x] 5.1 删除 `test_create_product.py` 内 `_create_*` helper；改用 support `create_product` / `create_category`
+- [x] 5.2 移除 `test_public_products.py`、`test_my_products.py`、`test_update_product.py` 对 `test_create_product` 的 cross-import
 - [ ] 5.3 迁移 catalog 断言路径：`shop_owner.shop` → `shop_owner.root.step(ShopResult)` 等；Act 保持可见
 - [ ] 5.4 补全 catalog integration tests 的 `client: AsyncClient` 等类型注解
 
