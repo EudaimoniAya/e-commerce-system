@@ -1,21 +1,26 @@
 """integration 测试 HTTP helper 与 orchestrator。"""
 
 import os
+import uuid
+from decimal import Decimal
 
 from httpx import AsyncClient, Response
 
-from app.catalog.schemas import CategoryResponse, ShopResponse
+from app.catalog.schemas import CategoryResponse, ProductResponse, ShopResponse
 from app.user.schemas import TokenResponse
 from tests.support.builders import (
     build_category_create,
     build_login_request,
+    build_product_create,
     build_register_request,
     build_shop_create,
 )
-from tests.support.contexts import AuthContext, ShopOwnerContext
+from tests.support.pipeline import PipelineResult
+from tests.support.projections import bearer_headers
 from tests.support.results import (
     CategoryResult,
     LoginResult,
+    ProductResult,
     RegisterResult,
     ShopResult,
 )
@@ -31,6 +36,10 @@ _DEFAULT_TEST_JWT_SECRET = "test-secret-key-at-least-32-bytes!!"
 
 # integration 测试默认密码（符合 8–32 位规则）
 _DEFAULT_TEST_PASSWORD = "password123"
+
+# migration 003 seed 管理员凭据（见 alembic/versions/003_catalog_shop.py）
+_ADMIN_SEED_EMAIL = "114514yyut@qq.com"
+_ADMIN_SEED_PASSWORD = "1919810810"
 
 
 def configure_integration_test_env() -> None:
@@ -83,29 +92,11 @@ def _parse_category_body(response: Response) -> CategoryResponse | None:
     return None
 
 
-def _auth_context_from_register(registered: RegisterResult) -> AuthContext:
-    """由 RegisterResult 构造 AuthContext。"""
-    if registered.status_code != 201 or registered.body is None:
-        return AuthContext(
-            status_code=registered.status_code,
-            body=registered.body,
-            email=registered.email,
-            password=registered.password,
-            access_token=None,
-            headers={},
-            user=None,
-        )
-
-    access_token = registered.body.access_token
-    return AuthContext(
-        status_code=registered.status_code,
-        body=registered.body,
-        email=registered.email,
-        password=registered.password,
-        access_token=access_token,
-        headers=auth_headers(access_token),
-        user=registered.body.user,
-    )
+def _parse_product_body(response: Response) -> ProductResponse | None:
+    """2xx 时解析 ProductResponse，否则返回 None。"""
+    if 200 <= response.status_code < 300 and response.content:
+        return ProductResponse.model_validate(response.json())
+    return None
 
 
 async def register_user(
@@ -155,6 +146,16 @@ async def login_user(
     )
 
 
+async def login_admin(client: AsyncClient) -> PipelineResult:
+    """使用 migration seed 管理员登录，返回 ``PipelineResult(steps=(LoginResult,))``。"""
+    logged_in = await login_user(
+        client,
+        email=_ADMIN_SEED_EMAIL,
+        password=_ADMIN_SEED_PASSWORD,
+    )
+    return PipelineResult(steps=(logged_in,))
+
+
 async def create_shop(
     client: AsyncClient,
     *,
@@ -190,51 +191,29 @@ async def register_and_open_shop(
     shop_name: str | None = None,
     description: str | None = None,
     logo_url: str | None = None,
-) -> ShopOwnerContext:
-    """注册用户并调用 POST /shops，返回 ShopOwnerContext。"""
+) -> PipelineResult:
+    """注册用户并调用 POST /shops，返回 ``PipelineResult``。
+
+    注册失败时 steps 仅含 ``RegisterResult``；成功开店后为
+    ``(RegisterResult, ShopResult)``。
+    """
     ensure_integration_auth_env()
     registered: RegisterResult = await register_user(
         client, email=email, password=password
     )
-    auth = _auth_context_from_register(registered)
-    shop_request = build_shop_create(
-        name=shop_name,
-        description=description,
-        logo_url=logo_url,
-    )
 
     if registered.status_code != 201 or registered.body is None:
-        # 注册未完整成功时不得沿用 201，避免后续用空 headers 触发 401
-        failed_status = registered.status_code if registered.status_code != 201 else 0
-        return ShopOwnerContext(
-            status_code=failed_status,
-            body=None,
-            auth=auth,
-            shop=None,
-            shop_request=shop_request,
-            headers={},
-            email=registered.email,
-            password=registered.password,
-        )
+        return PipelineResult(steps=(registered,))
 
     ensure_integration_auth_env()
     shop_result: ShopResult = await create_shop(
         client,
-        headers=auth.headers,
+        headers=bearer_headers(registered),
         name=shop_name,
         description=description,
         logo_url=logo_url,
     )
-    return ShopOwnerContext(
-        status_code=shop_result.status_code,
-        body=shop_result.body,
-        auth=auth,
-        shop=shop_result.body,
-        shop_request=shop_result.request,
-        headers=auth.headers,
-        email=registered.email,
-        password=registered.password,
-    )
+    return PipelineResult(steps=(registered, shop_result))
 
 
 async def create_category(
@@ -255,5 +234,48 @@ async def create_category(
     return CategoryResult(
         status_code=response.status_code,
         body=_parse_category_body(response),
+        request=request,
+    )
+
+
+async def create_product(
+    client: AsyncClient,
+    *,
+    shop_owner: PipelineResult,
+    category: CategoryResult,
+    name: str | None = None,
+    price: str | Decimal = "99.00",
+    stock: int = 10,
+    description: str | None = None,
+    image_url: str | None = None,
+    is_published: bool = False,
+) -> ProductResult:
+    """调用 POST /products，返回 ProductResult（不 assert 成功状态码）。
+
+    扇入前置 ``shop_owner`` / ``category`` 须由 Case 或 fixture 持有；
+    ``category.body`` 为 None 时使用占位 UUID，由 API 如实返回错误。
+    """
+    ensure_integration_auth_env()
+    category_id = (
+        category.body.id if category.body is not None else str(uuid.uuid4())
+    )
+    request = build_product_create(
+        name=name,
+        price=price,
+        stock=stock,
+        description=description,
+        image_url=image_url,
+        is_published=is_published,
+        category_ids=[category_id],
+        primary_category_id=category_id,
+    )
+    response: Response = await client.post(
+        "/products",
+        json=request.model_dump(mode="json"),
+        headers=bearer_headers(shop_owner.step(RegisterResult)),
+    )
+    return ProductResult(
+        status_code=response.status_code,
+        body=_parse_product_body(response),
         request=request,
     )

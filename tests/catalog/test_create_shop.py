@@ -14,7 +14,9 @@ from tests.conftest import (
 )
 from tests.support.builders import build_shop_create
 from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.results import RegisterResult
+from tests.support.pipeline import PipelineResult
+from tests.support.projections import bearer_headers
+from tests.support.results import RegisterResult, ShopResult
 
 
 @pytest.mark.integration
@@ -23,8 +25,10 @@ async def test_create_shop_success_returns_201(
     client, authenticated_user: AuthContext
 ) -> None:
     """已认证用户提交有效店名开店成功，返回 201 与完整店铺资料。"""
-    assert authenticated_user.status_code == 201
-    assert authenticated_user.user is not None
+    registered = authenticated_user.root.step(RegisterResult)
+    assert registered.status_code == 201
+    assert registered.body is not None
+    assert registered.body.user is not None
 
     shop_request = build_shop_create(
         description="测试店铺简介",
@@ -33,7 +37,7 @@ async def test_create_shop_success_returns_201(
     response: Response = await client.post(
         "/shops",
         json=shop_request.model_dump(mode="json"),
-        headers=authenticated_user.headers,
+        headers=bearer_headers(registered),
     )
 
     assert response.status_code == 201
@@ -42,7 +46,7 @@ async def test_create_shop_success_returns_201(
     assert body.description == shop_request.description
     assert body.logo_url == shop_request.logo_url
     assert body.status == "active"
-    assert body.owner_user_id == authenticated_user.user.id
+    assert body.owner_user_id == registered.body.user.id
     uuid.UUID(body.id)
 
 
@@ -52,12 +56,12 @@ async def test_create_shop_duplicate_returns_422(
     client, shop_owner: ShopOwnerContext
 ) -> None:
     """同一用户重复开店返回 422。"""
-    assert shop_owner.status_code == 201
+    assert shop_owner.root.step(ShopResult).status_code == 201
 
     response: Response = await client.post(
         "/shops",
         json=build_shop_create().model_dump(mode="json"),
-        headers=shop_owner.headers,
+        headers=bearer_headers(shop_owner.root.step(RegisterResult)),
     )
 
     assert response.status_code == 422
@@ -71,8 +75,8 @@ async def test_create_shop_duplicate_returns_422(
 async def test_create_shop_name_conflict_returns_422(client) -> None:
     """店名已被其他店铺使用时返回 422。"""
     shop_name = unique_shop_name("conflict")
-    first: ShopOwnerContext = await register_and_open_shop(client, shop_name=shop_name)
-    assert first.status_code == 201
+    first: PipelineResult = await register_and_open_shop(client, shop_name=shop_name)
+    assert first.step(ShopResult).status_code == 201
 
     second_user: RegisterResult = await register_user(client)
     assert second_user.status_code == 201

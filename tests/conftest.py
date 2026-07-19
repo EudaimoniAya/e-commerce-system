@@ -8,12 +8,13 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from tests.support.actions import (
-    _auth_context_from_register,
     auth_headers,
     configure_integration_test_env,
     create_category,
+    create_product,
     create_shop,
     ensure_integration_auth_env,
+    login_admin,
     login_user,
     register_and_open_shop,
     register_user,
@@ -25,6 +26,7 @@ from tests.support.builders import (
     unique_shop_name,
 )
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.support.pipeline import PipelineResult
 from tests.support.results import (
     CategoryResult,
     LoginResult,
@@ -51,9 +53,11 @@ __all__ = [
     "authenticated_user",
     "client",
     "create_category",
+    "create_product",
     "create_shop",
     "database_url",
     "db_session",
+    "login_admin",
     "login_user",
     "register_and_open_shop",
     "register_user",
@@ -125,47 +129,48 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 async def authenticated_user(client: AsyncClient) -> AuthContext:
-    """注册成功并返回 access_token 与 Bearer 请求头（供 /users/me 等已认证端点）。"""
+    """注册成功后的极薄 AuthContext（供 /users/me 等已认证端点）。"""
     _ensure_integration_auth_env()
     registered: RegisterResult = await register_user(client)
-    return _auth_context_from_register(registered)
+    if registered.status_code != 201 or registered.body is None:
+        pytest.fail(
+            f"注册 Setup 失败（status={registered.status_code}），"
+            "authenticated_user fixture 要求注册成功"
+        )
+    return AuthContext(root=PipelineResult(steps=(registered,)))
 
 
 @pytest.fixture
 async def shop_owner(client: AsyncClient) -> ShopOwnerContext:
-    """注册并开店成功，返回 token、headers 与店铺资料（供 catalog integration 测试）。"""
-    return await register_and_open_shop(client)
-
-
-# migration 003 seed 管理员凭据（见 alembic/versions/003_catalog_shop.py）
-_ADMIN_SEED_EMAIL = "114514yyut@qq.com"
-_ADMIN_SEED_PASSWORD = "1919810810"
+    """注册并开店成功后的极薄 ShopOwnerContext（供 catalog integration 测试）。"""
+    root = await register_and_open_shop(client)
+    try:
+        shop = root.step(ShopResult)
+    except LookupError:
+        reg = root.step(RegisterResult)
+        pytest.fail(
+            f"开店 Setup 未产生 ShopResult（register status={reg.status_code}）"
+        )
+    if shop.status_code != 201 or shop.body is None:
+        pytest.fail(
+            f"开店 Setup 失败（status={shop.status_code}），"
+            "shop_owner fixture 要求开店成功"
+        )
+    return ShopOwnerContext(root=root)
 
 
 @pytest.fixture
 async def admin_auth_headers(client: AsyncClient) -> AdminAuthContext:
-    """seed 管理员登录，返回 token 与 Bearer 请求头（供 POST /categories 等 admin 端点）。"""
-    _ensure_integration_auth_env()
-    logged_in: LoginResult = await login_user(
-        client,
-        email=_ADMIN_SEED_EMAIL,
-        password=_ADMIN_SEED_PASSWORD,
-    )
+    """seed 管理员登录后的极薄 AdminAuthContext（供 POST /categories 等 admin 端点）。"""
+    root = await login_admin(client)
+    logged_in = root.step(LoginResult)
     if logged_in.status_code != 200 or logged_in.body is None:
         pytest.fail(
             f"seed 管理员登录失败（status={logged_in.status_code}），"
             "请确认 ecommerce_test 已 migrate 且 seed admin 存在"
         )
 
-    access_token = logged_in.body.access_token
-    if not access_token:
+    if not logged_in.body.access_token:
         pytest.fail("seed 管理员登录响应缺少 access_token")
 
-    return AdminAuthContext(
-        status_code=logged_in.status_code,
-        body=logged_in.body,
-        email=logged_in.email,
-        password=logged_in.password,
-        access_token=access_token,
-        headers=auth_headers(access_token),
-    )
+    return AdminAuthContext(root=root)

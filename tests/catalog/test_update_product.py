@@ -7,6 +7,9 @@ from app.catalog.schemas import ProductResponse
 from tests.catalog.test_create_product import _create_product
 from tests.conftest import register_and_open_shop
 from tests.support.contexts import AdminAuthContext, ShopOwnerContext
+from tests.support.pipeline import PipelineResult
+from tests.support.projections import bearer_headers
+from tests.support.results import RegisterResult, ShopResult
 
 
 @pytest.mark.integration
@@ -17,7 +20,8 @@ async def test_patch_product_success_returns_200(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 PATCH 本店商品合法字段成功，返回 200 与 ProductResponse。"""
-    assert shop_owner.status_code == 201
+    assert shop_owner.root.step(ShopResult).status_code == 201
+    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
 
     product = await _create_product(
         client,
@@ -29,7 +33,7 @@ async def test_patch_product_success_returns_200(
     response: Response = await client.patch(
         f"/products/{product.id}",
         json={"is_published": True, "description": "更新后的简介"},
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
 
     assert response.status_code == 200
@@ -45,11 +49,11 @@ async def test_patch_product_other_shop_returns_403(
     client, admin_auth_headers: AdminAuthContext
 ) -> None:
     """店主 PATCH 其他店铺商品返回 403。"""
-    owner_a: ShopOwnerContext = await register_and_open_shop(client)
-    assert owner_a.status_code == 201
+    owner_a: PipelineResult = await register_and_open_shop(client)
+    assert owner_a.step(ShopResult).status_code == 201
 
-    owner_b: ShopOwnerContext = await register_and_open_shop(client)
-    assert owner_b.status_code == 201
+    owner_b: PipelineResult = await register_and_open_shop(client)
+    assert owner_b.step(ShopResult).status_code == 201
 
     product = await _create_product(
         client,
@@ -60,7 +64,7 @@ async def test_patch_product_other_shop_returns_403(
     response: Response = await client.patch(
         f"/products/{product.id}",
         json={"name": "越权修改"},
-        headers=owner_b.headers,
+        headers=bearer_headers(owner_b.step(RegisterResult)),
     )
 
     assert response.status_code == 403
@@ -74,7 +78,8 @@ async def test_patch_product_closed_shop_returns_422(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店铺 closed 时 PATCH 本店商品返回 422。"""
-    assert shop_owner.status_code == 201
+    assert shop_owner.root.step(ShopResult).status_code == 201
+    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
 
     product = await _create_product(
         client,
@@ -85,14 +90,14 @@ async def test_patch_product_closed_shop_returns_422(
     patch_shop: Response = await client.patch(
         "/shops/me",
         json={"status": "closed"},
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
     assert patch_shop.status_code == 200
 
     response: Response = await client.patch(
         f"/products/{product.id}",
         json={"name": "closed 店修改"},
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
 
     assert response.status_code == 422
@@ -109,7 +114,8 @@ async def test_patch_product_stock_zero_returns_200(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 PATCH 本店商品 stock 为 0 成功返回 200。"""
-    assert shop_owner.status_code == 201
+    assert shop_owner.root.step(ShopResult).status_code == 201
+    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
 
     product = await _create_product(
         client,
@@ -121,7 +127,7 @@ async def test_patch_product_stock_zero_returns_200(
     response: Response = await client.patch(
         f"/products/{product.id}",
         json={"stock": 0},
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
 
     assert response.status_code == 200
@@ -137,7 +143,8 @@ async def test_patch_product_delist_sets_is_published_false(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主通过 PATCH is_published=false 下架商品，公开 GET 返回 404。"""
-    assert shop_owner.status_code == 201
+    assert shop_owner.root.step(ShopResult).status_code == 201
+    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
 
     product = await _create_product(
         client,
@@ -149,7 +156,7 @@ async def test_patch_product_delist_sets_is_published_false(
     patch_response: Response = await client.patch(
         f"/products/{product.id}",
         json={"is_published": False},
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
     assert patch_response.status_code == 200
     assert ProductResponse.model_validate(patch_response.json()).is_published is False

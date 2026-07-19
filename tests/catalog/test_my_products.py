@@ -6,6 +6,8 @@ from httpx import Response
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.catalog.test_create_product import _create_product
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.support.projections import bearer_headers
+from tests.support.results import LoginResult, RegisterResult, ShopResult
 
 
 @pytest.mark.integration
@@ -16,7 +18,8 @@ async def test_get_my_products_returns_200_with_all_products(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 GET /shops/me/products 返回 200，含未上架商品。"""
-    assert shop_owner.status_code == 201
+    assert shop_owner.root.step(ShopResult).status_code == 201
+    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
 
     published = await _create_product(
         client,
@@ -33,7 +36,7 @@ async def test_get_my_products_returns_200_with_all_products(
 
     response: Response = await client.get(
         "/shops/me/products",
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
 
     assert response.status_code == 200
@@ -55,11 +58,12 @@ async def test_get_my_products_returns_404_when_no_shop(
     client, authenticated_user: AuthContext
 ) -> None:
     """已认证但无店铺的用户 GET /shops/me/products 返回 404。"""
-    assert authenticated_user.status_code == 201
+    registered = authenticated_user.root.step(RegisterResult)
+    assert registered.status_code == 201
 
     response: Response = await client.get(
         "/shops/me/products",
-        headers=authenticated_user.headers,
+        headers=bearer_headers(registered),
     )
 
     assert response.status_code == 404
@@ -75,8 +79,9 @@ async def test_get_my_products_supports_pagination(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """GET /shops/me/products 支持 limit 与 offset 分页。"""
-    assert admin_auth_headers.status_code == 200
-    assert shop_owner.status_code == 201
+    assert admin_auth_headers.root.step(LoginResult).status_code == 200
+    assert shop_owner.root.step(ShopResult).status_code == 201
+    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
 
     created_ids: list[str] = []
     for _ in range(3):
@@ -90,7 +95,7 @@ async def test_get_my_products_supports_pagination(
     first_page: Response = await client.get(
         "/shops/me/products",
         params={"limit": 2, "offset": 0},
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
     assert first_page.status_code == 200
     first_body = PaginatedProducts.model_validate(first_page.json())
@@ -102,7 +107,7 @@ async def test_get_my_products_supports_pagination(
     second_page: Response = await client.get(
         "/shops/me/products",
         params={"limit": 2, "offset": 2},
-        headers=shop_owner.headers,
+        headers=owner_headers,
     )
     assert second_page.status_code == 200
     second_body = PaginatedProducts.model_validate(second_page.json())

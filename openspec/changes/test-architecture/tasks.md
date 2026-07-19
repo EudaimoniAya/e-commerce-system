@@ -13,11 +13,11 @@
 
 ## 3. Context 与 orchestrator 重构
 
-- [ ] 3.1 重构 `*Context` 为极薄 `root: PipelineResult`（`ShopOwnerContext`、`AdminAuthContext`、`AuthContext`）
-- [ ] 3.2 `register_and_open_shop` 改返 `PipelineResult`（不再返 `ShopOwnerContext`）
-- [ ] 3.3 新增 `login_admin` orchestrator → `PipelineResult(steps=(LoginResult,))`（或等价）
-- [ ] 3.4 新增 `create_product(client, *, shop_owner: PipelineResult, category: CategoryResult, ...) -> ProductResult`（不 assert 201）
-- [ ] 3.5 移除 helper 内成功 assert；移除 `_auth_context_from_register` 在 orchestrator 路径上的使用
+- [x] 3.1 重构 `*Context` 为极薄 `root: PipelineResult`（`ShopOwnerContext`、`AdminAuthContext`、`AuthContext`）
+- [x] 3.2 `register_and_open_shop` 改返 `PipelineResult`（不再返 `ShopOwnerContext`）
+- [x] 3.3 新增 `login_admin` orchestrator → `PipelineResult(steps=(LoginResult,))`（或等价）
+- [x] 3.4 新增 `create_product(client, *, shop_owner: PipelineResult, category: CategoryResult, ...) -> ProductResult`（不 assert 201）
+- [x] 3.5 移除 helper 内成功 assert；移除 `_auth_context_from_register` 在 orchestrator 路径上的使用
 
 ## 4. Fixture 层（fail-fast）
 
