@@ -1,0 +1,115 @@
+---
+description: 测试四层架构、PipelineResult 数据流、Case/Support 纪律与 fail-fast fixture
+globs: tests/**/*.py,tests/conftest.py,.cursor/rules/test-architecture.mdc
+alwaysApply: false
+---
+
+# 测试架构纪律
+
+OpenSpec：`test-architecture` + 修订 `integration-test-typing`。  
+旧反模式对照：[docs/troubleshooting/测试架构-旧模式反模式记录.md](../../docs/troubleshooting/测试架构-旧模式反模式记录.md)
+
+## 四层职责
+
+| 层 | 位置 | 职责 |
+|----|------|------|
+| **Case** | `tests/**/test_*.py` | Assert-First；Act 在 Case 可见；主体是 assert |
+| **Fixture** | `tests/conftest.py` | 生命周期 + 注入 `*Context`；Setup **fail-fast** |
+| **Support** | `tests/support/` | helper、`build_*`、`*Result`、`PipelineResult`、seeds |
+| **Utilities** | support 内纯函数 | `bearer_headers` 等投影，无 HTTP/DB |
+
+## Case 层：禁止
+
+```python
+# ✗ test 文件内可复用 HTTP helper
+async def _create_product(client, ...): ...
+
+# ✗ test 互 import
+from tests.catalog.test_create_product import _create_product
+
+# ✗ test 内 DB seed
+async def _seed_inactive_user(database_url, ...): ...
+```
+
+**允许**：`test_*` 函数、模块级常量；`tests/unit/**` 内 file-local baseline（如 `_valid_*_kwargs`），且 **不** import support。
+
+Case 参数 **MUST** 注解（如 `client: AsyncClient`）。简单 GET 的 Act **MAY** inline `client.get` + `model_validate`。
+
+## Support：helper 与 orchestrator
+
+**原子 helper**（一次 HTTP）→ 单步 `*Result`（`status_code`、`body`、可选 `request`）：
+
+```python
+# ✓ 如实返回，不 assert 成功
+async def register_user(client: AsyncClient, ...) -> RegisterResult:
+    response = await client.post("/auth/register", ...)
+    return RegisterResult(status_code=response.status_code, body=..., ...)
+
+# ✗ helper 内替 Case 判定
+assert response.status_code == 201
+```
+
+**禁止**：helper 接收/返回 `*Context`；helper 内 `assert status_code == 201`。
+
+**Orchestrator（组合 helper）返回值**：
+
+| 场景 | 返回 |
+|------|------|
+| 线性多步 HTTP（如注册→开店） | `PipelineResult(steps=(...))` |
+| 扇入后单步新 HTTP（如 `create_product`） | `ProductResult` 等单步 `*Result` |
+| ad-hoc 组合 dataclass（`OpenShopResult(register=, shop=)`） | **禁止** |
+
+扇入 orchestrator 的前置 **MUST** 仍在 Case 作用域（fixture `root`、显式参数）；**禁止** one-shot 黑盒（仅 `client` 入、仅 `ProductResult` 出）。
+
+## PipelineResult
+
+唯一组合容器；链内用 **`step(ResultType)`** / **`all(ResultType)`**，精确 `type(item) is result_type`，不用字符串 helper 名。
+
+```python
+pipeline = await register_and_open_shop(client)
+shop = pipeline.step(ShopResult)
+headers = bearer_headers(pipeline.step(RegisterResult))
+```
+
+MVP：同一 Pipeline 内每种 Result 类型至多一次；多次用 `all(Type)[i]`。
+
+## Context 与 Fixture
+
+```python
+@dataclass(frozen=True)
+class ShopOwnerContext:
+    root: PipelineResult   # 仅此；fail-fast 后的 Setup 世界
+```
+
+- **MUST NOT** 嵌套 `Context.auth`、存储型 `headers` 拷贝（用 `bearer_headers()` 投影）
+- **Act 的 `*Result` MUST NOT** 写入 Context
+- Setup fixture 失败 → `pytest.fail`；失败场景在 Case 内调 helper assert，**不用**失败 fixture
+
+```python
+# ✓ admin_auth_headers 风格
+if logged_in.status_code != 200:
+    pytest.fail("...")
+
+# ✗ shop_owner 透传失败 Context
+return await register_and_open_shop(client)  # 无 fail-fast
+```
+
+## Arrange / Act 铁律
+
+- **被测 API 以外皆为 Arrange**（fixture 内 `register_and_open_shop` 仍是 Arrange）
+- Setup fixture **MUST NOT** 替 Case 执行被测端点（测 `create_product` 时 fixture 不得调用 `create_product`）
+- Act 留在 Case：inline HTTP 或 Act 型 helper；Arrange 可厚，在 support/fixture
+
+## 目录
+
+- 业务 integration：`tests/{domain}/test_*.py`
+- schema 单测：`tests/unit/{domain}/`（不 import support）
+- 运维探针：`tests/ops/`（health、readiness、migration smoke）
+- helper 实现：`tests/support/actions.py`（逐步自 conftest 迁出）
+
+## 生成/审查测试时
+
+1. 新 helper → `tests/support/`，不写入 `test_*.py`
+2. 组合步骤 → `PipelineResult` 或显式 `*Result` 传参，不返胖 Context
+3. 新 fixture → fail-fast + `*Context(root=...)`
+4. 对照 troubleshooting 文档，避免 `_create_product`、test 互 import、helper 返 Context 等反模式
