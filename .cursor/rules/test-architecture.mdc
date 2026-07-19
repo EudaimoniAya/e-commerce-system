@@ -105,7 +105,7 @@ return await register_and_open_shop(client)  # 无 fail-fast
 - 业务 integration：`tests/{domain}/test_*.py`
 - schema 单测：`tests/unit/{domain}/`（不 import support）
 - 运维探针：`tests/ops/`（health、readiness、migration smoke）
-- helper 实现：`tests/support/actions.py`（逐步自 conftest 迁出）
+- helper 实现：`tests/support/helpers.py`（逐步自 conftest 迁出）
 
 ## 生成/审查测试时
 

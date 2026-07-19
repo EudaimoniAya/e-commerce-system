@@ -5,7 +5,7 @@ from httpx import Response
 
 from app.catalog.schemas import ProductResponse
 from tests.catalog.test_create_product import _create_product
-from tests.conftest import register_and_open_shop
+from tests.support.helpers import register_and_open_shop
 from tests.support.contexts import AdminAuthContext, ShopOwnerContext
 from tests.support.pipeline import PipelineResult
 from tests.support.projections import bearer_headers

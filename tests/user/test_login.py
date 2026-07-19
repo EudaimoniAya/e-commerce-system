@@ -3,8 +3,8 @@
 import pytest
 from httpx import Response
 
-from tests.conftest import login_user, register_user, unique_email
-from tests.support.builders import build_login_request
+from tests.support.helpers import login_user, register_user
+from tests.support.builders import build_login_request, unique_email
 from tests.support.results import LoginResult, RegisterResult
 from tests.support.seeds import seed_inactive_user
 

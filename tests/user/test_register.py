@@ -6,8 +6,8 @@ import uuid
 import pytest
 from httpx import Response
 
-from tests.conftest import register_user, unique_email
-from tests.support.builders import build_register_request
+from tests.support.helpers import register_user
+from tests.support.builders import build_register_request, unique_email
 from tests.support.results import RegisterResult
 
 _DEFAULT_NICKNAME_PATTERN = re.compile(r"^用户_\d{14,17}$")

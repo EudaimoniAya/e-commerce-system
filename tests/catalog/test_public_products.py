@@ -7,7 +7,8 @@ from httpx import Response
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.catalog.test_create_product import _create_product
-from tests.conftest import create_category, unique_category_name
+from tests.support.helpers import create_category
+from tests.support.builders import unique_category_name
 from tests.support.contexts import AdminAuthContext, ShopOwnerContext
 from tests.support.projections import bearer_headers
 from tests.support.results import CategoryResult, LoginResult, RegisterResult, ShopResult

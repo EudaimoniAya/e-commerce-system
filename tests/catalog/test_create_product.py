@@ -6,8 +6,8 @@ import pytest
 from httpx import Response
 
 from app.catalog.schemas import ProductResponse
-from tests.conftest import create_category, unique_category_name
-from tests.support.builders import build_product_create
+from tests.support.helpers import create_category
+from tests.support.builders import build_product_create, unique_category_name
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.pipeline import PipelineResult
 from tests.support.projections import bearer_headers

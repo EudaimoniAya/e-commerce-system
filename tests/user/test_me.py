@@ -4,7 +4,7 @@ import pytest
 from httpx import Response
 
 from app.user.schemas import UserResponse
-from tests.conftest import auth_headers
+from tests.support.helpers import auth_headers
 from tests.support.contexts import AuthContext
 from tests.support.projections import bearer_headers
 from tests.support.results import RegisterResult

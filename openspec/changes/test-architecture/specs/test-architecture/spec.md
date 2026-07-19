@@ -19,7 +19,7 @@
 #### Scenario: Support layer owns HTTP helpers
 
 - **WHEN** 测试需要可复用 HTTP 调用
-- **THEN** helper SHALL 位于 `tests/support/`（如 `actions.py`）
+- **THEN** helper SHALL 位于 `tests/support/`（如 `helpers.py`）
 - **AND** SHALL NOT 位于 `test_*.py` 或跨 test 文件 import
 
 ### Requirement: Case layer import discipline

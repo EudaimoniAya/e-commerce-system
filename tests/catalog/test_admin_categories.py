@@ -5,8 +5,8 @@ import uuid
 import pytest
 from httpx import Response
 
-from tests.conftest import create_category, unique_category_name
-from tests.support.builders import build_category_create
+from tests.support.helpers import create_category
+from tests.support.builders import build_category_create, unique_category_name
 from tests.support.contexts import AdminAuthContext, AuthContext
 from tests.support.projections import bearer_headers
 from tests.support.results import CategoryResult, LoginResult, RegisterResult

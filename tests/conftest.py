@@ -1,4 +1,4 @@
-"""pytest 公共 fixture。"""
+"""pytest 公共 fixture 与 support 符号 re-export。"""
 
 import os
 from collections.abc import AsyncIterator
@@ -7,7 +7,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from tests.support.actions import (
+from tests.support.helpers import (
     auth_headers,
     configure_integration_test_env,
     create_category,
@@ -17,6 +17,7 @@ from tests.support.actions import (
     login_admin,
     login_user,
     register_and_open_shop,
+    register_authenticated,
     register_user,
     reset_settings_cache,
 )
@@ -26,25 +27,21 @@ from tests.support.builders import (
     unique_shop_name,
 )
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.pipeline import PipelineResult
 from tests.support.results import (
     CategoryResult,
     LoginResult,
+    ProductResult,
     RegisterResult,
     ShopResult,
 )
 
-# 兼容 infra 等仍从 conftest 引用私有名的测试
-_configure_integration_test_env = configure_integration_test_env
-_reset_settings_cache = reset_settings_cache
-_ensure_integration_auth_env = ensure_integration_auth_env
-
-# 公开 re-export（含 unique_*，供测试模块 `from tests.conftest import ...`）
+# 公开 re-export（fixture + support 符号；Case 亦可直接 from tests.support.*）
 __all__ = [
     "AdminAuthContext",
     "AuthContext",
     "CategoryResult",
     "LoginResult",
+    "ProductResult",
     "RegisterResult",
     "ShopOwnerContext",
     "ShopResult",
@@ -60,6 +57,7 @@ __all__ = [
     "login_admin",
     "login_user",
     "register_and_open_shop",
+    "register_authenticated",
     "register_user",
     "shop_owner",
     "unique_category_name",
@@ -68,8 +66,8 @@ __all__ = [
 ]
 
 # import app 前配置 env 并清缓存，避免 get_settings() 缓存 .env 中的 dev 配置
-_configure_integration_test_env()
-_reset_settings_cache()
+configure_integration_test_env()
+reset_settings_cache()
 
 from app.main import app  # noqa: E402
 
@@ -77,8 +75,8 @@ from app.main import app  # noqa: E402
 @pytest.fixture(scope="session", autouse=True)
 def _integration_test_database_url() -> None:
     """session 级再次确保测试 env 与 Settings 缓存一致。"""
-    _configure_integration_test_env()
-    _reset_settings_cache()
+    configure_integration_test_env()
+    reset_settings_cache()
 
 
 @pytest.fixture(scope="session")
@@ -96,7 +94,7 @@ async def _reset_global_database_engine(
         yield
         return
 
-    _ensure_integration_auth_env()
+    ensure_integration_auth_env()
     from app.infra.database import reset_engine
 
     await reset_engine()
@@ -129,20 +127,20 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 async def authenticated_user(client: AsyncClient) -> AuthContext:
-    """注册成功后的极薄 AuthContext（供 /users/me 等已认证端点）。"""
-    _ensure_integration_auth_env()
-    registered: RegisterResult = await register_user(client)
+    """注册成功后的极薄 AuthContext（orchestrator → fail-fast → Context）。"""
+    root = await register_authenticated(client)
+    registered = root.step(RegisterResult)
     if registered.status_code != 201 or registered.body is None:
         pytest.fail(
             f"注册 Setup 失败（status={registered.status_code}），"
             "authenticated_user fixture 要求注册成功"
         )
-    return AuthContext(root=PipelineResult(steps=(registered,)))
+    return AuthContext(root=root)
 
 
 @pytest.fixture
 async def shop_owner(client: AsyncClient) -> ShopOwnerContext:
-    """注册并开店成功后的极薄 ShopOwnerContext（供 catalog integration 测试）。"""
+    """注册并开店成功后的极薄 ShopOwnerContext（orchestrator → fail-fast → Context）。"""
     root = await register_and_open_shop(client)
     try:
         shop = root.step(ShopResult)
@@ -161,7 +159,7 @@ async def shop_owner(client: AsyncClient) -> ShopOwnerContext:
 
 @pytest.fixture
 async def admin_auth_headers(client: AsyncClient) -> AdminAuthContext:
-    """seed 管理员登录后的极薄 AdminAuthContext（供 POST /categories 等 admin 端点）。"""
+    """seed 管理员登录后的极薄 AdminAuthContext（orchestrator → fail-fast → Context）。"""
     root = await login_admin(client)
     logged_in = root.step(LoginResult)
     if logged_in.status_code != 200 or logged_in.body is None:

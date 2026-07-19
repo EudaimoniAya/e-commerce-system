@@ -156,6 +156,12 @@ async def login_admin(client: AsyncClient) -> PipelineResult:
     return PipelineResult(steps=(logged_in,))
 
 
+async def register_authenticated(client: AsyncClient) -> PipelineResult:
+    """注册用户，返回 ``PipelineResult(steps=(RegisterResult,))``。"""
+    registered = await register_user(client)
+    return PipelineResult(steps=(registered,))
+
+
 async def create_shop(
     client: AsyncClient,
     *,

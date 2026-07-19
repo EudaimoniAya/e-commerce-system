@@ -105,7 +105,7 @@ class ShopOwnerContext:
 
 - `tests/ops/`：`test_health.py`、`test_readiness.py`、`test_migration_smoke.py`（自 health/infra 迁入）
 - `tests/infra/`：保留 `test_auth.py`、`test_database.py` 等非探针
-- `tests/support/actions.py`：HTTP helper / orchestrator（自 conftest 迁出）
+- `tests/support/helpers.py`：HTTP helper / orchestrator（自 conftest 迁出）
 
 ### 8. Enforcement
 
@@ -126,7 +126,7 @@ class ShopOwnerContext:
 ## Migration Plan
 
 1. 撰写旧架构 troubleshooting 文档（签名快照）
-2. 新增 `PipelineResult`、`ProductResult`、`actions.py`、`seeds.py`、`bearer_headers`
+2. 新增 `PipelineResult`、`ProductResult`、`helpers.py`、`seeds.py`、`bearer_headers`
 3. 重构 orchestrator：`register_and_open_shop` → `PipelineResult`；新增 `create_product`
 4. 重构 fixture：fail-fast + `*Context(root=...)`
 5. 迁移 catalog/user tests；删除 test 内 helper 与 cross-import

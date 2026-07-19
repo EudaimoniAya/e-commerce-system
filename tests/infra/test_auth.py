@@ -9,15 +9,15 @@ from fastapi import HTTPException
 
 from app.infra.auth import create_access_token, decode_access_token
 from app.infra.config import get_settings
-from tests.conftest import _ensure_integration_auth_env
+from tests.support.helpers import ensure_integration_auth_env
 
 
 @pytest.fixture(autouse=True)
 def _clear_settings_cache() -> None:
     """每个测试前清 Settings 缓存，避免环境变量污染。"""
-    _ensure_integration_auth_env()
+    ensure_integration_auth_env()
     yield
-    _ensure_integration_auth_env()
+    ensure_integration_auth_env()
 
 
 def test_create_and_decode_access_token_roundtrip() -> None:

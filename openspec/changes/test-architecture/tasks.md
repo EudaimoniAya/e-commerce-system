@@ -9,7 +9,7 @@
 - [x] 2.2 新增 `ProductResult` 至 `tests/support/results.py`
 - [x] 2.3 新增 `tests/support/projections.py`（或 `utils.py`）：`bearer_headers(result)` 纯函数
 - [x] 2.4 新增 `tests/support/seeds.py`：迁移 `seed_inactive_user`（自 `test_login.py`）
-- [x] 2.5 新增 `tests/support/actions.py`：自 `conftest.py` 迁移原子 helper 与 orchestrator
+- [x] 2.5 新增 `tests/support/helpers.py`：自 `conftest.py` 迁移原子 helper 与 orchestrator
 
 ## 3. Context 与 orchestrator 重构
 
@@ -21,9 +21,9 @@
 
 ## 4. Fixture 层（fail-fast）
 
-- [ ] 4.1 重构 `authenticated_user`、`shop_owner`、`admin_auth_headers` fixture：调 orchestrator → fail-fast → `*Context(root=...)`
-- [ ] 4.2 精简 `tests/conftest.py`：保留 session/client/db fixture 与 re-export；helper 实现迁至 `actions.py`
-- [ ] 4.3 更新 `conftest.__all__` 与 import 路径
+- [x] 4.1 重构 `authenticated_user`、`shop_owner`、`admin_auth_headers` fixture：调 orchestrator → fail-fast → `*Context(root=...)`
+- [x] 4.2 精简 `tests/conftest.py`：保留 session/client/db fixture 与 re-export；helper 实现迁至 `helpers.py`
+- [x] 4.3 更新 `conftest.__all__` 与 import 路径
 
 ## 5. Catalog 测试迁移
 

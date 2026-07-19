@@ -4,7 +4,8 @@ import pytest
 from httpx import Response
 
 from app.catalog.schemas import ShopResponse
-from tests.conftest import register_and_open_shop, unique_shop_name
+from tests.support.helpers import register_and_open_shop
+from tests.support.builders import unique_shop_name
 from tests.support.contexts import AuthContext, ShopOwnerContext
 from tests.support.pipeline import PipelineResult
 from tests.support.projections import bearer_headers

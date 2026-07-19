@@ -6,7 +6,7 @@
 
 - 新增全局 capability **`test-architecture`**：四层职责（Case / Fixture / Support / Utilities）、Assert-First、`PipelineResult` 组合容器、`step`/`all` 类型查询、orchestrator 纪律、fail-fast Setup fixture、目录与命名、enforcement（ruff ANN + CI grep）
 - **修订** `integration-test-typing`：Context 改为 `root: PipelineResult` 极薄模型；组合 helper 返 `PipelineResult` 而非胖 Context；移除「Context 嵌套 Context」为主模型的要求
-- 重构 `tests/support/`：新增 `PipelineResult`、`ProductResult`、`actions.py`（从 conftest 迁 helper）、`seeds.py`；`bearer_headers` 等投影函数
+- 重构 `tests/support/`：新增 `PipelineResult`、`ProductResult`、`helpers.py`（从 conftest 迁 helper）、`seeds.py`；`bearer_headers` 等投影函数
 - 重构 `tests/conftest.py`：fixture 仅装配 + fail-fast；helper 迁至 support
 - 重构 `tests/user/`、`tests/catalog/`：移除 test 内 helper 与 test 互 import；补全 `client: AsyncClient` 等注解；Act 可见、Act 结果不进 Context
 - 目录调整：运维探针迁至 `tests/ops/`（health、readiness、migration smoke）
