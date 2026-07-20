@@ -60,3 +60,18 @@ class OrderResponse(BaseModel):
     items: list[OrderItemResponse]
     created_at: datetime
     updated_at: datetime
+
+
+class ShipmentCreate(BaseModel):
+    """卖家发货请求体（可空对象或可选备注）。"""
+
+    note: str | None = Field(default=None, max_length=512)
+
+
+class PaginatedOrders(BaseModel):
+    """分页订单列表。"""
+
+    items: list[OrderResponse]
+    total: int
+    limit: int
+    offset: int

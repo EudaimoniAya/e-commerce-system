@@ -6,6 +6,7 @@ import pytest
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ProductResponse
+from app.ordering.schemas import OrderResponse
 from tests.support.contexts import (
     AdminAuthContext,
     AuthContext,
@@ -108,6 +109,7 @@ async def test_pay_order_non_buyer_returns_403(
     other = await register_authenticated(client)
     other_user = other.step(RegisterResult)
     assert other_user.status_code == 201
+    assert other_user.body is not None
 
     paid = await pay_order(
         client,
@@ -256,9 +258,9 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
             headers=bearer_headers(buyer),
         )
         assert order_get.status_code == 200
-        order_body = order_get.json()
-        assert order_body["status"] == "cancelled"
-        assert order_body["cancel_reason"] == "expired"
+        order = OrderResponse.model_validate(order_get.json())
+        assert order.status == "cancelled"
+        assert order.cancel_reason == "expired"
 
         stock_restored: Response = await client.get(f"/products/{product.body.id}")
         assert stock_restored.status_code == 200

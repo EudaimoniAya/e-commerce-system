@@ -7,7 +7,7 @@ from decimal import Decimal
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import CategoryResponse, ProductResponse, ShopResponse
-from app.ordering.schemas import OrderCreate, OrderResponse
+from app.ordering.schemas import OrderCreate, OrderResponse, ShipmentCreate
 from app.user.schemas import TokenResponse
 from tests.support.builders import (
     build_category_create,
@@ -322,12 +322,16 @@ async def arrange_purchasable_product(
 
     返回 ``PipelineResult(steps=(CategoryResult, ProductResult))``。
     扇入前置 ``shop_owner`` / ``admin`` 须由 Case 或 fixture 持有。
+    类目创建失败时提前返回 ``PipelineResult(steps=(CategoryResult,))``。
     """
     category = await create_category(
         client,
         headers=bearer_headers(admin.step(LoginResult)),
         name=unique_category_name("order"),
     )
+    if category.status_code != 201 or category.body is None:
+        return PipelineResult(steps=(category,))
+
     product = await create_product(
         client,
         shop_owner=shop_owner,
@@ -380,3 +384,105 @@ async def pay_order(
         body=_parse_order_body(response),
         request=None,
     )
+
+
+async def create_shipment(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    order_id: str,
+    note: str | None = None,
+) -> OrderResult:
+    """调用 POST /orders/{id}/shipments，返回 OrderResult（不 assert 成功状态码）。"""
+    ensure_integration_auth_env()
+    request = ShipmentCreate(note=note)
+    response: Response = await client.post(
+        f"/orders/{order_id}/shipments",
+        json=request.model_dump(mode="json", exclude_none=True),
+        headers=headers,
+    )
+    return OrderResult(
+        status_code=response.status_code,
+        body=_parse_order_body(response),
+        request=None,
+    )
+
+
+async def confirm_receipt(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    order_id: str,
+) -> OrderResult:
+    """调用 POST /orders/{id}/confirm-receipt，返回 OrderResult。"""
+    ensure_integration_auth_env()
+    response: Response = await client.post(
+        f"/orders/{order_id}/confirm-receipt",
+        headers=headers,
+    )
+    return OrderResult(
+        status_code=response.status_code,
+        body=_parse_order_body(response),
+        request=None,
+    )
+
+
+async def cancel_order(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    order_id: str,
+) -> OrderResult:
+    """调用 POST /orders/{id}/cancel，返回 OrderResult（不 assert 成功状态码）。"""
+    ensure_integration_auth_env()
+    response: Response = await client.post(
+        f"/orders/{order_id}/cancel",
+        headers=headers,
+    )
+    return OrderResult(
+        status_code=response.status_code,
+        body=_parse_order_body(response),
+        request=None,
+    )
+
+
+async def arrange_confirmed_order(
+    client: AsyncClient,
+    *,
+    shop_owner: PipelineResult,
+    admin: PipelineResult,
+    buyer_headers: dict[str, str],
+    stock: int = 10,
+    qty: int = 1,
+) -> PipelineResult:
+    """Arrange：可购商品 → 下单 → pay → confirmed。
+
+    返回 ``PipelineResult(steps=(CategoryResult, ProductResult, OrderResult))``，
+    其中最后一步 ``OrderResult`` 为支付后的订单（``status=confirmed`` 时 body 可用）。
+    任一步失败时仍如实返回已有 steps（不 assert）；调用方在 Case 内断言。
+    """
+    arranged = await arrange_purchasable_product(
+        client,
+        shop_owner=shop_owner,
+        admin=admin,
+        stock=stock,
+    )
+    category = arranged.step(CategoryResult)
+    product = arranged.step(ProductResult)
+    if product.status_code != 201 or product.body is None:
+        return PipelineResult(steps=(category, product))
+
+    created = await create_order(
+        client,
+        headers=buyer_headers,
+        items=[(product.body.id, qty)],
+    )
+    if created.status_code != 201 or created.body is None:
+        return PipelineResult(steps=(category, product, created))
+
+    paid = await pay_order(
+        client,
+        headers=buyer_headers,
+        order_id=created.body.id,
+    )
+    return PipelineResult(steps=(category, product, paid))

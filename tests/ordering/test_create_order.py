@@ -39,6 +39,7 @@ async def test_create_order_multi_item_same_shop_returns_201(
     assert shop_owner.root.step(ShopResult).status_code == 201
     buyer = authenticated_user.root.step(RegisterResult)
     assert buyer.status_code == 201
+    assert buyer.body is not None
 
     arranged = await arrange_purchasable_product(
         client,
@@ -70,10 +71,9 @@ async def test_create_order_multi_item_same_shop_returns_201(
         headers=bearer_headers(buyer),
         items=[(product_a.body.id, 2), (product_b.body.id, 1)],
     )
-
     assert result.status_code == 201
     assert result.body is not None
-    assert buyer.body is not None
+
     shop = shop_owner.root.step(ShopResult)
     assert shop.body is not None
     body: OrderResponse = result.body
