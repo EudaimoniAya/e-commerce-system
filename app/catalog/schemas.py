@@ -153,6 +153,19 @@ class ProductResponse(BaseModel):
     updated_at: datetime
 
 
+class PurchasableProduct(BaseModel):
+    """可购商品查询 DTO（供 ordering 域下单校验使用，不泄漏 ORM 实例）。"""
+
+    id: str
+    shop_id: str
+    name: str
+    price: str
+    stock: int
+    is_published: bool
+    shop_active: bool
+    owner_user_id: str
+
+
 class PaginatedProducts(BaseModel):
     """分页商品列表。"""
 

@@ -18,8 +18,8 @@
 
 ## 3. catalog 域 — 可购查询与库存预留/释放
 
-- [ ] 3.1 扩展 `app/catalog/schemas.py`：`PurchasableProduct`（或等价）DTO
-- [ ] 3.2 扩展 `repository` + `ShopService`（或拆出库存方法）：批量可购查询、`reserve_stock`（条件更新）、`release_stock`；必要时补 `tests/unit` 或 catalog 侧最小覆盖
+- [x] 3.1 扩展 `app/catalog/schemas.py`：`PurchasableProduct`（或等价）DTO
+- [x] 3.2 扩展 `repository` + `ShopService`（或拆出库存方法）：批量可购查询、`reserve_stock`（条件更新）、`release_stock`；必要时补 `tests/unit` 或 catalog 侧最小覆盖
 
 ## 4. ordering 域实现（绿 · 业务）
 
