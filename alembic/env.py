@@ -13,6 +13,7 @@ from app.infra.database import Base
 # 导入模型以注册 metadata（autogenerate 用）
 import app.catalog.models  # noqa: F401
 import app.infra.models  # noqa: F401
+import app.ordering.models  # noqa: F401
 import app.user.models  # noqa: F401
 
 config = context.config

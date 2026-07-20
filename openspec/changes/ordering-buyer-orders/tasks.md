@@ -12,9 +12,9 @@
 
 ## 2. 配置与迁移 / ORM（绿 · 基础）
 
-- [ ] 2.1 `Settings` / `.env.example` 增加 `ORDER_RESERVATION_TTL_SECONDS`（默认 86400）
-- [ ] 2.2 新增 `app/ordering/models.py`（Order、OrderItem）；`alembic/env.py` 导入 ordering models
-- [ ] 2.3 新增 migration `005`：`orders`、`order_items` 及设计中的索引
+- [x] 2.1 `Settings` / `.env.example` 增加 `ORDER_RESERVATION_TTL_SECONDS`（默认 86400）
+- [x] 2.2 新增 `app/ordering/models.py`（Order、OrderItem）；`alembic/env.py` 导入 ordering models
+- [x] 2.3 新增 migration `005`：`orders`、`order_items` 及设计中的索引
 
 ## 3. catalog 域 — 可购查询与库存预留/释放
 
