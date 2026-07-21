@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域认证、**catalog 域店铺 + 类目/商品垂直切片** 已交付（注册/登录/JWT、`shops` 表、开店/me/patch/公开 GET；平台类目树、商品 CRUD/上下架、公开浏览）；继续扩展 ordering 等 MVP 域
+- **当前阶段**：user 域认证、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单** 已交付（注册/登录/JWT、开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家下单/支付桩/发货/确认收货/取消与懒释放）；继续扩展 engagement 等 MVP 域
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -58,7 +58,7 @@
 |----|------|----------|------|
 | `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
-| `ordering` | 订单、购物车、下单扣库存 | Order, OrderItem, CartItem | MVP + 购物车 |
+| `ordering` | 买家订单、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem | **MVP（买家路径已实现）** |
 | `engagement` | 收藏、浏览记录 | UserFavorite, BrowseEvent | Phase 2 |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
@@ -112,14 +112,14 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（user + catalog + infra）
+### 5.1 当前骨架（user + catalog + ordering + infra）
 
 ```text
 e-commerce-system/
 ├── app/
-│   ├── main.py                   # FastAPI 入口，挂载 health / readiness / user / catalog 路由
+│   ├── main.py                   # FastAPI 入口，挂载 health / readiness / user / catalog / ordering 路由
 │   ├── infra/
-│   │   ├── config.py             # DATABASE_URL、APP_ENV、jwt_* 配置
+│   │   ├── config.py             # DATABASE_URL、APP_ENV、jwt_*、ORDER_RESERVATION_TTL_SECONDS
 │   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
 │   │   ├── auth.py               # PyJWT、OAuth2PasswordBearer、get_current_user_id
 │   │   ├── health/               # 存活探针 GET /health
@@ -132,27 +132,37 @@ e-commerce-system/
 │   │   ├── models.py             # users 表（含 is_admin）
 │   │   ├── schemas.py
 │   │   └── deps.py               # get_current_user、require_admin
-│   └── catalog/                  # 商品目录域（shop + 类目/商品已实现）
-│       ├── router.py             # categories/products/shops 路由
-│       ├── service.py            # 类目、商品、店铺业务逻辑
+│   ├── catalog/                  # 商品目录域（shop + 类目/商品 + 库存预留/释放）
+│   │   ├── router.py             # categories/products/shops 路由
+│   │   ├── service.py            # 类目、商品、店铺、可购查询、reserve/release_stock
+│   │   ├── repository.py
+│   │   ├── models.py             # shops、categories、products、product_categories
+│   │   ├── schemas.py            # 含 PurchasableProduct 等跨域 DTO
+│   │   └── deps.py               # get_current_shop
+│   └── ordering/                 # 订单域（买家发起路径）
+│       ├── router.py             # POST/GET /orders、pay/shipments/confirm-receipt/cancel、GET /shops/me/orders
+│       ├── service.py            # 建单、懒释放 expire_if_needed、状态迁移
 │       ├── repository.py
-│       ├── models.py             # shops、categories、products、product_categories
+│       ├── models.py             # orders、order_items
 │       ├── schemas.py
-│       └── deps.py               # get_current_shop
+│       └── deps.py               # 订单归属解析
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
 │       ├── 002_create_users.py
 │       ├── 003_catalog_shop.py   # users.is_admin + shops 表 + seed 管理员
-│       └── 004_catalog_products.py  # categories、products、product_categories（无 seed）
+│       ├── 004_catalog_products.py  # categories、products、product_categories（无 seed）
+│       └── 0ca23eb664a9_005_ordering_orders.py  # orders、order_items
 ├── tests/
-│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop/category helper
+│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop/category/order helper
 │   ├── health/
 │   ├── infra/
-│   ├── user/                     # 注册/登录/me integration（12 项）
-│   └── catalog/                  # 店铺 + 类目/商品 + seed integration（41 项）
+│   ├── user/                     # 注册/登录/me integration
+│   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
+│   └── ordering/                 # 买家订单 integration（27 项）
 ├── scripts/
-│   └── catalog_shop_curl_smoke.sh
+│   ├── catalog_shop_curl_smoke.sh
+│   └── ordering_buyer_curl_smoke.sh
 ├── .github/workflows/ci.yml      # DATABASE_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
@@ -164,6 +174,12 @@ e-commerce-system/
 **`products` 表（catalog 域）**：`id`（UUID PK）、`shop_id`（FK → `shops.id`）、`name`、`description`、`price`（DECIMAL 10,2，CNY）、`stock`、`is_published`（默认 false）、`image_url`、`created_at`、`updated_at`；索引 `ix_products_shop_id`、`ix_products_is_published`。
 
 **`product_categories` 表（catalog 域）**：`(product_id, category_id)` 复合 PK、`is_primary`（BOOLEAN）；service 保证每个商品至多一个主类目；`primary_category_id` 必须 ∈ `category_ids`。
+
+**`orders` 表（ordering 域）**：`id`（UUID PK）、`buyer_user_id`（FK 语义 → `users.id`）、`shop_id`（FK 语义 → `shops.id`）、`status`（`awaiting_payment` | `confirmed` | `shipped` | `completed` | `cancelled`）、`cancel_reason`（可空）、`total_amount`（DECIMAL 12,2）、`expires_at`（待支付预留截止）、`created_at`、`updated_at`；索引 `ix_orders_buyer_user_id`、`ix_orders_shop_id`、`ix_orders_status`、`ix_orders_expires_at`。跨域仅存 FK 字段，**不**声明跨域 relationship。
+
+**`order_items` 表（ordering 域）**：`id`（UUID PK）、`order_id`（FK → `orders.id`）、`product_id`（快照关联）、`product_name`、`unit_price`（DECIMAL 10,2）、`qty`（> 0）。创建时写入价格与商品名快照；1 订单 = 1 店 + 多行。
+
+**库存预留（catalog ↔ ordering）**：创建订单时 ordering service 在同一事务内调用 catalog `reserve_stock`（条件 `UPDATE ... SET stock=stock-qty WHERE stock>=qty`）；取消或懒过期释放时调用 `release_stock`。ordering **不得** import catalog ORM/repository。
 
 ### 5.2 规划中的完整结构
 
@@ -192,7 +208,13 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── ordering/                     # MVP（待实现）
+├── ordering/                     # MVP（买家路径已实现）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   └── deps.py
 ├── engagement/                   # Phase 2
 ├── events/                       # 后期
 └── ai/                           # 后期
@@ -204,8 +226,8 @@ app/
 
 - 用户注册 / 登录（JWT）
 - 商品 CRUD、类目、上下架
-- 创建订单、查询订单、取消订单
-- 库存扣减与订单快照（价格、商品名）
+- 创建订单、查询订单、取消订单、支付桩、发货、确认收货
+- 库存预留与释放（创建扣减、取消/超时加回；订单行快照价格与商品名）
 - 购物车（Phase 2，归入 ordering 域）
 - 收藏、浏览记录（Phase 2，归入 engagement 域）
 
@@ -219,14 +241,19 @@ app/
 | 多店铺 / 多租户 | 单店 MVP 足够 |
 | SKU 多规格 | 一个 product = 一个 SKU，后期再扩展 |
 
-### 6.3 订单状态（极简）
+### 6.3 订单状态（买家路径）
 
 ```text
-pending → confirmed → completed
-         ↘ cancelled
+awaiting_payment ──pay──▶ confirmed ──shipments──▶ shipped ──confirm-receipt──▶ completed
+       │                      │                      │
+       └──────── cancel / lazy-expire ───────────────┘
+                         ▼
+                    cancelled
 ```
 
-创建订单后扣库存，直接进入 `confirmed`（无支付环节）。
+- 创建订单时**预留库存**（非直接进 confirmed）；`expires_at = now + ORDER_RESERVATION_TTL_SECONDS`（默认 86400 秒）
+- **懒释放**：读单、支付等路径检查过期 → `cancelled` + `cancel_reason=expired` 并释放库存（无 Redis/MQ/周期扫描）
+- 支付为**桩**（无外部渠道）；非法状态迁移 → **409**；跨店/超卖/未上架 → **422**；禁自购 → **403**
 
 ## 7. AI 功能路线图（后期）
 

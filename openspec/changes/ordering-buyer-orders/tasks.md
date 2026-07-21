@@ -34,8 +34,10 @@
 
 ## 6. 文档与 DoD
 
-- [ ] 6.1 更新 `README.md`（订单 API）与 `docs/architecture.md`（ordering 域、状态机、预留 TTL、005 migration）
-- [ ] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
+- [x] 6.1 更新 `README.md`（订单 API）与 `docs/architecture.md`（ordering 域、状态机、预留 TTL、005 migration）
+- [x] 6.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
+
+> **DoD 确认（2026-07-21）**：本地 `devbox run -- task ci` **94 passed**；远程 CI workflow_dispatch on `feature/ordering-buyer-orders`：[run #29789188983](https://github.com/EudaimoniAya/e-commerce-system/actions/runs/29789188983) success。
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§4；§2 完成后做 §3（catalog 库存接口），再做 §4；每个 apply 会话建议只完成 1–2 个 task。
 

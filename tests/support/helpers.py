@@ -301,11 +301,11 @@ def _parse_order_body(response: Response) -> OrderResponse | None:
 def override_order_reservation_ttl(seconds: int) -> None:
     """覆盖订单预留 TTL（秒）并清除 Settings 缓存。
 
-    依赖 ``Settings.order_reservation_ttl_seconds``（Task 2.1）；
-    字段未落地前仅写入环境变量，供后续实现读取。
+    须与 ``ensure_integration_auth_env`` 一并调用，避免清缓存后 Settings
+    重新加载 dev JWT 导致已签发 admin/buyer token 验签 401。
     """
     os.environ["ORDER_RESERVATION_TTL_SECONDS"] = str(seconds)
-    reset_settings_cache()
+    ensure_integration_auth_env()
 
 
 async def arrange_purchasable_product(
