@@ -10,8 +10,15 @@
 - [x] 1.2 编写 `tests/ordering/test_create_order_by_seller.py`（201、`initiated_by=seller`、买家 404、禁用 422、自购 403、**非本店商品 422**、closed 422、401、无店 404）；**不编写** 实现
 - [x] 1.3 编写 `tests/user/test_user_summary.py` 或 unit 覆盖 `get_user_summary`（200 摘要、404、422 禁用）；**不编写** 实现
 - [x] 1.4 扩展 `tests/ordering/test_list_orders.py`：买家建单→店主列表可见；卖家建单→买家列表可见；`initiated_by` 字段；列表路径懒释放（短 TTL）；**不编写** 实现
-- [ ] 1.5 扩展 `tests/ordering/test_pay_order.py`：指定买家 pay 卖家发起的单→confirmed；店主 pay 卖家单→403
-- [ ] 1.6 `devbox run -- task db:up` 后跑新增/扩展测试，确认失败（红）；在本文件备注预期失败原因
+- [x] 1.5 扩展 `tests/ordering/test_pay_order.py`：指定买家 pay 卖家发起的单→confirmed；店主 pay 卖家单→403
+- [x] 1.6 `devbox run -- task db:up` 后跑新增/扩展测试，确认失败（红）；预期失败原因：
+
+  | 测试文件 | 场景 | 失败原因 |
+  |---|---|---|
+  | `test_create_order_by_seller.py` (8 个) | 201/404/422/403/401 | `POST /shops/me/orders` 路由未实现 → **405 Method Not Allowed** |
+  | `test_user_summary.py` (3 个) | 200/404/422 | `UserService.get_user_summary` 方法未实现 → **AttributeError** |
+  | `test_list_orders.py` 新增 (3 个) | 卖家可见/initiated_by/懒释放 | 依赖 `create_order_by_seller` → **405**；`initiated_by` 字段未实现 → **KeyError** |
+  | `test_pay_order.py` 新增 (2 个) | 买家 pay 卖家单/店主 pay→403 | 依赖 `create_order_by_seller` → **405** |
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§4。
 
