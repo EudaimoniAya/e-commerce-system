@@ -23,9 +23,9 @@
 
 ## 4. ordering 域实现（绿 · 业务）
 
-- [ ] 4.1 `app/ordering/schemas.py` + `repository.py`（订单/行 CRUD、条件更新 status）
-- [ ] 4.2 `app/ordering/service.py`：创建（校验同店/自购/可购 + reserve + 快照）、懒释放 `expire_if_needed`、pay 桩、shipments、confirm-receipt、cancel、列表查询
-- [ ] 4.3 `app/ordering/router.py` + `deps.py`；`main.py` 挂载；路由顺序注意 `/shops/me/orders` 与现有 shop 路由共存
+- [x] 4.1 `app/ordering/schemas.py` + `repository.py`（订单/行 CRUD、条件更新 status）
+- [x] 4.2 `app/ordering/service.py`：创建（校验同店/自购/可购 + reserve + 快照）、懒释放 `expire_if_needed`、pay 桩、shipments、confirm-receipt、cancel、列表查询
+- [x] 4.3 `app/ordering/router.py` + `deps.py`；`main.py` 挂载；路由顺序注意 `/shops/me/orders` 与现有 shop 路由共存
 
 ## 5. 本地验证与 CI
 
