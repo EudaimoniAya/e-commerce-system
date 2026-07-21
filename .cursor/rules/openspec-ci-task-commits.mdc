@@ -59,7 +59,7 @@ workflow_dispatch on <branch>: <run-url>
 ```
 
 - **type**：`feat` / `test` / `ci` / `docs` / `build` 等
-- **scope**：change 名（如 `user-auth`）
+- **scope**：**受影响的业务域**（如 `ordering`、`user`），而非 change 名；跨域时写 `(user, ordering)`
 - 正文用 `*` 分条，中文简体
 
 ## 禁止

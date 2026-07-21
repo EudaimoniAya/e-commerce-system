@@ -24,8 +24,8 @@
 
 ## 2. 迁移与 user 域（绿 · 基础）
 
-- [ ] 2.1 `app/user/schemas.py` 增加 `UserSummary`；`UserService.get_user_summary`（404/422）
-- [ ] 2.2 `app/ordering/models.py` 增加 `initiated_by`；migration `006` 追加列并回填 `buyer`
+- [x] 2.1 `app/user/schemas.py` 增加 `UserSummary`；`UserService.get_user_summary`（404/422）
+- [x] 2.2 `app/ordering/models.py` 增加 `initiated_by`；migration `006` 追加列并回填 `buyer`
 
 ## 3. ordering 域实现（绿 · 业务）
 
@@ -44,3 +44,4 @@
 
 - [ ] 5.1 更新 `README.md`（`POST /shops/me/orders`、`initiated_by`、列表懒释放）
 - [ ] 5.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
+- [x] 5.3 审查 `.cursor/rules/openspec-ci-task-commits.mdc`：scope（括号内容）从 change 名改为业务域名（如 `ordering`、`user`）；如无该规则则新增

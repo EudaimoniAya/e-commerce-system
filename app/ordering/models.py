@@ -49,6 +49,12 @@ class Order(Base):
         default="awaiting_payment",
         server_default="awaiting_payment",
     )
+    initiated_by: Mapped[str] = mapped_column(
+        String(16),
+        default="buyer",
+        server_default="buyer",
+        nullable=False,
+    )
     cancel_reason: Mapped[str | None] = mapped_column(
         String(32),
         nullable=True,
