@@ -77,9 +77,9 @@ class UserService:
         )
         return _build_token_response(user)
 
-    async def get_user_summary(self, user_id: str) -> UserSummary:
+    async def get_user_summary(self, user_id: uuid.UUID | str) -> UserSummary:
         """查询用户摘要（跨域只读）。"""
-        user = await self._repository.get_by_id(uuid.UUID(user_id))
+        user = await self._repository.get_by_id(uuid.UUID(str(user_id)))
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -87,7 +87,7 @@ class UserService:
             )
         if not user.is_active:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="User account is disabled",
             )
         return UserSummary(id=str(user.id), nickname=user.nickname)

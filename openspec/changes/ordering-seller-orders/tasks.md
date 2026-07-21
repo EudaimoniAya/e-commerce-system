@@ -31,13 +31,13 @@
 
 - [x] 3.1 `OrderResponse` 等 schema 暴露 `initiated_by`；`SellerOrderCreate` 请求体；**同步更新** `router._to_response` 映射 `initiated_by`
 - [x] 3.2 重构 `OrderService`：抽取建单内核（含 `expected_shop_id` 校验）；`create_order_by_seller`；注入 `UserService`
-- [ ] 3.3 `POST /shops/me/orders` 路由；`POST /orders` 写 `initiated_by=buyer`
+- [x] 3.3 `POST /shops/me/orders` 路由；`POST /orders` 写 `initiated_by=buyer`
 - [x] 3.4 `list_buyer_orders` / `list_shop_orders` 列表路径逐单 `expire_if_needed`（§0.1 已完成）
-- [ ] 3.5 静态检查：`app/ordering/` 无 `catalog.models` / `user.models` import；后续域改动顺手清类似小违规
+- [x] 3.5 静态检查：`app/ordering/` 无 `catalog.models` / `user.models` import；后续域改动顺手清类似小违规
 
 ## 4. 本地验证与 CI
 
-- [ ] 4.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl：卖家建单 → 买家 pay → 双列表可见
+- [x] 4.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl：卖家建单 → 买家 pay → 双列表可见
 - [ ] 4.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
 
 ## 5. 文档与 DoD

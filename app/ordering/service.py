@@ -1,5 +1,6 @@
 """ordering 域业务逻辑：建单、支付桩、发货、确认收货、取消、列表、懒释放。"""
 
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -19,6 +20,18 @@ _SELF_PURCHASE_MSG = "Buyer cannot purchase from their own shop"
 _CROSS_SHOP_MSG = "All items must belong to the same shop"
 _INVALID_STATE_MSG = "Order status does not allow this operation"
 _EXPIRED_MSG = "Order has expired"
+
+
+def _get_reservation_ttl() -> int:
+    """读取订单预留 TTL（秒）：优先环境变量，次之 Settings 配置。
+
+    测试通过 ``ORDER_RESERVATION_TTL_SECONDS`` 环境变量覆盖 TTL，
+    绕过 ``get_settings()`` 的 ``@lru_cache``，避免测试间缓存干扰。
+    """
+    env_val = os.environ.get("ORDER_RESERVATION_TTL_SECONDS")
+    if env_val is not None:
+        return int(env_val)
+    return get_settings().order_reservation_ttl_seconds
 
 
 def _to_items_list(
@@ -166,7 +179,6 @@ class OrderService:
             total += Decimal(product.price) * d["qty"]
 
         # 8. 创建订单
-        settings = get_settings()
         now = datetime.now(UTC)
         order = Order(
             id=uuid.uuid4(),
@@ -174,7 +186,7 @@ class OrderService:
             shop_id=shop_id,
             total_amount=total,
             expires_at=now
-            + timedelta(seconds=settings.order_reservation_ttl_seconds),
+            + timedelta(seconds=_get_reservation_ttl()),
             initiated_by=initiated_by,
         )
         await self._order_repo.save(order)
@@ -224,7 +236,37 @@ class OrderService:
 
         前置校验（由路由层完成）：当前用户是 seller_shop_id 的店主。
         本方法校验：买家存在且 active、非自购、所有商品属本店 → 建单。
+        校验顺序：商品归属/可购 → 自购 → 买家存在 → 内核（库存+建单）。
         """
+        item_dicts = _to_items_list(items)
+        product_ids = [d["product_id"] for d in item_dicts]
+
+        # 先做只读校验：商品可购、归属指定店铺（不涉及写操作）
+        products = await self._catalog.get_purchasable_products(product_ids)
+        product_map: dict[str, PurchasableProduct] = {p.id: p for p in products}
+
+        for d in item_dicts:
+            pid = d["product_id"]
+            product = product_map.get(pid)
+            if product is None or not product.is_published or not product.shop_active:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"Product {pid} is not purchasable",
+                )
+            if uuid.UUID(product.shop_id) != seller_shop_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"Product {pid} does not belong to this shop",
+                )
+
+        # 校验自购
+        owner_id = list(product_map.values())[0].owner_user_id
+        if str(buyer_user_id) == owner_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=_SELF_PURCHASE_MSG,
+            )
+
         # 校验买家存在且 active（不存在→404，禁用→422）
         await self._user_service.get_user_summary(str(buyer_user_id))
 
