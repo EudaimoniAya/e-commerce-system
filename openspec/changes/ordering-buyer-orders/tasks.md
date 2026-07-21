@@ -30,7 +30,7 @@
 ## 5. 本地验证与 CI
 
 - [x] 5.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；手动 curl：下单 → pay → shipments → confirm-receipt；短 TTL 过期懒释放
-- [ ] 5.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
+- [x] 5.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
 
 ## 6. 文档与 DoD
 
