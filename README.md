@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前处于 **catalog 类目与商品域** 阶段：在 user 认证与店铺 API 之上已交付平台类目（admin 创建）、商品 CRUD/上下架、公开浏览与店主分页查询；migration `004` 新增 `categories` / `products` / `product_categories` 三表；health/readiness 探针与 CI integration 测试（**65 项**）已就绪。
+AI 赋能电商个人练习项目。当前处于 **ordering 买家订单域** 阶段：在 user 认证与 catalog（店铺 / 类目 / 商品）之上已交付买家下单、支付桩、发货、确认收货与取消；migration `005` 新增 `orders` / `order_items`；health/readiness 探针与 CI integration 测试（**94 项**）已就绪。
 
 ## 前置条件
 
@@ -137,10 +137,54 @@ curl "http://127.0.0.1:8000/products?limit=20&offset=0"
 curl http://127.0.0.1:8000/products/<product_id>
 ```
 
-一键烟雾测试（注册 → 开店 → me → patch closed → 公开 GET）：
+订单 API（须买家/店主 Bearer token；创建前需可购商品：已上架且店铺 active；禁自购）：
 
 ```bash
+# 买家下单（201；同店多行；跨店/超卖/未上架 422；自购 403）
+curl -X POST http://127.0.0.1:8000/orders \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <buyer_token>" \
+  -d '{"items":[{"product_id":"<product_id>","qty":2}]}'
+
+# 买家分页列表（200）
+curl "http://127.0.0.1:8000/orders?limit=20&offset=0" \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 订单详情（买家或本店店主；读时触发懒释放）
+curl http://127.0.0.1:8000/orders/<order_id> \
+  -H "Authorization: Bearer <buyer_or_shop_owner_token>"
+
+# 支付桩（200 → confirmed；重复/过期 409）
+curl -X POST http://127.0.0.1:8000/orders/<order_id>/pay \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 店主发货（201 → shipped；非 confirmed 409）
+curl -X POST http://127.0.0.1:8000/orders/<order_id>/shipments \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <shop_owner_token>" \
+  -d '{"note":"已发出"}'
+
+# 买家确认收货（200 → completed）
+curl -X POST http://127.0.0.1:8000/orders/<order_id>/confirm-receipt \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 买家或店主取消（200 → cancelled；completed 409）
+curl -X POST http://127.0.0.1:8000/orders/<order_id>/cancel \
+  -H "Authorization: Bearer <buyer_or_shop_owner_token>"
+
+# 店主分页查看本店订单（200）
+curl "http://127.0.0.1:8000/shops/me/orders?limit=20&offset=0" \
+  -H "Authorization: Bearer <shop_owner_token>"
+```
+
+一键烟雾测试：
+
+```bash
+# 店铺：注册 → 开店 → me → patch closed → 公开 GET
 bash scripts/catalog_shop_curl_smoke.sh
+
+# 订单：下单 → pay → shipments → confirm-receipt；短 TTL 懒释放
+bash scripts/ordering_buyer_curl_smoke.sh
 ```
 
 验证 MySQL 双库（可选）：
@@ -218,6 +262,7 @@ cp .env.example .env
 | `JWT_SECRET_KEY` | JWT 签名密钥（≥ 32 字节）；本地与 CI 均必填 |
 | `JWT_ISSUER` | 可选，默认 `e-commerce-system` |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | 可选，默认 `30` |
+| `ORDER_RESERVATION_TTL_SECONDS` | 可选，默认 `86400`；待支付订单预留时长，超时懒释放为 `cancelled`/`expired` |
 
 ## 分支工作流
 

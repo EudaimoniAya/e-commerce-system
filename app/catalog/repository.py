@@ -3,7 +3,7 @@
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.models import Category, Product, ProductCategory, Shop
@@ -267,3 +267,59 @@ class ProductRepository:
         query = self._public_base_query(None).where(Product.id == str(product_id))
         result = await self._session.execute(query)
         return result.scalar_one_or_none()
+
+    async def get_purchasable_products(
+        self, product_ids: list[str]
+    ) -> list[dict]:
+        """批量查询商品及所属店铺信息（供 ordering 下单校验用）。"""
+        result = await self._session.execute(
+            select(
+                Product.id,
+                Product.shop_id,
+                Product.name,
+                Product.price,
+                Product.stock,
+                Product.is_published,
+                Shop.status.label("shop_status"),
+                Shop.owner_user_id,
+            )
+            .join(Shop, Product.shop_id == Shop.id)
+            .where(Product.id.in_(product_ids))
+        )
+        return [
+            {
+                "id": str(row.id),
+                "shop_id": str(row.shop_id),
+                "name": row.name,
+                "price": row.price,
+                "stock": row.stock,
+                "is_published": row.is_published,
+                "shop_status": row.shop_status,
+                "owner_user_id": str(row.owner_user_id),
+            }
+            for row in result.all()
+        ]
+
+    async def reserve_stock(self, items: list[tuple[str, int]]) -> None:
+        """条件扣减库存（供 ordering 域预留调用；不提交事务）。"""
+        for product_id, qty in items:
+            stmt = (
+                update(Product)
+                .where(Product.id == product_id)
+                .where(Product.stock >= qty)
+                .values(stock=Product.stock - qty)
+            )
+            result = await self._session.execute(stmt)
+            if result.rowcount == 0:
+                msg = f"Insufficient stock for product {product_id}"
+                raise ValueError(msg)
+
+    async def release_stock(self, items: list[tuple[str, int]]) -> None:
+        """加回库存（供 ordering 域取消/过期时调用；不提交事务）。"""
+        for product_id, qty in items:
+            stmt = (
+                update(Product)
+                .where(Product.id == product_id)
+                .values(stock=Product.stock + qty)
+            )
+            await self._session.execute(stmt)

@@ -16,6 +16,7 @@ from app.catalog.schemas import (
     ProductCreate,
     ProductResponse,
     ProductUpdate,
+    PurchasableProduct,
     ShopCreate,
     ShopResponse,
     ShopUpdate,
@@ -316,6 +317,39 @@ class ShopService:
             )
         categories = await self._load_product_categories(product_id)
         return _to_product_response(product, categories)
+
+    async def get_purchasable_products(
+        self, product_ids: list[str]
+    ) -> list[PurchasableProduct]:
+        """批量查询可购商品信息（供 ordering 域下单校验使用）。"""
+        rows = await self._product_repository.get_purchasable_products(product_ids)
+        return [
+            PurchasableProduct(
+                id=row["id"],
+                shop_id=row["shop_id"],
+                name=row["name"],
+                price=f"{row['price']:.2f}",
+                stock=row["stock"],
+                is_published=bool(row["is_published"]),
+                shop_active=row["shop_status"] == "active",
+                owner_user_id=row["owner_user_id"],
+            )
+            for row in rows
+        ]
+
+    async def reserve_stock(self, items: list[tuple[str, int]]) -> None:
+        """预留库存（供 ordering 域创建订单时调用）。"""
+        try:
+            await self._product_repository.reserve_stock(items)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=str(exc),
+            )
+
+    async def release_stock(self, items: list[tuple[str, int]]) -> None:
+        """释放库存（供 ordering 域取消/过期时调用）。"""
+        await self._product_repository.release_stock(items)
 
     async def create_shop(
         self,

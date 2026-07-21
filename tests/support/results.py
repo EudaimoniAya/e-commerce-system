@@ -10,6 +10,7 @@ from app.catalog.schemas import (
     ShopCreate,
     ShopResponse,
 )
+from app.ordering.schemas import OrderCreate, OrderResponse
 from app.user.schemas import TokenResponse
 
 
@@ -90,3 +91,18 @@ class ProductResult:
     status_code: int
     body: ProductResponse | None
     request: ProductCreate
+
+
+@dataclass
+class OrderResult:
+    """订单相关 HTTP 调用结果（创建 / pay 等返回订单 DTO 的端点）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时经 ``OrderResponse.model_validate`` 解析的响应体；非 2xx 时为 ``None``。
+        request: 创建订单时发出的 ``OrderCreate``；非创建类调用时为 ``None``。
+    """
+
+    status_code: int
+    body: OrderResponse | None
+    request: OrderCreate | None = None

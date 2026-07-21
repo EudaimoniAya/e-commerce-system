@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
 
+    # 订单预留库存超时（秒）：超出时限后懒释放 → cancelled + expired
+    order_reservation_ttl_seconds: int = 86400
+
 
 @lru_cache
 def get_settings() -> Settings:

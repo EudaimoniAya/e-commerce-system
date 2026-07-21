@@ -16,7 +16,13 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest", "httpx", "ruff", "pytest-asyncio"]
+dev = [
+    "pytest",
+    "httpx",
+    "ruff",
+    "pytest-asyncio",
+    "mypy>=2.3.0",
+]
 
 [build-system]
 requires = ["hatchling"]

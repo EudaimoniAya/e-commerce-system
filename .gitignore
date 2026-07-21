@@ -116,6 +116,9 @@ docker-compose.override.yml
 # Cursor 本地状态（保留 .cursor/commands、.cursor/skills 等可共享配置）
 .cursorignore
 
+# Claude 本地状态
+.claude/
+
 # =========================
 # 操作系统
 # =========================
