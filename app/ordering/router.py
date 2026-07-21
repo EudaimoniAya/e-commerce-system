@@ -4,8 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.catalog.deps import get_current_shop, get_shop_service
-from app.catalog.models import Shop
+from app.catalog.deps import get_shop_service
 from app.catalog.service import ShopService
 from app.infra.auth import get_current_user_id
 from app.ordering.deps import (
@@ -224,14 +223,16 @@ async def cancel_order(
     tags=["orders"],
 )
 async def list_shop_orders(
-    current_shop: Shop = Depends(get_current_shop),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    catalog_service: ShopService = Depends(get_shop_service),
     service: OrderService = Depends(get_order_service),
     pagination: tuple[int, int] = Depends(_clamp_pagination),
 ) -> PaginatedOrders:
     """店主分页查看本店所有订单。"""
+    shop = await catalog_service.get_my_shop(user_id)
     limit, offset = pagination
     orders, total = await service.list_shop_orders(
-        current_shop.id, limit=limit, offset=offset,
+        uuid.UUID(shop.id), limit=limit, offset=offset,
     )
     return PaginatedOrders(
         items=[_to_response(o) for o in orders],

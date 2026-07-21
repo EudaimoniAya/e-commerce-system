@@ -75,6 +75,8 @@ class OrderService:
         await self._catalog.release_stock(release_items)
         # 立即提交：可能由 deps（读路径）触发，不依赖调用方 commit
         await self._session.commit()
+        # 刷新 ORM，避免 commit 后访问 updated_at 等字段触发 sync 懒加载（MissingGreenlet）
+        await self._session.refresh(order)
         return True
 
     # ── 创建 ────────────────────────────────────────────────
@@ -296,6 +298,7 @@ class OrderService:
             buyer_user_id, limit=limit, offset=offset,
         )
         for order in orders:
+            await self.expire_if_needed(order)
             order.items = await self._item_repo.list_by_order_id(order.id)
         return orders, total
 
@@ -311,6 +314,7 @@ class OrderService:
             shop_id, limit=limit, offset=offset,
         )
         for order in orders:
+            await self.expire_if_needed(order)
             order.items = await self._item_repo.list_by_order_id(order.id)
         return orders, total
 

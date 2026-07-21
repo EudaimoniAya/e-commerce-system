@@ -277,3 +277,122 @@ async def test_get_order_triggers_lazy_release_after_expiry(
         assert ProductResponse.model_validate(stock.json()).stock == initial_stock
     finally:
         override_order_reservation_ttl(86400)
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_buyer_list_triggers_lazy_release_after_expiry(
+    client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
+    authenticated_user: AuthContext,
+) -> None:
+    """短 TTL 过期后 GET /orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
+    override_order_reservation_ttl(2)
+    try:
+        buyer = authenticated_user.root.step(RegisterResult)
+        assert buyer.status_code == 201
+        assert buyer.body is not None
+
+        arranged = await arrange_purchasable_product(
+            client,
+            shop_owner=shop_owner.root,
+            admin=admin_auth_headers.root,
+            stock=9,
+        )
+        product = arranged.step(ProductResult)
+        assert product.status_code == 201
+        assert product.body is not None
+        initial_stock = product.body.stock
+
+        created = await create_order(
+            client,
+            headers=bearer_headers(buyer),
+            items=[(product.body.id, 4)],
+        )
+        assert created.status_code == 201
+        assert created.body is not None
+
+        await asyncio.sleep(3)
+
+        response: Response = await client.get(
+            "/orders",
+            headers=bearer_headers(buyer),
+        )
+
+        assert response.status_code == 200
+        body = PaginatedOrders.model_validate(response.json())
+        expired_order = next(
+            (item for item in body.items if item.id == created.body.id),
+            None,
+        )
+        assert expired_order is not None
+        assert expired_order.status == "cancelled"
+        assert expired_order.cancel_reason == "expired"
+
+        stock: Response = await client.get(f"/products/{product.body.id}")
+        assert stock.status_code == 200
+        assert ProductResponse.model_validate(stock.json()).stock == initial_stock
+    finally:
+        override_order_reservation_ttl(86400)
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_shop_owner_list_triggers_lazy_release_after_expiry(
+    client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
+    authenticated_user: AuthContext,
+) -> None:
+    """短 TTL 过期后 GET /shops/me/orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
+    override_order_reservation_ttl(2)
+    try:
+        buyer = authenticated_user.root.step(RegisterResult)
+        assert buyer.status_code == 201
+        assert buyer.body is not None
+        owner = shop_owner.root.step(RegisterResult)
+        assert owner.status_code == 201
+        assert owner.body is not None
+
+        arranged = await arrange_purchasable_product(
+            client,
+            shop_owner=shop_owner.root,
+            admin=admin_auth_headers.root,
+            stock=9,
+        )
+        product = arranged.step(ProductResult)
+        assert product.status_code == 201
+        assert product.body is not None
+        initial_stock = product.body.stock
+
+        created = await create_order(
+            client,
+            headers=bearer_headers(buyer),
+            items=[(product.body.id, 4)],
+        )
+        assert created.status_code == 201
+        assert created.body is not None
+
+        await asyncio.sleep(3)
+
+        response: Response = await client.get(
+            "/shops/me/orders",
+            headers=bearer_headers(owner),
+        )
+
+        assert response.status_code == 200
+        body = PaginatedOrders.model_validate(response.json())
+        expired_order = next(
+            (item for item in body.items if item.id == created.body.id),
+            None,
+        )
+        assert expired_order is not None
+        assert expired_order.status == "cancelled"
+        assert expired_order.cancel_reason == "expired"
+
+        stock: Response = await client.get(f"/products/{product.body.id}")
+        assert stock.status_code == 200
+        assert ProductResponse.model_validate(stock.json()).stock == initial_stock
+    finally:
+        override_order_reservation_ttl(86400)
