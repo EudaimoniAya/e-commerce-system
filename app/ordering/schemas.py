@@ -22,9 +22,23 @@ class OrderItemCreate(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    """创建订单请求体。"""
+    """买家创建订单请求体。"""
 
     items: list[OrderItemCreate] = Field(min_length=1)
+
+
+class SellerOrderCreate(BaseModel):
+    """卖家为指定买家创建订单请求体。"""
+
+    buyer_user_id: str
+    items: list[OrderItemCreate] = Field(min_length=1)
+
+    @field_validator("buyer_user_id")
+    @classmethod
+    def validate_buyer_uuid(cls, value: str) -> str:
+        """校验 buyer_user_id 为合法 UUID。"""
+        uuid.UUID(value)
+        return value
 
 
 class OrderItemResponse(BaseModel):
@@ -47,6 +61,7 @@ class OrderResponse(BaseModel):
     id: str
     buyer_user_id: str
     shop_id: str
+    initiated_by: Literal["buyer", "seller"]
     status: Literal[
         "awaiting_payment",
         "confirmed",

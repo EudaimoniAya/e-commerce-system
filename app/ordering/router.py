@@ -34,6 +34,7 @@ def _to_response(order: Order) -> OrderResponse:
         id=str(order.id),
         buyer_user_id=str(order.buyer_user_id),
         shop_id=str(order.shop_id),
+        initiated_by=order.initiated_by,  # type: ignore[arg-type]
         status=order.status,  # type: ignore[arg-type]
         cancel_reason=order.cancel_reason,
         total_amount=str(order.total_amount),

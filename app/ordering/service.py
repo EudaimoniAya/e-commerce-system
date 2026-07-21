@@ -12,6 +12,7 @@ from app.catalog.service import ShopService
 from app.infra.config import get_settings
 from app.ordering.models import Order, OrderItem
 from app.ordering.repository import OrderItemRepository, OrderRepository
+from app.user.service import UserService
 
 _NOT_FOUND_MSG = "Order not found"
 _SELF_PURCHASE_MSG = "Buyer cannot purchase from their own shop"
@@ -28,7 +29,7 @@ def _to_items_list(
 
 
 class OrderService:
-    """ordering 域编排服务（依赖 catalog 侧 service 与 ordering 侧仓储）。"""
+    """ordering 域编排服务（依赖 catalog 侧 service、user 侧 service 与 ordering 侧仓储）。"""
 
     def __init__(
         self,
@@ -36,11 +37,13 @@ class OrderService:
         catalog_service: ShopService,
         order_repo: OrderRepository,
         item_repo: OrderItemRepository,
+        user_service: UserService,
     ) -> None:
         self._session = session
         self._catalog = catalog_service
         self._order_repo = order_repo
         self._item_repo = item_repo
+        self._user_service = user_service
 
     # ── 懒释放 ──────────────────────────────────────────────
 
@@ -79,17 +82,22 @@ class OrderService:
         await self._session.refresh(order)
         return True
 
-    # ── 创建 ────────────────────────────────────────────────
+    # ── 创建（内核） ────────────────────────────────────────
 
-    async def create_order(
+    async def _create_order_core(
         self,
         buyer_user_id: uuid.UUID,
         items: list[tuple[str, int]],
+        *,
+        initiated_by: str = "buyer",
+        expected_shop_id: uuid.UUID | None = None,
     ) -> Order:
-        """校验 → 预留库存 → 建单（同一事务）。
+        """建单内核：校验商品可购/库存 → 预留 → 建单。
 
-        返回持久化后的 Order（含 items）。
-        失败抛出 HTTPException（422/403）。
+        - buyer 路径：expected_shop_id=None，shop_id 由商品推导
+        - seller 路径：expected_shop_id=卖家店铺，所有商品必须归属该店
+        自购校验由内核统一处理（owner_id 从商品推导）。
+        买家存在/active 校验由调用方负责。
         """
         item_dicts = _to_items_list(items)
         product_ids = [d["product_id"] for d in item_dicts]
@@ -108,14 +116,25 @@ class OrderService:
                     detail=f"Product {pid} is not purchasable",
                 )
 
-        # 3. 校验同店
-        shop_ids = {p.shop_id for p in product_map.values()}
-        if len(shop_ids) != 1:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_CROSS_SHOP_MSG,
-            )
-        shop_id = shop_ids.pop()
+        # 3. 校验同店 / 归属指定店铺
+        if expected_shop_id is not None:
+            for d in item_dicts:
+                pid = d["product_id"]
+                product = product_map[pid]
+                if uuid.UUID(product.shop_id) != expected_shop_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail=f"Product {pid} does not belong to this shop",
+                    )
+            shop_id = expected_shop_id
+        else:
+            shop_ids = {p.shop_id for p in product_map.values()}
+            if len(shop_ids) != 1:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=_CROSS_SHOP_MSG,
+                )
+            shop_id = uuid.UUID(shop_ids.pop())
 
         # 4. 校验自购
         owner_id = list(product_map.values())[0].owner_user_id
@@ -125,7 +144,7 @@ class OrderService:
                 detail=_SELF_PURCHASE_MSG,
             )
 
-        # 5. 校验库存充足（get_purchasable_products 已返回实时 stock）
+        # 5. 校验库存
         for d in item_dicts:
             pid = d["product_id"]
             product = product_map[pid]
@@ -135,7 +154,7 @@ class OrderService:
                     detail=f"Insufficient stock for product {pid}",
                 )
 
-        # 6. 预留库存（条件更新，失败 → 422）
+        # 6. 预留库存
         reserve_items = [(d["product_id"], d["qty"]) for d in item_dicts]
         await self._catalog.reserve_stock(reserve_items)
 
@@ -152,13 +171,13 @@ class OrderService:
         order = Order(
             id=uuid.uuid4(),
             buyer_user_id=buyer_user_id,
-            shop_id=uuid.UUID(shop_id),
+            shop_id=shop_id,
             total_amount=total,
             expires_at=now
             + timedelta(seconds=settings.order_reservation_ttl_seconds),
+            initiated_by=initiated_by,
         )
         await self._order_repo.save(order)
-        # flush 以获取 order.id（供 OrderItem 外键使用）
         await self._session.flush()
 
         # 9. 创建订单行
@@ -176,9 +195,45 @@ class OrderService:
 
         await self._session.commit()
         await self._session.refresh(order)
-        # 加载 items 关系（expire_on_commit=False 下仍需要）
         order.items = await self._item_repo.list_by_order_id(order.id)
         return order
+
+    # ── 买家建单 ────────────────────────────────────────────
+
+    async def create_order(
+        self,
+        buyer_user_id: uuid.UUID,
+        items: list[tuple[str, int]],
+    ) -> Order:
+        """买家建单：委托内核（initiated_by=buyer，shop 由商品推导）。"""
+        return await self._create_order_core(
+            buyer_user_id,
+            items,
+            initiated_by="buyer",
+        )
+
+    # ── 卖家建单 ────────────────────────────────────────────
+
+    async def create_order_by_seller(
+        self,
+        seller_shop_id: uuid.UUID,
+        buyer_user_id: uuid.UUID,
+        items: list[tuple[str, int]],
+    ) -> Order:
+        """卖家为指定买家建单。
+
+        前置校验（由路由层完成）：当前用户是 seller_shop_id 的店主。
+        本方法校验：买家存在且 active、非自购、所有商品属本店 → 建单。
+        """
+        # 校验买家存在且 active（不存在→404，禁用→422）
+        await self._user_service.get_user_summary(str(buyer_user_id))
+
+        return await self._create_order_core(
+            buyer_user_id,
+            items,
+            initiated_by="seller",
+            expected_shop_id=seller_shop_id,
+        )
 
     # ── 支付桩 ──────────────────────────────────────────────
 
