@@ -6,8 +6,8 @@
 
 ## 1. TDD — 失败测试（红）
 
-- [ ] 1.1 扩展 `tests/support/`：`create_order_by_seller` helper、禁用用户 seed（或 fixture）；**禁止** test 文件互 import
-- [ ] 1.2 编写 `tests/ordering/test_create_order_by_seller.py`（201、`initiated_by=seller`、买家 404、禁用 422、自购 403、**非本店商品 422**、closed 422、401、无店 404）；**不编写** 实现
+- [x] 1.1 扩展 `tests/support/`：`create_order_by_seller` helper、禁用用户 seed（或 fixture）；**禁止** test 文件互 import
+- [x] 1.2 编写 `tests/ordering/test_create_order_by_seller.py`（201、`initiated_by=seller`、买家 404、禁用 422、自购 403、**非本店商品 422**、closed 422、401、无店 404）；**不编写** 实现
 - [ ] 1.3 编写 `tests/user/test_user_summary.py` 或 unit 覆盖 `get_user_summary`（200 摘要、404、422 禁用）；**不编写** 实现
 - [ ] 1.4 扩展 `tests/ordering/test_list_orders.py`：买家建单→店主列表可见；卖家建单→买家列表可见；`initiated_by` 字段；列表路径懒释放（短 TTL）；**不编写** 实现
 - [ ] 1.5 扩展 `tests/ordering/test_pay_order.py`：指定买家 pay 卖家发起的单→confirmed；店主 pay 卖家单→403

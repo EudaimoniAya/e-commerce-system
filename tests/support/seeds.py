@@ -6,8 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 
-async def seed_inactive_user(database_url: str, email: str, password: str) -> None:
-    """向 users 表插入 ``is_active=false`` 用户（需 migration 002）。"""
+async def seed_inactive_user(database_url: str, email: str, password: str) -> str:
+    """向 users 表插入 ``is_active=false`` 用户（需 migration 002），返回 user_id。"""
     from pwdlib import PasswordHash
 
     user_id = str(uuid.uuid4())
@@ -32,3 +32,4 @@ async def seed_inactive_user(database_url: str, email: str, password: str) -> No
             },
         )
     await engine.dispose()
+    return user_id

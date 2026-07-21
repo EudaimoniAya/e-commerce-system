@@ -344,6 +344,34 @@ async def arrange_purchasable_product(
     return PipelineResult(steps=(category, product))
 
 
+async def create_order_by_seller(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    buyer_user_id: str,
+    items: list[tuple[str, int]],
+) -> OrderResult:
+    """调用 POST /shops/me/orders，返回 OrderResult（不 assert 成功状态码）。
+
+    body 格式：``{"buyer_user_id": "<uuid>", "items": [{"product_id", "qty"}, ...]}``。
+    """
+    ensure_integration_auth_env()
+    payload: dict[str, object] = {
+        "buyer_user_id": buyer_user_id,
+        "items": [{"product_id": pid, "qty": qty} for pid, qty in items],
+    }
+    response: Response = await client.post(
+        "/shops/me/orders",
+        json=payload,
+        headers=headers,
+    )
+    return OrderResult(
+        status_code=response.status_code,
+        body=_parse_order_body(response),
+        request=None,
+    )
+
+
 async def create_order(
     client: AsyncClient,
     *,
