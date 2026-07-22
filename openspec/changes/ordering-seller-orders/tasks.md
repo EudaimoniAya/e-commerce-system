@@ -38,7 +38,9 @@
 ## 4. 本地验证与 CI
 
 - [x] 4.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl：卖家建单 → 买家 pay → 双列表可见
-- [ ] 4.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
+- [x] 4.2 确认远程 CI 全绿（`workflow_dispatch` 或 PR）
+
+  workflow_dispatch on `feature/ordering-seller-orders`: https://github.com/EudaimoniAya/e-commerce-system/actions/runs/29906449557
 
 ## 5. 文档与 DoD
 
