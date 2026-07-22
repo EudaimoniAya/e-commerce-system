@@ -1,7 +1,5 @@
 """ordering 域 POST /orders/{id}/pay integration 测试（TDD 红阶段）。"""
 
-import asyncio
-
 import pytest
 from httpx import AsyncClient, Response
 
@@ -15,9 +13,11 @@ from tests.support.contexts import (
 from tests.support.helpers import (
     arrange_purchasable_product,
     create_order,
+    create_order_by_seller,
     override_order_reservation_ttl,
     pay_order,
     register_authenticated,
+    wait_past_order_expiry,
 )
 from tests.support.projections import bearer_headers
 from tests.support.results import ProductResult, RegisterResult, ShopResult
@@ -242,7 +242,7 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
         assert stock_reserved.status_code == 200
         assert stock_reserved.json()["stock"] == initial_stock - 3
 
-        await asyncio.sleep(3)
+        await wait_past_order_expiry(created.body.expires_at)
 
         paid = await pay_order(
             client,
@@ -268,3 +268,98 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
         assert restored.stock == initial_stock
     finally:
         override_order_reservation_ttl(86400)
+
+
+# ── 卖家发起的订单支付 ──────────────────────────────────────
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_pay_order_seller_initiated_by_buyer_returns_200(
+    client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
+    authenticated_user: AuthContext,
+) -> None:
+    """指定买家支付卖家发起的订单 → confirmed。"""
+    buyer = authenticated_user.root.step(RegisterResult)
+    assert buyer.status_code == 201
+    assert buyer.body is not None
+    owner = shop_owner.root.step(RegisterResult)
+    assert owner.status_code == 201
+    assert owner.body is not None
+
+    arranged = await arrange_purchasable_product(
+        client,
+        shop_owner=shop_owner.root,
+        admin=admin_auth_headers.root,
+        stock=10,
+    )
+    product = arranged.step(ProductResult)
+    assert product.status_code == 201
+    assert product.body is not None
+
+    seller_order = await create_order_by_seller(
+        client,
+        headers=bearer_headers(owner),
+        buyer_user_id=str(buyer.body.user.id),
+        items=[(product.body.id, 2)],
+    )
+    assert seller_order.status_code == 201
+    assert seller_order.body is not None
+
+    paid = await pay_order(
+        client,
+        headers=bearer_headers(buyer),
+        order_id=seller_order.body.id,
+    )
+
+    assert paid.status_code == 200
+    assert paid.body is not None
+    assert paid.body.status == "confirmed"
+    assert paid.body.id == seller_order.body.id
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_pay_order_seller_initiated_by_shop_owner_returns_403(
+    client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
+    authenticated_user: AuthContext,
+) -> None:
+    """店主（非买家）支付卖家发起的订单 → 403。"""
+    buyer = authenticated_user.root.step(RegisterResult)
+    assert buyer.status_code == 201
+    assert buyer.body is not None
+    owner = shop_owner.root.step(RegisterResult)
+    assert owner.status_code == 201
+    assert owner.body is not None
+
+    arranged = await arrange_purchasable_product(
+        client,
+        shop_owner=shop_owner.root,
+        admin=admin_auth_headers.root,
+        stock=10,
+    )
+    product = arranged.step(ProductResult)
+    assert product.status_code == 201
+    assert product.body is not None
+
+    seller_order = await create_order_by_seller(
+        client,
+        headers=bearer_headers(owner),
+        buyer_user_id=str(buyer.body.user.id),
+        items=[(product.body.id, 1)],
+    )
+    assert seller_order.status_code == 201
+    assert seller_order.body is not None
+
+    paid = await pay_order(
+        client,
+        headers=bearer_headers(owner),
+        order_id=seller_order.body.id,
+    )
+
+    assert paid.status_code == 403
+    assert paid.body is None

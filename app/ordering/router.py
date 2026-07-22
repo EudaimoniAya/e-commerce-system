@@ -4,8 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.catalog.deps import get_current_shop, get_shop_service
-from app.catalog.models import Shop
+from app.catalog.deps import get_shop_service
 from app.catalog.service import ShopService
 from app.infra.auth import get_current_user_id
 from app.ordering.deps import (
@@ -19,6 +18,7 @@ from app.ordering.schemas import (
     OrderCreate,
     OrderResponse,
     PaginatedOrders,
+    SellerOrderCreate,
     ShipmentCreate,
 )
 from app.ordering.service import OrderService
@@ -35,6 +35,7 @@ def _to_response(order: Order) -> OrderResponse:
         id=str(order.id),
         buyer_user_id=str(order.buyer_user_id),
         shop_id=str(order.shop_id),
+        initiated_by=order.initiated_by,  # type: ignore[arg-type]
         status=order.status,  # type: ignore[arg-type]
         cancel_reason=order.cancel_reason,
         total_amount=str(order.total_amount),
@@ -61,6 +62,15 @@ def _parse_items_from_create(
     return [(item.product_id, item.qty) for item in data.items]
 
 
+def _parse_items_from_seller_create(
+    data: SellerOrderCreate,
+) -> tuple[uuid.UUID, list[tuple[str, int]]]:
+    """将 SellerOrderCreate 转为 (buyer_user_id, items) 元组。"""
+    return uuid.UUID(data.buyer_user_id), [
+        (item.product_id, item.qty) for item in data.items
+    ]
+
+
 def _clamp_pagination(
     limit: int = Query(default=_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
@@ -85,6 +95,29 @@ async def create_order(
     """买家下单：同店多行 → 校验 → 预留库存 → 建单。"""
     items = _parse_items_from_create(body)
     order = await service.create_order(user_id, items)
+    return _to_response(order)
+
+
+# ── 卖家建单 ─────────────────────────────────────────────
+
+@router.post(
+    "/shops/me/orders",
+    response_model=OrderResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["orders"],
+)
+async def create_order_by_seller(
+    body: SellerOrderCreate,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    service: OrderService = Depends(get_order_service),
+    catalog_service: ShopService = Depends(get_shop_service),
+) -> OrderResponse:
+    """卖家为指定买家建单：校验买家存在且 active → 商品属本店 → 建单。"""
+    shop = await catalog_service.get_my_shop(user_id)
+    buyer_user_id, items = _parse_items_from_seller_create(body)
+    order = await service.create_order_by_seller(
+        uuid.UUID(shop.id), buyer_user_id, items,
+    )
     return _to_response(order)
 
 
@@ -224,14 +257,16 @@ async def cancel_order(
     tags=["orders"],
 )
 async def list_shop_orders(
-    current_shop: Shop = Depends(get_current_shop),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    catalog_service: ShopService = Depends(get_shop_service),
     service: OrderService = Depends(get_order_service),
     pagination: tuple[int, int] = Depends(_clamp_pagination),
 ) -> PaginatedOrders:
     """店主分页查看本店所有订单。"""
+    shop = await catalog_service.get_my_shop(user_id)
     limit, offset = pagination
     orders, total = await service.list_shop_orders(
-        current_shop.id, limit=limit, offset=offset,
+        uuid.UUID(shop.id), limit=limit, offset=offset,
     )
     return PaginatedOrders(
         items=[_to_response(o) for o in orders],

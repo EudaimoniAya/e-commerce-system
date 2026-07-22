@@ -12,6 +12,8 @@ from app.infra.database import get_db
 from app.ordering.models import Order
 from app.ordering.repository import OrderItemRepository, OrderRepository
 from app.ordering.service import OrderService
+from app.user.deps import get_user_service
+from app.user.service import UserService
 
 _NOT_FOUND_MSG = "Order not found"
 
@@ -35,9 +37,10 @@ def get_order_service(
     catalog_service: ShopService = Depends(get_shop_service),
     order_repo: OrderRepository = Depends(get_order_repository),
     item_repo: OrderItemRepository = Depends(get_order_item_repository),
+    user_service: UserService = Depends(get_user_service),
 ) -> OrderService:
     """注入 ordering 编排服务（共享同一 DB 事务）。"""
-    return OrderService(session, catalog_service, order_repo, item_repo)
+    return OrderService(session, catalog_service, order_repo, item_repo, user_service)
 
 
 async def get_order_by_id(

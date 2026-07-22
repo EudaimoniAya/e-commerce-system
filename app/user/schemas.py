@@ -31,6 +31,13 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+class UserSummary(BaseModel):
+    """跨域只读用户摘要（不含 email）。"""
+
+    id: str
+    nickname: str
+
+
 class TokenResponse(BaseModel):
     """登录/注册成功响应。"""
 

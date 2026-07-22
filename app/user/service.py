@@ -8,7 +8,13 @@ from pwdlib import PasswordHash
 
 from app.infra.auth import create_access_token
 from app.user.repository import UserRepository
-from app.user.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.user.schemas import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+    UserSummary,
+)
 
 _hasher = PasswordHash.recommended()
 
@@ -70,6 +76,21 @@ class UserService:
             nickname=nickname,
         )
         return _build_token_response(user)
+
+    async def get_user_summary(self, user_id: uuid.UUID | str) -> UserSummary:
+        """查询用户摘要（跨域只读）。"""
+        user = await self._repository.get_by_id(uuid.UUID(str(user_id)))
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="User account is disabled",
+            )
+        return UserSummary(id=str(user.id), nickname=user.nickname)
 
     async def login(self, data: LoginRequest) -> TokenResponse:
         """校验凭据并返回 access token。"""

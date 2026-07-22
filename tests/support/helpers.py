@@ -1,7 +1,9 @@
 """integration 测试 HTTP helper 与 orchestrator。"""
 
+import asyncio
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from httpx import AsyncClient, Response
@@ -308,6 +310,24 @@ def override_order_reservation_ttl(seconds: int) -> None:
     ensure_integration_auth_env()
 
 
+async def wait_past_order_expiry(
+    expires_at: datetime,
+    *,
+    margin_seconds: float = 1.0,
+) -> None:
+    """轮询直至当前 UTC 时间超过订单 ``expires_at``（含裕量）。
+
+    避免固定 ``sleep`` 与 MySQL DATETIME 秒级精度导致懒释放测试偶发失败。
+    """
+    if expires_at.tzinfo is None:
+        deadline = expires_at.replace(tzinfo=UTC)
+    else:
+        deadline = expires_at.astimezone(UTC)
+    deadline += timedelta(seconds=margin_seconds)
+    while datetime.now(UTC) < deadline:
+        await asyncio.sleep(0.05)
+
+
 async def arrange_purchasable_product(
     client: AsyncClient,
     *,
@@ -342,6 +362,34 @@ async def arrange_purchasable_product(
         is_published=is_published,
     )
     return PipelineResult(steps=(category, product))
+
+
+async def create_order_by_seller(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    buyer_user_id: str,
+    items: list[tuple[str, int]],
+) -> OrderResult:
+    """调用 POST /shops/me/orders，返回 OrderResult（不 assert 成功状态码）。
+
+    body 格式：``{"buyer_user_id": "<uuid>", "items": [{"product_id", "qty"}, ...]}``。
+    """
+    ensure_integration_auth_env()
+    payload: dict[str, object] = {
+        "buyer_user_id": buyer_user_id,
+        "items": [{"product_id": pid, "qty": qty} for pid, qty in items],
+    }
+    response: Response = await client.post(
+        "/shops/me/orders",
+        json=payload,
+        headers=headers,
+    )
+    return OrderResult(
+        status_code=response.status_code,
+        body=_parse_order_body(response),
+        request=None,
+    )
 
 
 async def create_order(
