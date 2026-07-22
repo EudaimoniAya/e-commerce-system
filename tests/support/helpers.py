@@ -1,7 +1,9 @@
 """integration 测试 HTTP helper 与 orchestrator。"""
 
+import asyncio
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from httpx import AsyncClient, Response
@@ -306,6 +308,24 @@ def override_order_reservation_ttl(seconds: int) -> None:
     """
     os.environ["ORDER_RESERVATION_TTL_SECONDS"] = str(seconds)
     ensure_integration_auth_env()
+
+
+async def wait_past_order_expiry(
+    expires_at: datetime,
+    *,
+    margin_seconds: float = 1.0,
+) -> None:
+    """轮询直至当前 UTC 时间超过订单 ``expires_at``（含裕量）。
+
+    避免固定 ``sleep`` 与 MySQL DATETIME 秒级精度导致懒释放测试偶发失败。
+    """
+    if expires_at.tzinfo is None:
+        deadline = expires_at.replace(tzinfo=UTC)
+    else:
+        deadline = expires_at.astimezone(UTC)
+    deadline += timedelta(seconds=margin_seconds)
+    while datetime.now(UTC) < deadline:
+        await asyncio.sleep(0.05)
 
 
 async def arrange_purchasable_product(

@@ -44,6 +44,9 @@
 
 ## 5. 文档与 DoD
 
-- [ ] 5.1 更新 `README.md`（`POST /shops/me/orders`、`initiated_by`、列表懒释放）
-- [ ] 5.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
+- [x] 5.1 更新 `README.md`（`POST /shops/me/orders`、`initiated_by`、列表懒释放）
+- [x] 5.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
+
+  - 本地：`devbox run -- task ci` → **112 passed**（含 `wait_past_order_expiry` 修复懒释放测试偶发失败）
+  - 远程：workflow_dispatch on `feature/ordering-seller-orders` → https://github.com/EudaimoniAya/e-commerce-system/actions/runs/29906449557（实现 commit）；文档/测试稳定性修复合入后建议再触发一次 workflow_dispatch
 - [x] 5.3 审查 `.cursor/rules/openspec-ci-task-commits.mdc`：scope（括号内容）从 change 名改为业务域名（如 `ordering`、`user`）；如无该规则则新增

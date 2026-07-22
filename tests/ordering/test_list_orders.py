@@ -1,7 +1,5 @@
 """ordering 域订单列表/详情 integration 测试（TDD 红阶段）。"""
 
-import asyncio
-
 import pytest
 from httpx import AsyncClient, Response
 
@@ -19,6 +17,7 @@ from tests.support.helpers import (
     override_order_reservation_ttl,
     register_and_open_shop,
     register_authenticated,
+    wait_past_order_expiry,
 )
 from tests.support.projections import bearer_headers
 from tests.support.results import ProductResult, RegisterResult, ShopResult
@@ -261,7 +260,7 @@ async def test_get_order_triggers_lazy_release_after_expiry(
         assert created.status_code == 201
         assert created.body is not None
 
-        await asyncio.sleep(3)
+        await wait_past_order_expiry(created.body.expires_at)
 
         response: Response = await client.get(
             f"/orders/{created.body.id}",
@@ -314,7 +313,7 @@ async def test_buyer_list_triggers_lazy_release_after_expiry(
         assert created.status_code == 201
         assert created.body is not None
 
-        await asyncio.sleep(3)
+        await wait_past_order_expiry(created.body.expires_at)
 
         response: Response = await client.get(
             "/orders",
@@ -375,7 +374,7 @@ async def test_shop_owner_list_triggers_lazy_release_after_expiry(
         assert created.status_code == 201
         assert created.body is not None
 
-        await asyncio.sleep(3)
+        await wait_past_order_expiry(created.body.expires_at)
 
         response: Response = await client.get(
             "/shops/me/orders",
@@ -541,7 +540,7 @@ async def test_seller_order_lazy_release_in_buyer_list(
         assert seller_order.status_code == 201
         assert seller_order.body is not None
 
-        await asyncio.sleep(3)
+        await wait_past_order_expiry(seller_order.body.expires_at)
 
         response: Response = await client.get(
             "/orders",

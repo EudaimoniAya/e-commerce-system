@@ -1,7 +1,5 @@
 """ordering 域 POST /orders/{id}/pay integration 测试（TDD 红阶段）。"""
 
-import asyncio
-
 import pytest
 from httpx import AsyncClient, Response
 
@@ -19,6 +17,7 @@ from tests.support.helpers import (
     override_order_reservation_ttl,
     pay_order,
     register_authenticated,
+    wait_past_order_expiry,
 )
 from tests.support.projections import bearer_headers
 from tests.support.results import ProductResult, RegisterResult, ShopResult
@@ -243,7 +242,7 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
         assert stock_reserved.status_code == 200
         assert stock_reserved.json()["stock"] == initial_stock - 3
 
-        await asyncio.sleep(3)
+        await wait_past_order_expiry(created.body.expires_at)
 
         paid = await pay_order(
             client,

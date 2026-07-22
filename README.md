@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前处于 **ordering 买家订单域** 阶段：在 user 认证与 catalog（店铺 / 类目 / 商品）之上已交付买家下单、支付桩、发货、确认收货与取消；migration `005` 新增 `orders` / `order_items`；health/readiness 探针与 CI integration 测试（**94 项**）已就绪。
+AI 赋能电商个人练习项目。当前处于 **ordering 订单域** 阶段：在 user 认证与 catalog（店铺 / 类目 / 商品）之上已交付**买家与卖家**建单、支付桩、发货、确认收货与取消；migration `005` 新增 `orders` / `order_items`，`006` 追加 `initiated_by`；health/readiness 探针与 CI integration 测试（**112 项**）已就绪。
 
 ## 前置条件
 
@@ -140,13 +140,19 @@ curl http://127.0.0.1:8000/products/<product_id>
 订单 API（须买家/店主 Bearer token；创建前需可购商品：已上架且店铺 active；禁自购）：
 
 ```bash
-# 买家下单（201；同店多行；跨店/超卖/未上架 422；自购 403）
+# 买家下单（201；同店多行；跨店/超卖/未上架 422；自购 403；initiated_by=buyer）
 curl -X POST http://127.0.0.1:8000/orders \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer <buyer_token>" \
   -d '{"items":[{"product_id":"<product_id>","qty":2}]}'
 
-# 买家分页列表（200）
+# 卖家为指定买家建单（201；商品须属本店；买家不存在 404、禁用 422；initiated_by=seller）
+curl -X POST http://127.0.0.1:8000/shops/me/orders \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <shop_owner_token>" \
+  -d '{"buyer_user_id":"<buyer_user_id>","items":[{"product_id":"<product_id>","qty":2}]}'
+
+# 买家分页列表（200；读列表时触发懒释放）
 curl "http://127.0.0.1:8000/orders?limit=20&offset=0" \
   -H "Authorization: Bearer <buyer_token>"
 
@@ -154,7 +160,7 @@ curl "http://127.0.0.1:8000/orders?limit=20&offset=0" \
 curl http://127.0.0.1:8000/orders/<order_id> \
   -H "Authorization: Bearer <buyer_or_shop_owner_token>"
 
-# 支付桩（200 → confirmed；重复/过期 409）
+# 支付桩（200 → confirmed；重复/过期 409；卖家发起的单由指定买家 pay）
 curl -X POST http://127.0.0.1:8000/orders/<order_id>/pay \
   -H "Authorization: Bearer <buyer_token>"
 
@@ -172,7 +178,7 @@ curl -X POST http://127.0.0.1:8000/orders/<order_id>/confirm-receipt \
 curl -X POST http://127.0.0.1:8000/orders/<order_id>/cancel \
   -H "Authorization: Bearer <buyer_or_shop_owner_token>"
 
-# 店主分页查看本店订单（200）
+# 店主分页查看本店订单（200；读列表时触发懒释放）
 curl "http://127.0.0.1:8000/shops/me/orders?limit=20&offset=0" \
   -H "Authorization: Bearer <shop_owner_token>"
 ```
@@ -262,7 +268,7 @@ cp .env.example .env
 | `JWT_SECRET_KEY` | JWT 签名密钥（≥ 32 字节）；本地与 CI 均必填 |
 | `JWT_ISSUER` | 可选，默认 `e-commerce-system` |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | 可选，默认 `30` |
-| `ORDER_RESERVATION_TTL_SECONDS` | 可选，默认 `86400`；待支付订单预留时长，超时懒释放为 `cancelled`/`expired` |
+| `ORDER_RESERVATION_TTL_SECONDS` | 可选，默认 `86400`；待支付订单预留时长，超时懒释放为 `cancelled`/`expired`（pay、详情、**订单列表**路径触发） |
 
 ## 分支工作流
 
