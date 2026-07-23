@@ -6,6 +6,17 @@ alwaysApply: false
 
 # OpenSpec：提交与 Push 约定
 
+## Commit 粒度（自 test-architecture-v4 起）
+
+| 层级 | 标识 | 用途 |
+|------|------|------|
+| **Task 节** | `tasks.md` 的 `## N` | **默认一 commit 单位** |
+| **子项** | `- [ ] N.x` | apply 勾选粒度；**默认不单独 commit** |
+
+- **默认**：完成一整节（勾选该节全部子项）后 **一次 commit**；message 用 `Task N` 或 `Task N ~N.x` 概括。
+- **例外**（须在 change 的 `tasks.md` 或 design 中写明）：POC 门禁（如 §3.0）、§6 CI 与 spec sync 拆分、CI 双提交（见下）。
+- 废止旧习惯：按 **1–2 个子项（N.x）** 一切一 commit；除非用户当次 apply 明确要求细粒度提交。
+
 ## 默认
 
 - Agent **只改代码/文档/tasks**，**不** `git commit`，**不** `git push`。
@@ -70,5 +81,5 @@ workflow_dispatch on <branch>: <run-url>
 
 ## 参考
 
-- 范例：`ci(user-auth): Task 6.1 ~6.2 …` / `Task 6.3 确认 GitHub Actions CI 全绿`（节号仅作编号，**非**触发条件）
+- 范例：`test(user): Task 1 …`（整节）/ `ci(user-auth): Task 6.1 …` / `Task 6.2 确认 GitHub Actions CI 全绿`（CI 子项可单独 commit；节号作 message 编号，**非** CI 触发条件）
 - DoD：README §Definition of Done
