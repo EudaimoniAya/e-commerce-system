@@ -1,6 +1,5 @@
 """pytest 公共 fixture 与 support 符号 re-export。"""
 
-import os
 from collections.abc import AsyncIterator
 
 import pytest
@@ -19,7 +18,6 @@ from tests.support.helpers import (
     create_category,
     create_product,
     create_shop,
-    ensure_integration_auth_env,
     login_admin,
     login_user,
     register_and_open_shop,
@@ -73,8 +71,10 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture(scope="session")
 def database_url() -> str:
-    """当前测试会话使用的 MySQL 连接串（指向 ecommerce_test）。"""
-    return os.environ["DATABASE_URL"]
+    """当前测试会话使用的 MySQL 连接串（指向 ecommerce_test，从 Settings 读取）。"""
+    from app.infra.config import get_settings
+
+    return get_settings().database_url
 
 
 @pytest.fixture(autouse=True)
@@ -86,7 +86,6 @@ async def _reset_global_database_engine(
         yield
         return
 
-    ensure_integration_auth_env()
     from app.infra.database import reset_engine
 
     await reset_engine()

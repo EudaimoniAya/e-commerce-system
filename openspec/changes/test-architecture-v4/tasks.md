@@ -15,11 +15,11 @@
 ## 3. SAVEPOINT + integration_client（POC 门禁）
 
 - [x] 3.0 **POC**：`db_session` + SAVEPOINT + `get_db` override + `integration_client`；用例「注册→开店→rollback 后 users/shops 无残留」；验证 `login_admin` 可读 migration seed
-- [ ] 3.1 `conftest`：`db_session` 注册 override（不 close session）、`integration_client` 依赖 `db_session`；保留 plain `client`
-- [ ] 3.2 确认 override 生命周期：`reset_engine` 仅清 app 全局 engine，不 dispose 测试 fixture engine；autouse **保留**
-- [ ] 3.3 删除 `app/ordering/service.py` 中 `_get_reservation_ttl()` 的 `os.environ` 分支
-- [ ] 3.4 删除 helpers 内全部 `ensure_integration_auth_env`（~14 处）、`conftest` autouse、`tests/infra/test_auth.py`；删除冗余 `configure_integration_test_env` 常量
-- [ ] 3.5 grep inventory：`db_session` / `client` / `database_url` / `seed_inactive_user` / `ensure_integration_auth_env` 用法清单
+- [x] 3.1 `conftest`：`db_session` 注册 override（不 close session）、`integration_client` 依赖 `db_session`；保留 plain `client`
+- [x] 3.2 确认 override 生命周期：`reset_engine` 仅清 app 全局 engine，不 dispose 测试 fixture engine；autouse **保留**
+- [x] 3.3 删除 `app/ordering/service.py` 中 `_get_reservation_ttl()` 的 `os.environ` 分支
+- [x] 3.4 删除 helpers 内全部 `ensure_integration_auth_env`（~14 处）、`conftest` autouse、`tests/infra/test_auth.py`；删除冗余 `configure_integration_test_env` 常量
+- [x] 3.5 grep inventory：`db_session` / `client` / `database_url` / `seed_inactive_user` / `ensure_integration_auth_env` 用法清单
 
 > **Apply 约定**：Task 3.0 POC 通过前不得开始 §5。
 

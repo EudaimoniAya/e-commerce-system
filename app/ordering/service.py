@@ -1,6 +1,5 @@
 """ordering 域业务逻辑：建单、支付桩、发货、确认收货、取消、列表、懒释放。"""
 
-import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -23,14 +22,7 @@ _EXPIRED_MSG = "Order has expired"
 
 
 def _get_reservation_ttl() -> int:
-    """读取订单预留 TTL（秒）：优先环境变量，次之 Settings 配置。
-
-    测试通过 ``ORDER_RESERVATION_TTL_SECONDS`` 环境变量覆盖 TTL，
-    绕过 ``get_settings()`` 的 ``@lru_cache``，避免测试间缓存干扰。
-    """
-    env_val = os.environ.get("ORDER_RESERVATION_TTL_SECONDS")
-    if env_val is not None:
-        return int(env_val)
+    """读取订单预留 TTL（秒）。"""
     return get_settings().order_reservation_ttl_seconds
 
 

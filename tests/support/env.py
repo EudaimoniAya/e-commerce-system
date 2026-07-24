@@ -6,7 +6,7 @@
 纪律
 ----
 - ``get_settings.cache_clear()`` **仅允许**在此模块的 ``bootstrap_test_env()`` 中调用。
-- HTTP helper 与 atomic orchestrator 不得调用 ``cache_clear`` 或 ``ensure_integration_auth_env``。
+- HTTP helper 与 atomic orchestrator 不得调用 ``cache_clear``。
 - 极少数 mutating fixture teardown 如须清缓存，应通过 ``bootstrap_test_env()`` 而非直接调
   ``cache_clear``。
 """
