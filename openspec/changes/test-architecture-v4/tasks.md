@@ -98,5 +98,5 @@
 
 ## 7. CI 与收尾
 
-- [x] 7.1 `devbox run -- task ci` 全绿
+- [x] 7.1 `devbox run -- task ci` 全绿（远程 workflow_dispatch：https://github.com/EudaimoniAya/e-commerce-system/actions/runs/30125817041）
 - [x] 7.2 archive 前 sync delta spec 至 `openspec/specs/test-architecture/spec.md`
