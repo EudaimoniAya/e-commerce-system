@@ -1,9 +1,9 @@
 ## 1. 测试环境（APP_ENV_FILE + .env.test）
 
-- [ ] 1.1 `app/infra/config.py`：支持 `APP_ENV_FILE`（默认 `.env`）
-- [ ] 1.2 新增 `.env.test`（JWT、socket DATABASE_URL、TTL=86400 等）；更新 `.env.example` 说明
-- [ ] 1.3 `Taskfile.yml` 的 `test`/`ci` 设置 `APP_ENV_FILE=.env.test`；`.github/workflows/ci.yml` 同步
-- [ ] 1.4 跑 `devbox run -- task ci` 确认 §1 行为不变（仍用现有 conftest env，至 §3 前可并存）
+- [x] 1.1 `app/infra/config.py`：支持 `APP_ENV_FILE`（默认 `.env`）
+- [x] 1.2 新增 `.env.test`（JWT、socket DATABASE_URL、TTL=86400 等）；更新 `.env.example` 说明
+- [x] 1.3 `Taskfile.yml` 的 `test`/`ci` 设置 `APP_ENV_FILE=.env.test`；`.github/workflows/ci.yml` 同步
+- [x] 1.4 跑 `devbox run -- task ci` 确认 §1 行为不变（仍用现有 conftest env，至 §3 前可并存）
 
 ## 2. Settings 缓存
 
