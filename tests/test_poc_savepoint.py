@@ -11,8 +11,9 @@ Task 3.0 通过前不得开始 §5 大迁移。本文件作为永久回归测试
 """
 
 import pytest
+from httpx import AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from tests.support.helper.auth import login_admin, register_user
 from tests.support.helper.catalog import create_shop
@@ -25,8 +26,8 @@ class TestSavepointPOC:
 
     async def test_register_and_open_shop_in_savepoint(
         self,
-        integration_client,
-        db_session,
+        integration_client: AsyncClient,
+        db_session: AsyncSession,
         database_url: str,
     ) -> None:
         """注册→开店后，数据仅在外层事务中，库中不可见。
@@ -84,8 +85,8 @@ class TestSavepointPOC:
 
     async def test_login_admin_in_savepoint(
         self,
-        integration_client,
-        db_session,
+        integration_client: AsyncClient,
+        db_session: AsyncSession,
     ) -> None:
         """migration seed 管理员在 SAVEPOINT 事务内可读。
 

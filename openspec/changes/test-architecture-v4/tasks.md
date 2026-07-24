@@ -98,5 +98,5 @@
 
 ## 7. CI 与收尾
 
-- [ ] 7.1 `devbox run -- task ci` 全绿
-- [ ] 7.2 archive 前 sync delta spec 至 `openspec/specs/test-architecture/spec.md`
+- [x] 7.1 `devbox run -- task ci` 全绿
+- [x] 7.2 archive 前 sync delta spec 至 `openspec/specs/test-architecture/spec.md`

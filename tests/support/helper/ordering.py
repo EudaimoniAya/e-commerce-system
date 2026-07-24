@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ordering.schemas import OrderCreate, OrderResponse, ShipmentCreate
 from tests.support.builders import build_order_create, unique_category_name
 from tests.support.db.catalog import seed_category, seed_product, seed_product_category
-from tests.support.utils import bearer_headers
 from tests.support.results import OrderResult
 
 
