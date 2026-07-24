@@ -29,25 +29,22 @@ from tests.support.utils import bearer_headers
 @pytest.mark.asyncio
 async def test_buyer_list_orders_only_own(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """买家 GET /orders 仅含自己的订单。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 1)],
+        items=[(product_id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -57,20 +54,16 @@ async def test_buyer_list_orders_only_own(
     assert other_user.body is not None
 
     # 独立商品，避免两买家共享库存导致隐性耦合
-    other_category, other_product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    other_category_id, other_product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=5,
     )
-    assert other_product is not None
-    assert other_product.status_code == 201
-    assert other_product.body is not None
 
     other_order = await create_order(
         integration_client,
         headers=bearer_headers(other_user.body.access_token),
-        items=[(other_product.body.id, 1)],
+        items=[(other_product_id, 1)],
     )
     assert other_order.status_code == 201
     assert other_order.body is not None
@@ -92,25 +85,22 @@ async def test_buyer_list_orders_only_own(
 @pytest.mark.asyncio
 async def test_shop_owner_list_me_orders(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """店主 GET /shops/me/orders 仅含本店订单。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 1)],
+        items=[(product_id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -119,20 +109,16 @@ async def test_shop_owner_list_me_orders(
     other_reg, other_shop = await register_and_open_shop(integration_client)
     assert other_shop is not None
     assert other_shop.status_code == 201
-    other_category, other_product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=other_reg.body.access_token,
-        admin_token=admin_auth_headers.access_token,
+    other_category_id, other_product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=other_shop.body.id,
         stock=5,
     )
-    assert other_product is not None
-    assert other_product.status_code == 201
-    assert other_product.body is not None
 
     other_order = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(other_product.body.id, 1)],
+        items=[(other_product_id, 1)],
     )
     assert other_order.status_code == 201
     assert other_order.body is not None
@@ -154,25 +140,22 @@ async def test_shop_owner_list_me_orders(
 @pytest.mark.asyncio
 async def test_get_order_unrelated_user_returns_404(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """既非买家也非本店店主 GET /orders/{id} 返回 404。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 1)],
+        items=[(product_id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -218,21 +201,17 @@ async def test_get_order_triggers_lazy_release_after_expiry(
     authenticated_user: AuthContext,
 ) -> None:
     """过期后 GET /orders/{id} 触发懒释放：cancelled/expired 且库存还原。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=9,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
-    initial_stock = product.body.stock
+    initial_stock = 9
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 4)],
+        items=[(product_id, 4)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -251,7 +230,7 @@ async def test_get_order_triggers_lazy_release_after_expiry(
     assert order.cancel_reason == "expired"
 
     # DB 断言库存还原
-    assert await get_product_stock(db_session, product.body.id) == initial_stock
+    assert await get_product_stock(db_session, product_id) == initial_stock
 
 
 @pytest.mark.integration
@@ -264,21 +243,17 @@ async def test_buyer_list_triggers_lazy_release_after_expiry(
     authenticated_user: AuthContext,
 ) -> None:
     """过期后 GET /orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=9,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
-    initial_stock = product.body.stock
+    initial_stock = 9
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 4)],
+        items=[(product_id, 4)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -302,7 +277,7 @@ async def test_buyer_list_triggers_lazy_release_after_expiry(
     assert expired_order.cancel_reason == "expired"
 
     # DB 断言库存还原
-    assert await get_product_stock(db_session, product.body.id) == initial_stock
+    assert await get_product_stock(db_session, product_id) == initial_stock
 
 
 @pytest.mark.integration
@@ -315,21 +290,17 @@ async def test_shop_owner_list_triggers_lazy_release_after_expiry(
     authenticated_user: AuthContext,
 ) -> None:
     """过期后 GET /shops/me/orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=9,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
-    initial_stock = product.body.stock
+    initial_stock = 9
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 4)],
+        items=[(product_id, 4)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -353,7 +324,7 @@ async def test_shop_owner_list_triggers_lazy_release_after_expiry(
     assert expired_order.cancel_reason == "expired"
 
     # DB 断言库存还原
-    assert await get_product_stock(db_session, product.body.id) == initial_stock
+    assert await get_product_stock(db_session, product_id) == initial_stock
 
 
 # ── 卖家建单可见性 ───────────────────────────────────────────
@@ -363,6 +334,7 @@ async def test_shop_owner_list_triggers_lazy_release_after_expiry(
 @pytest.mark.asyncio
 async def test_seller_order_visible_to_buyer_in_list(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -372,21 +344,17 @@ async def test_seller_order_visible_to_buyer_in_list(
     assert buyer.body is not None
     buyer_user_id = buyer.body.user.id
 
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
 
     seller_order = await create_order_by_seller(
         integration_client,
         headers=bearer_headers(shop_owner.access_token),
         buyer_user_id=str(buyer_user_id),
-        items=[(product.body.id, 1)],
+        items=[(product_id, 1)],
     )
     assert seller_order.status_code == 201
     assert seller_order.body is not None
@@ -413,25 +381,22 @@ async def test_seller_order_visible_to_buyer_in_list(
 @pytest.mark.asyncio
 async def test_buyer_order_initiated_by_buyer_in_list(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """买家建单后，GET /orders 响应行含 initiated_by=buyer。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 1)],
+        items=[(product_id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -464,22 +429,18 @@ async def test_seller_order_lazy_release_in_buyer_list(
     """过期后，卖家建单在买家 GET /orders 列表触发懒释放。"""
     buyer_user_id = decode_access_token(authenticated_user.access_token)
 
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=9,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
-    initial_stock = product.body.stock
+    initial_stock = 9
 
     seller_order = await create_order_by_seller(
         integration_client,
         headers=bearer_headers(shop_owner.access_token),
         buyer_user_id=str(buyer_user_id),
-        items=[(product.body.id, 4)],
+        items=[(product_id, 4)],
     )
     assert seller_order.status_code == 201
     assert seller_order.body is not None
@@ -503,4 +464,4 @@ async def test_seller_order_lazy_release_in_buyer_list(
     assert expired_order.cancel_reason == "expired"
 
     # DB 断言库存还原
-    assert await get_product_stock(db_session, product.body.id) == initial_stock
+    assert await get_product_stock(db_session, product_id) == initial_stock

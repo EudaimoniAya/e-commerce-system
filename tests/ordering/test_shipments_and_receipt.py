@@ -2,6 +2,7 @@
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.contexts import (
     AdminAuthContext,
@@ -23,15 +24,16 @@ from tests.support.utils import bearer_headers
 @pytest.mark.asyncio
 async def test_create_shipment_by_shop_owner_returns_201(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """本店店主对 confirmed 订单发货成功，返回 201 且 status=shipped。"""
-    category, product, paid = await arrange_confirmed_order(
+    category_id, product_id, paid = await arrange_confirmed_order(
+        db_session,
         integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+        shop_id=shop_owner.shop_id,
         buyer_headers=bearer_headers(authenticated_user.access_token),
     )
     assert paid is not None
@@ -55,15 +57,16 @@ async def test_create_shipment_by_shop_owner_returns_201(
 @pytest.mark.asyncio
 async def test_create_shipment_non_owner_returns_403(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """非本店店主发货返回 403。"""
-    category, product, paid = await arrange_confirmed_order(
+    category_id, product_id, paid = await arrange_confirmed_order(
+        db_session,
         integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+        shop_id=shop_owner.shop_id,
         buyer_headers=bearer_headers(authenticated_user.access_token),
     )
     assert paid is not None
@@ -88,25 +91,22 @@ async def test_create_shipment_non_owner_returns_403(
 @pytest.mark.asyncio
 async def test_create_shipment_not_confirmed_returns_409(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """对非 confirmed（awaiting_payment）订单发货返回 409。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 1)],
+        items=[(product_id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -126,15 +126,16 @@ async def test_create_shipment_not_confirmed_returns_409(
 @pytest.mark.asyncio
 async def test_create_shipment_unauthenticated_returns_401(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """未认证发货返回 401。"""
-    category, product, paid = await arrange_confirmed_order(
+    category_id, product_id, paid = await arrange_confirmed_order(
+        db_session,
         integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+        shop_id=shop_owner.shop_id,
         buyer_headers=bearer_headers(authenticated_user.access_token),
     )
     assert paid is not None
@@ -153,15 +154,16 @@ async def test_create_shipment_unauthenticated_returns_401(
 @pytest.mark.asyncio
 async def test_confirm_receipt_returns_200_completed(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """买家对 shipped 订单确认收货，返回 200 且 status=completed。"""
-    category, product, paid = await arrange_confirmed_order(
+    category_id, product_id, paid = await arrange_confirmed_order(
+        db_session,
         integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+        shop_id=shop_owner.shop_id,
         buyer_headers=bearer_headers(authenticated_user.access_token),
     )
     assert paid is not None
@@ -192,15 +194,16 @@ async def test_confirm_receipt_returns_200_completed(
 @pytest.mark.asyncio
 async def test_confirm_receipt_unauthenticated_returns_401(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """未认证确认收货返回 401。"""
-    category, product, paid = await arrange_confirmed_order(
+    category_id, product_id, paid = await arrange_confirmed_order(
+        db_session,
         integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+        shop_id=shop_owner.shop_id,
         buyer_headers=bearer_headers(authenticated_user.access_token),
     )
     assert paid is not None

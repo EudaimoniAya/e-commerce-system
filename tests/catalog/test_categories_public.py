@@ -5,44 +5,29 @@ import uuid
 import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.catalog.schemas import CategoryResponse
-from tests.support.helper.catalog import create_category
+from tests.support.db.catalog import seed_category
 from tests.support.builders import unique_category_name
-from tests.support.contexts import AdminAuthContext
-from tests.support.utils import bearer_headers
-from tests.support.results import CategoryResult
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_list_categories_returns_flat_list(
-    integration_client: AsyncClient, admin_auth_headers: AdminAuthContext
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
 ) -> None:
     """GET /categories 无需认证，返回扁平类目列表。"""
-    admin_headers = bearer_headers(admin_auth_headers.access_token)
-
     root_name = unique_category_name("list-root")
-    root: CategoryResult = await create_category(
-        integration_client,
-        headers=admin_headers,
-        name=root_name,
-    )
-    assert root.status_code == 201
-    assert root.body is not None
-    root_id = root.body.id
+    root_id = await seed_category(db_session, name=root_name)
 
     child_name = unique_category_name("list-child")
-    child: CategoryResult = await create_category(
-        integration_client,
-        headers=admin_headers,
+    child_id = await seed_category(
+        db_session,
         name=child_name,
         parent_id=root_id,
     )
-    assert child.status_code == 201
-    assert child.body is not None
-    child_id = child.body.id
 
     response: Response = await integration_client.get("/categories")
 

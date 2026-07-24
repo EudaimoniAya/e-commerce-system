@@ -31,21 +31,17 @@ async def test_buyer_cancel_awaiting_payment_releases_stock(
     authenticated_user: AuthContext,
 ) -> None:
     """买家取消 awaiting_payment 订单：200、buyer_cancelled、库存加回。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
-    initial_stock = product.body.stock
+    initial_stock = 10
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 3)],
+        items=[(product_id, 3)],
     )
     assert created.status_code == 201
     assert created.body is not None
@@ -61,7 +57,7 @@ async def test_buyer_cancel_awaiting_payment_releases_stock(
     assert cancelled.body.status == "cancelled"
     assert cancelled.body.cancel_reason == "buyer_cancelled"
 
-    assert await get_product_stock(db_session, product.body.id) == initial_stock
+    assert await get_product_stock(db_session, product_id) == initial_stock
 
 
 @pytest.mark.integration
@@ -74,21 +70,18 @@ async def test_seller_cancel_confirmed_releases_stock(
     authenticated_user: AuthContext,
 ) -> None:
     """卖家取消 confirmed 订单：200、seller_cancelled、库存加回。"""
-    category, product, paid = await arrange_confirmed_order(
+    category_id, product_id, paid = await arrange_confirmed_order(
+        db_session,
         integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+        shop_id=shop_owner.shop_id,
         buyer_headers=bearer_headers(authenticated_user.access_token),
         stock=10,
         qty=2,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
     assert paid is not None
     assert paid.status_code == 200
     assert paid.body is not None
-    initial_stock = product.request.stock
+    initial_stock = 10
 
     cancelled = await cancel_order(
         integration_client,
@@ -101,7 +94,7 @@ async def test_seller_cancel_confirmed_releases_stock(
     assert cancelled.body.status == "cancelled"
     assert cancelled.body.cancel_reason == "seller_cancelled"
 
-    assert await get_product_stock(db_session, product.body.id) == initial_stock
+    assert await get_product_stock(db_session, product_id) == initial_stock
 
 
 @pytest.mark.integration
@@ -114,17 +107,14 @@ async def test_cancel_completed_returns_409_without_stock_change(
     authenticated_user: AuthContext,
 ) -> None:
     """completed 订单禁止取消：409 且库存不变。"""
-    category, product, paid = await arrange_confirmed_order(
+    category_id, product_id, paid = await arrange_confirmed_order(
+        db_session,
         integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+        shop_id=shop_owner.shop_id,
         buyer_headers=bearer_headers(authenticated_user.access_token),
         stock=10,
         qty=2,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
     assert paid is not None
     assert paid.status_code == 200
     assert paid.body is not None
@@ -145,7 +135,7 @@ async def test_cancel_completed_returns_409_without_stock_change(
     assert completed.body is not None
     assert completed.body.status == "completed"
 
-    stock_before = await get_product_stock(db_session, product.body.id)
+    stock_before = await get_product_stock(db_session, product_id)
 
     cancelled = await cancel_order(
         integration_client,
@@ -156,32 +146,29 @@ async def test_cancel_completed_returns_409_without_stock_change(
     assert cancelled.status_code == 409
     assert cancelled.body is None
 
-    assert await get_product_stock(db_session, product.body.id) == stock_before
+    assert await get_product_stock(db_session, product_id) == stock_before
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_cancel_order_unauthenticated_returns_401(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """未认证取消返回 401。"""
-    category, product = await arrange_purchasable_product(
-        integration_client,
-        shop_owner_token=shop_owner.access_token,
-        admin_token=admin_auth_headers.access_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
         stock=10,
     )
-    assert product is not None
-    assert product.status_code == 201
-    assert product.body is not None
 
     created = await create_order(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
-        items=[(product.body.id, 1)],
+        items=[(product_id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None

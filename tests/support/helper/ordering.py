@@ -3,16 +3,13 @@
 from decimal import Decimal
 
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ordering.schemas import OrderCreate, OrderResponse, ShipmentCreate
 from tests.support.builders import build_order_create, unique_category_name
-from tests.support.helper.catalog import create_category, create_product
+from tests.support.db.catalog import seed_category, seed_product, seed_product_category
 from tests.support.utils import bearer_headers
-from tests.support.results import (
-    CategoryResult,
-    OrderResult,
-    ProductResult,
-)
+from tests.support.results import OrderResult
 
 
 def _parse_order_body(response: Response) -> OrderResponse | None:
@@ -23,38 +20,38 @@ def _parse_order_body(response: Response) -> OrderResponse | None:
 
 
 async def arrange_purchasable_product(
-    client: AsyncClient,
+    db_session: AsyncSession,
     *,
-    shop_owner_token: str,
-    admin_token: str,
+    shop_id: str,
     stock: int = 10,
     price: str | Decimal = "99.00",
     name: str | None = None,
     is_published: bool = True,
-) -> tuple[CategoryResult, ProductResult | None]:
-    """Arrange：为店铺创建类目 + 可购商品。
+) -> tuple[str, str]:
+    """Arrange（DB seed）：为店铺创建类目 + 可购商品。
 
-    返回 ``(CategoryResult, ProductResult)``。
-    类目创建失败时 ProductResult 为 None。
+    不经 HTTP，直写 SAVEPOINT session。返回 ``(category_id, product_id)``。
     """
-    category = await create_category(
-        client,
-        headers=bearer_headers(admin_token),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("order"),
     )
-    if category.status_code != 201 or category.body is None:
-        return (category, None)
-
-    product = await create_product(
-        client,
-        shop_owner_token=shop_owner_token,
-        category=category,
-        name=name,
-        price=price,
+    product_name = name if name is not None else "product-" + category_id[:8]
+    product_id = await seed_product(
+        db_session,
+        shop_id=shop_id,
+        name=product_name,
+        price=str(price),
         stock=stock,
         is_published=is_published,
     )
-    return (category, product)
+    await seed_product_category(
+        db_session,
+        product_id=product_id,
+        category_id=category_id,
+        is_primary=True,
+    )
+    return (category_id, product_id)
 
 
 async def create_order_by_seller(
@@ -182,40 +179,37 @@ async def cancel_order(
 
 
 async def arrange_confirmed_order(
-    client: AsyncClient,
+    db_session: AsyncSession,
+    integration_client: AsyncClient,
     *,
-    shop_owner_token: str,
-    admin_token: str,
+    shop_id: str,
     buyer_headers: dict[str, str],
     stock: int = 10,
     qty: int = 1,
-) -> tuple[CategoryResult, ProductResult, OrderResult | None]:
-    """Arrange：可购商品 → 下单 → pay → confirmed。
+) -> tuple[str, str, OrderResult | None]:
+    """Arrange：DB seed 类目+商品 → HTTP 下单 → HTTP pay → confirmed。
 
-    返回 ``(CategoryResult, ProductResult, OrderResult)``，
+    返回 ``(category_id, product_id, OrderResult)``，
     其中 OrderResult 为支付后的订单。
     任一步失败时 OrderResult 为 None；调用方在 Case 内断言。
     """
-    category, product = await arrange_purchasable_product(
-        client,
-        shop_owner_token=shop_owner_token,
-        admin_token=admin_token,
+    category_id, product_id = await arrange_purchasable_product(
+        db_session,
+        shop_id=shop_id,
         stock=stock,
     )
-    if product is None or product.status_code != 201 or product.body is None:
-        return (category, product, None)
 
     created = await create_order(
-        client,
+        integration_client,
         headers=buyer_headers,
-        items=[(product.body.id, qty)],
+        items=[(product_id, qty)],
     )
     if created.status_code != 201 or created.body is None:
-        return (category, product, created)
+        return (category_id, product_id, created)
 
     paid = await pay_order(
-        client,
+        integration_client,
         headers=buyer_headers,
         order_id=created.body.id,
     )
-    return (category, product, paid)
+    return (category_id, product_id, paid)

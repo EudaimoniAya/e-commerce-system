@@ -83,22 +83,18 @@
 > 的 HTTP Arrange 替换为 ``db/`` seed，减少测试 Arrange 阶段的 HTTP 往返次数。
 > conftest identity fixture 保持 HTTP（JWT token 生成不重复）。
 
-- [ ] 6c.0 更新 `tests/support/helper/ordering.py` 的
+- [x] 6c.0 更新 `tests/support/helper/ordering.py` 的
   ``arrange_purchasable_product``、``arrange_confirmed_order`` →
   调用 ``db/`` seed 替代 HTTP helper（``create_category``/``create_product``）。
   返回类型从 ``(CategoryResult, ProductResult)`` 变为 ``(category_id, product_id)``。
-- [ ] 6c.1 `tests/ordering/test_create_order.py`：``arrange_purchasable_product`` → ``db/`` seed
-- [ ] 6c.2 `tests/ordering/test_cancel_order.py`：``arrange_confirmed_order`` / ``arrange_purchasable_product`` → ``db/`` seed
-- [ ] 6c.3 `tests/ordering/test_pay_order.py`：同模式迁移
-- [ ] 6c.4 `tests/ordering/test_shipments_and_receipt.py`：同模式迁移
-- [ ] 6c.5 `tests/ordering/test_list_orders.py`：同模式迁移
-- [ ] 6c.6 `tests/ordering/test_create_order_by_seller.py`：同模式迁移
-- [ ] 6c.7 catalog 域测试（`test_public_products.py`、`test_update_product.py` 等）：``create_category`` + ``create_product``（HTTP）→ ``seed_category`` + ``seed_product``
-- [ ] 6c.8 orchestrator 签名变更与测试迁移同步：
-  ``arrange_purchasable_product`` / ``arrange_confirmed_order`` →
-  调用 ``db/`` seed 替代 HTTP helper。
-  返回类型从 ``(CategoryResult, ProductResult)`` 变为 ``(category_id, product_id)``。
-- [ ] 6c.9 CI 全绿
+- [x] 6c.1 `tests/ordering/test_create_order.py`：``arrange_purchasable_product`` → ``db/`` seed
+- [x] 6c.2 `tests/ordering/test_cancel_order.py`：``arrange_confirmed_order`` / ``arrange_purchasable_product`` → ``db/`` seed
+- [x] 6c.3 `tests/ordering/test_pay_order.py`：同模式迁移
+- [x] 6c.4 `tests/ordering/test_shipments_and_receipt.py`：同模式迁移
+- [x] 6c.5 `tests/ordering/test_list_orders.py`：同模式迁移
+- [x] 6c.6 `tests/ordering/test_create_order_by_seller.py`：同模式迁移
+- [x] 6c.7 catalog 域测试（`test_public_products.py`、`test_update_product.py` 等）：``create_category`` + ``create_product``（HTTP）→ ``seed_category`` + ``seed_product``
+- [x] 6c.8 CI 全绿（111 passed，17.21s）
 
 ## 7. CI 与收尾
 
