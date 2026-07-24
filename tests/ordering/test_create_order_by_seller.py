@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infra.auth import decode_access_token
 from tests.support.builders import unique_email, unique_category_name
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.support.db.catalog import get_product_stock
 from tests.support.helper.catalog import create_category, create_product, register_and_open_shop
 from tests.support.helper.ordering import arrange_purchasable_product, create_order_by_seller
 from tests.support.utils import bearer_headers
@@ -31,6 +32,7 @@ from tests.support.helper.auth import register_authenticated
 @pytest.mark.asyncio
 async def test_create_order_by_seller_returns_201(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
@@ -68,9 +70,7 @@ async def test_create_order_by_seller_returns_201(
     # assert result.body.initiated_by == "seller"
 
     # 库存已扣减
-    stock: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock.status_code == 200
-    assert stock.json()["stock"] == 8
+    assert await get_product_stock(db_session, product.body.id) == 8
 
 
 @pytest.mark.integration

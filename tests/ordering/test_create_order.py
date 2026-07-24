@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ordering.schemas import OrderResponse
 from tests.support.contexts import (
@@ -12,6 +13,7 @@ from tests.support.contexts import (
     AuthContext,
     ShopOwnerContext,
 )
+from tests.support.db.catalog import get_product_stock
 from tests.support.helper.catalog import create_product, register_and_open_shop
 from tests.support.helper.ordering import arrange_purchasable_product, create_order
 from tests.support.utils import bearer_headers
@@ -21,6 +23,7 @@ from tests.support.utils import bearer_headers
 @pytest.mark.asyncio
 async def test_create_order_multi_item_same_shop_returns_201(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
@@ -67,19 +70,15 @@ async def test_create_order_multi_item_same_shop_returns_201(
     assert Decimal(body.total_amount) == Decimal("40.00")
     uuid.UUID(body.id)
 
-    stock_a: Response = await integration_client.get(f"/products/{product_a.body.id}")
-    assert stock_a.status_code == 200
-    assert stock_a.json()["stock"] == 8
-
-    stock_b: Response = await integration_client.get(f"/products/{product_b.body.id}")
-    assert stock_b.status_code == 200
-    assert stock_b.json()["stock"] == 4
+    assert await get_product_stock(db_session, product_a.body.id) == 8
+    assert await get_product_stock(db_session, product_b.body.id) == 4
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_cross_shop_returns_422(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
@@ -124,18 +123,15 @@ async def test_create_order_cross_shop_returns_422(
     assert response.status_code == 422
     assert "detail" in response.json()
 
-    stock_a: Response = await integration_client.get(f"/products/{product_a.body.id}")
-    assert stock_a.status_code == 200
-    assert stock_a.json()["stock"] == stock_before_a
-    stock_b: Response = await integration_client.get(f"/products/{product_b.body.id}")
-    assert stock_b.status_code == 200
-    assert stock_b.json()["stock"] == stock_before_b
+    assert await get_product_stock(db_session, product_a.body.id) == stock_before_a
+    assert await get_product_stock(db_session, product_b.body.id) == stock_before_b
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_insufficient_stock_returns_422(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
@@ -160,9 +156,7 @@ async def test_create_order_insufficient_stock_returns_422(
     assert result.status_code == 422
     assert result.body is None
 
-    stock: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock.status_code == 200
-    assert stock.json()["stock"] == 3
+    assert await get_product_stock(db_session, product.body.id) == 3
 
 
 @pytest.mark.integration

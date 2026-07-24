@@ -2,13 +2,14 @@
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.schemas import ProductResponse
 from tests.support.contexts import (
     AdminAuthContext,
     AuthContext,
     ShopOwnerContext,
 )
+from tests.support.db.catalog import get_product_stock
 from tests.support.helper.ordering import (
     arrange_confirmed_order,
     arrange_purchasable_product,
@@ -24,6 +25,7 @@ from tests.support.utils import bearer_headers
 @pytest.mark.asyncio
 async def test_buyer_cancel_awaiting_payment_releases_stock(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
@@ -59,15 +61,14 @@ async def test_buyer_cancel_awaiting_payment_releases_stock(
     assert cancelled.body.status == "cancelled"
     assert cancelled.body.cancel_reason == "buyer_cancelled"
 
-    stock: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock.status_code == 200
-    assert ProductResponse.model_validate(stock.json()).stock == initial_stock
+    assert await get_product_stock(db_session, product.body.id) == initial_stock
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_seller_cancel_confirmed_releases_stock(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
@@ -100,15 +101,14 @@ async def test_seller_cancel_confirmed_releases_stock(
     assert cancelled.body.status == "cancelled"
     assert cancelled.body.cancel_reason == "seller_cancelled"
 
-    stock: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock.status_code == 200
-    assert ProductResponse.model_validate(stock.json()).stock == initial_stock
+    assert await get_product_stock(db_session, product.body.id) == initial_stock
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_cancel_completed_returns_409_without_stock_change(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
@@ -145,9 +145,7 @@ async def test_cancel_completed_returns_409_without_stock_change(
     assert completed.body is not None
     assert completed.body.status == "completed"
 
-    stock_before: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock_before.status_code == 200
-    stock_value = ProductResponse.model_validate(stock_before.json()).stock
+    stock_before = await get_product_stock(db_session, product.body.id)
 
     cancelled = await cancel_order(
         integration_client,
@@ -158,9 +156,7 @@ async def test_cancel_completed_returns_409_without_stock_change(
     assert cancelled.status_code == 409
     assert cancelled.body is None
 
-    stock_after: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock_after.status_code == 200
-    assert ProductResponse.model_validate(stock_after.json()).stock == stock_value
+    assert await get_product_stock(db_session, product.body.id) == stock_before
 
 
 @pytest.mark.integration

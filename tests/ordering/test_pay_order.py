@@ -25,6 +25,7 @@ from tests.support.utils import bearer_headers
 @pytest.mark.asyncio
 async def test_pay_order_stub_confirms_awaiting_payment(
     integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
@@ -49,9 +50,7 @@ async def test_pay_order_stub_confirms_awaiting_payment(
     assert created.body is not None
     assert created.body.status == "awaiting_payment"
 
-    stock_after_create: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock_after_create.status_code == 200
-    stock_before_pay = stock_after_create.json()["stock"]
+    stock_before_pay = await get_product_stock(db_session, product.body.id)
     assert stock_before_pay == 8
 
     paid = await pay_order(
@@ -65,9 +64,7 @@ async def test_pay_order_stub_confirms_awaiting_payment(
     assert paid.body.status == "confirmed"
     assert paid.body.id == created.body.id
 
-    stock_after_pay: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock_after_pay.status_code == 200
-    assert stock_after_pay.json()["stock"] == stock_before_pay
+    assert await get_product_stock(db_session, product.body.id) == stock_before_pay
 
 
 @pytest.mark.integration
@@ -218,9 +215,7 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
     assert created.status_code == 201
     assert created.body is not None
 
-    stock_reserved: Response = await integration_client.get(f"/products/{product.body.id}")
-    assert stock_reserved.status_code == 200
-    assert stock_reserved.json()["stock"] == initial_stock - 3
+    assert await get_product_stock(db_session, product.body.id) == initial_stock - 3
 
     # backdate 模拟 TTL 过期（替代 override_order_reservation_ttl + wait_past_order_expiry）
     await backdate_order_expires_at(db_session, created.body.id)
