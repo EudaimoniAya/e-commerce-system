@@ -7,9 +7,15 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from tests.support.builders import (
+    unique_category_name,
+    unique_email,
+    unique_shop_name,
+)
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.support.env import bootstrap_test_env
 from tests.support.helpers import (
     auth_headers,
-    configure_integration_test_env,
     create_category,
     create_product,
     create_shop,
@@ -19,14 +25,7 @@ from tests.support.helpers import (
     register_and_open_shop,
     register_authenticated,
     register_user,
-    reset_settings_cache,
 )
-from tests.support.builders import (
-    unique_category_name,
-    unique_email,
-    unique_shop_name,
-)
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.results import (
     CategoryResult,
     LoginResult,
@@ -65,18 +64,10 @@ __all__ = [
     "unique_shop_name",
 ]
 
-# import app 前配置 env 并清缓存，避免 get_settings() 缓存 .env 中的 dev 配置
-configure_integration_test_env()
-reset_settings_cache()
+# import app 前 bootstrap 测试环境：确保 Settings 从 .env.test 加载
+bootstrap_test_env()
 
 from app.main import app  # noqa: E402
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _integration_test_database_url() -> None:
-    """session 级再次确保测试 env 与 Settings 缓存一致。"""
-    configure_integration_test_env()
-    reset_settings_cache()
 
 
 @pytest.fixture(scope="session")

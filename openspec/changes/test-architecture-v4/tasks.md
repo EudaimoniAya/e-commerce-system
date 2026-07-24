@@ -9,8 +9,8 @@
 
 > §2 仅新增 `tests/support/env.py` 与减冗余 cache；**删 `ensure_integration_auth_env` 放在 Task 3.4**（与 SAVEPOINT 同批）。
 
-- [ ] 2.1 新增 `tests/support/env.py`：`bootstrap_test_env()`（可选，§1 完成后简化 conftest import 前逻辑）
-- [ ] 2.2 文档化：`cache_clear` 仅允许 `env.py`（design 纪律）
+- [x] 2.1 新增 `tests/support/env.py`：`bootstrap_test_env()`（可选，§1 完成后简化 conftest import 前逻辑）
+- [x] 2.2 文档化：`cache_clear` 仅允许 `env.py`（design 纪律）
 
 ## 3. SAVEPOINT + integration_client（POC 门禁）
 

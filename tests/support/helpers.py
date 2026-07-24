@@ -60,7 +60,13 @@ def configure_integration_test_env() -> None:
 
 
 def reset_settings_cache() -> None:
-    """清除 Settings 单例缓存，使后续 get_settings() 读取最新环境变量。"""
+    """清除 Settings 单例缓存，使后续 get_settings() 读取最新环境变量。
+
+    .. deprecated::
+        §2 后 ``get_settings.cache_clear()`` **仅允许**在 ``tests/support/env.py``
+        的 ``bootstrap_test_env()`` 中调用。本函数将在 §3.4 随 ``ensure_integration_auth_env``
+        一并删除。
+    """
     from app.infra.config import get_settings
 
     get_settings.cache_clear()
