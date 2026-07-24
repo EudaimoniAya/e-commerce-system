@@ -49,6 +49,7 @@ __all__ = [
     "authenticated_user",
     "client",
     "create_category",
+    "integration_client",
     "create_product",
     "create_shop",
     "database_url",
@@ -95,7 +96,25 @@ async def _reset_global_database_engine(
 
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
-    """httpx AsyncClient，与 pytest-asyncio 共用同一事件循环。"""
+    """httpx AsyncClient，与 pytest-asyncio 共用同一事件循环。
+
+    无 ``get_db`` override，适合 health 等不需写库的探针测试。
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
+
+
+@pytest.fixture
+async def integration_client(
+    db_session: AsyncSession,
+) -> AsyncIterator[AsyncClient]:
+    """httpx AsyncClient，依赖 ``db_session`` 提供 ``get_db`` override。
+
+    所有 HTTP 请求走 SAVEPOINT 测试 session，与 ``db_session`` 同一事务。
+    写入的数据在测试结束后由外层 ROLLBACK 清除，零残留。
+    适合 ``@pytest.mark.integration`` 业务 HTTP 用例。
+    """
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
         yield ac
@@ -103,14 +122,34 @@ async def client() -> AsyncIterator[AsyncClient]:
 
 @pytest.fixture
 async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
-    """每个测试在独立事务内执行，结束后 rollback 保证零副作用。"""
+    """SAVEPOINT 事务隔离的 AsyncSession，经 dependency_overrides 使 HTTP 共用同一 session。
+
+    - ``join_transaction_mode='create_savepoint'``：service 内 ``session.commit()`` 仅提交
+      SAVEPOINT，不提交外层事务。
+    - 注册 ``app.dependency_overrides[get_db]`` → HTTP 请求走测试 session。
+    - Teardown：pop override → rollback 外层事务 → 零数据残留。
+    - 保留 expire_on_commit=False 避免提交 SAVEPOINT 后 ORM 实例过期。
+    """
+    from app.infra.database import get_db
+    from app.main import app
+
     engine = create_async_engine(database_url)
     async with engine.connect() as conn:
         trans = await conn.begin()
-        session = AsyncSession(bind=conn, expire_on_commit=False)
+        session = AsyncSession(
+            bind=conn,
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+
+        async def _override_get_db() -> AsyncIterator[AsyncSession]:
+            yield session
+
+        app.dependency_overrides[get_db] = _override_get_db
         try:
             yield session
         finally:
+            app.dependency_overrides.pop(get_db, None)
             await session.close()
             await trans.rollback()
     await engine.dispose()

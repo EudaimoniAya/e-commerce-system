@@ -14,7 +14,7 @@
 
 ## 3. SAVEPOINT + integration_client（POC 门禁）
 
-- [ ] 3.0 **POC**：`db_session` + SAVEPOINT + `get_db` override + `integration_client`；用例「注册→开店→rollback 后 users/shops 无残留」；验证 `login_admin` 可读 migration seed
+- [x] 3.0 **POC**：`db_session` + SAVEPOINT + `get_db` override + `integration_client`；用例「注册→开店→rollback 后 users/shops 无残留」；验证 `login_admin` 可读 migration seed
 - [ ] 3.1 `conftest`：`db_session` 注册 override（不 close session）、`integration_client` 依赖 `db_session`；保留 plain `client`
 - [ ] 3.2 确认 override 生命周期：`reset_engine` 仅清 app 全局 engine，不 dispose 测试 fixture engine；autouse **保留**
 - [ ] 3.3 删除 `app/ordering/service.py` 中 `_get_reservation_ttl()` 的 `os.environ` 分支
