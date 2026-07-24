@@ -5,47 +5,31 @@ import uuid
 import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.catalog.schemas import CategoryResponse
-from tests.support.helpers import create_category
+from tests.support.db.catalog import seed_category
 from tests.support.builders import unique_category_name
-from tests.support.contexts import AdminAuthContext
-from tests.support.projections import bearer_headers
-from tests.support.results import CategoryResult, LoginResult
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_list_categories_returns_flat_list(
-    client: AsyncClient, admin_auth_headers: AdminAuthContext
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
 ) -> None:
     """GET /categories 无需认证，返回扁平类目列表。"""
-    admin_headers = bearer_headers(admin_auth_headers.root.step(LoginResult))
-    assert admin_auth_headers.root.step(LoginResult).status_code == 200
-
     root_name = unique_category_name("list-root")
-    root: CategoryResult = await create_category(
-        client,
-        headers=admin_headers,
-        name=root_name,
-    )
-    assert root.status_code == 201
-    assert root.body is not None
-    root_id = root.body.id
+    root_id = await seed_category(db_session, name=root_name)
 
     child_name = unique_category_name("list-child")
-    child: CategoryResult = await create_category(
-        client,
-        headers=admin_headers,
+    child_id = await seed_category(
+        db_session,
         name=child_name,
         parent_id=root_id,
     )
-    assert child.status_code == 201
-    assert child.body is not None
-    child_id = child.body.id
 
-    response: Response = await client.get("/categories")
+    response: Response = await integration_client.get("/categories")
 
     assert response.status_code == 200
     body = response.json()
@@ -68,7 +52,7 @@ async def test_list_categories_returns_flat_list(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_list_categories_empty_returns_200_and_empty_array(
-    client: AsyncClient, database_url: str
+    integration_client: AsyncClient, database_url: str
 ) -> None:
     """尚无类目记录时 GET /categories 返回 200 与空数组。"""
     engine = create_async_engine(database_url)
@@ -86,7 +70,7 @@ async def test_list_categories_empty_returns_200_and_empty_array(
                 pass
     await engine.dispose()
 
-    response: Response = await client.get("/categories")
+    response: Response = await integration_client.get("/categories")
 
     assert response.status_code == 200
     assert response.json() == []

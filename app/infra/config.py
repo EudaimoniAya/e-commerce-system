@@ -1,15 +1,18 @@
 """应用配置（12-factor 环境变量注入）。"""
 
+import os
 from functools import lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_ENV_FILE = os.environ.get("APP_ENV_FILE", ".env")
+
 
 class Settings(BaseSettings):
     """从环境变量加载的运行时配置。"""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
     database_url: str
     app_env: str = "development"

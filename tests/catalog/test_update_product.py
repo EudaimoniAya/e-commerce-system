@@ -2,61 +2,53 @@
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.schemas import ProductResponse
 from tests.support.builders import unique_category_name
-from tests.support.contexts import AdminAuthContext, ShopOwnerContext
-from tests.support.helpers import create_category, create_product, register_and_open_shop
-from tests.support.pipeline import PipelineResult
-from tests.support.projections import bearer_headers
-from tests.support.results import (
-    CategoryResult,
-    LoginResult,
-    ProductResult,
-    RegisterResult,
-    ShopResult,
-)
+from tests.support.contexts import ShopOwnerContext
+from tests.support.helper.catalog import register_and_open_shop
+from tests.support.db.catalog import seed_category, seed_product, seed_product_category
+from tests.support.utils import bearer_headers
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_success_returns_200(
-    client: AsyncClient,
-    admin_auth_headers: AdminAuthContext,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 PATCH 本店商品合法字段成功，返回 200 与 ProductResponse。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("product"),
     )
-    assert category.status_code == 201
-    assert category.body is not None
 
-    product: ProductResult = await create_product(
-        client,
-        shop_owner=shop_owner.root,
-        category=category,
+    product_id = await seed_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
+        name=unique_category_name("product"),
         is_published=False,
     )
-    assert product.status_code == 201
-    assert product.body is not None
+    await seed_product_category(
+        db_session,
+        product_id=product_id,
+        category_id=category_id,
+        is_primary=True,
+    )
 
-    response: Response = await client.patch(
-        f"/products/{product.body.id}",
+    response: Response = await integration_client.patch(
+        f"/products/{product_id}",
         json={"is_published": True, "description": "更新后的简介"},
         headers=owner_headers,
     )
 
     assert response.status_code == 200
     body = ProductResponse.model_validate(response.json())
-    assert body.id == product.body.id
+    assert body.id == product_id
     assert body.is_published is True
     assert body.description == "更新后的简介"
 
@@ -64,37 +56,37 @@ async def test_patch_product_success_returns_200(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_other_shop_returns_403(
-    client: AsyncClient, admin_auth_headers: AdminAuthContext
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
 ) -> None:
     """店主 PATCH 其他店铺商品返回 403。"""
-    owner_a: PipelineResult = await register_and_open_shop(client)
-    assert owner_a.step(ShopResult).status_code == 201
+    owner_a_reg, owner_a_shop = await register_and_open_shop(integration_client)
+    assert owner_a_shop is not None and owner_a_shop.status_code == 201
 
-    owner_b: PipelineResult = await register_and_open_shop(client)
-    assert owner_b.step(ShopResult).status_code == 201
+    owner_b_reg, owner_b_shop = await register_and_open_shop(integration_client)
+    assert owner_b_shop is not None and owner_b_shop.status_code == 201
 
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
-    category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("product"),
     )
-    assert category.status_code == 201
-    assert category.body is not None
 
-    product: ProductResult = await create_product(
-        client,
-        shop_owner=owner_a,
-        category=category,
+    product_id = await seed_product(
+        db_session,
+        shop_id=owner_a_shop.body.id,
+        name=unique_category_name("product"),
     )
-    assert product.status_code == 201
-    assert product.body is not None
+    await seed_product_category(
+        db_session,
+        product_id=product_id,
+        category_id=category_id,
+        is_primary=True,
+    )
 
-    response: Response = await client.patch(
-        f"/products/{product.body.id}",
+    response: Response = await integration_client.patch(
+        f"/products/{product_id}",
         json={"name": "越权修改"},
-        headers=bearer_headers(owner_b.step(RegisterResult)),
+        headers=bearer_headers(owner_b_reg.body.access_token),
     )
 
     assert response.status_code == 403
@@ -103,41 +95,39 @@ async def test_patch_product_other_shop_returns_403(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_closed_shop_returns_422(
-    client: AsyncClient,
-    admin_auth_headers: AdminAuthContext,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店铺 closed 时 PATCH 本店商品返回 422。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("product"),
     )
-    assert category.status_code == 201
-    assert category.body is not None
 
-    product: ProductResult = await create_product(
-        client,
-        shop_owner=shop_owner.root,
-        category=category,
+    product_id = await seed_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
+        name=unique_category_name("product"),
     )
-    assert product.status_code == 201
-    assert product.body is not None
+    await seed_product_category(
+        db_session,
+        product_id=product_id,
+        category_id=category_id,
+        is_primary=True,
+    )
 
-    patch_shop: Response = await client.patch(
+    patch_shop: Response = await integration_client.patch(
         "/shops/me",
         json={"status": "closed"},
         headers=owner_headers,
     )
     assert patch_shop.status_code == 200
 
-    response: Response = await client.patch(
-        f"/products/{product.body.id}",
+    response: Response = await integration_client.patch(
+        f"/products/{product_id}",
         json={"name": "closed 店修改"},
         headers=owner_headers,
     )
@@ -151,35 +141,33 @@ async def test_patch_product_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_stock_zero_returns_200(
-    client: AsyncClient,
-    admin_auth_headers: AdminAuthContext,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 PATCH 本店商品 stock 为 0 成功返回 200。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("product"),
     )
-    assert category.status_code == 201
-    assert category.body is not None
 
-    product: ProductResult = await create_product(
-        client,
-        shop_owner=shop_owner.root,
-        category=category,
+    product_id = await seed_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
+        name=unique_category_name("product"),
+        stock=10,
     )
-    assert product.status_code == 201
-    assert product.body is not None
-    assert product.body.stock > 0
+    await seed_product_category(
+        db_session,
+        product_id=product_id,
+        category_id=category_id,
+        is_primary=True,
+    )
 
-    response: Response = await client.patch(
-        f"/products/{product.body.id}",
+    response: Response = await integration_client.patch(
+        f"/products/{product_id}",
         json={"stock": 0},
         headers=owner_headers,
     )
@@ -192,40 +180,40 @@ async def test_patch_product_stock_zero_returns_200(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_product_delist_sets_is_published_false(
-    client: AsyncClient,
-    admin_auth_headers: AdminAuthContext,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主通过 PATCH is_published=false 下架商品，公开 GET 返回 404。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("product"),
     )
-    assert category.status_code == 201
-    assert category.body is not None
 
-    product: ProductResult = await create_product(
-        client,
-        shop_owner=shop_owner.root,
-        category=category,
+    product_id = await seed_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
+        name=unique_category_name("product"),
         is_published=True,
     )
-    assert product.status_code == 201
-    assert product.body is not None
+    await seed_product_category(
+        db_session,
+        product_id=product_id,
+        category_id=category_id,
+        is_primary=True,
+    )
 
-    patch_response: Response = await client.patch(
-        f"/products/{product.body.id}",
+    patch_response: Response = await integration_client.patch(
+        f"/products/{product_id}",
         json={"is_published": False},
         headers=owner_headers,
     )
     assert patch_response.status_code == 200
     assert ProductResponse.model_validate(patch_response.json()).is_published is False
 
-    public_response: Response = await client.get(f"/products/{product.body.id}")
+    public_response: Response = await integration_client.get(
+        f"/products/{product_id}"
+    )
     assert public_response.status_code == 404

@@ -4,46 +4,42 @@ import pytest
 from httpx import AsyncClient, Response
 
 from app.user.schemas import UserResponse
-from tests.support.helpers import auth_headers
+from tests.support.helper.auth import auth_headers
 from tests.support.contexts import AuthContext
-from tests.support.projections import bearer_headers
-from tests.support.results import RegisterResult
+from tests.support.utils import bearer_headers
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_me_returns_200_with_valid_token(
-    client: AsyncClient, authenticated_user: AuthContext
+    integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
     """有效 Bearer token 返回当前用户资料。"""
-    registered = authenticated_user.root.step(RegisterResult)
-    assert registered.status_code == 201
-    assert registered.body is not None
-    assert registered.body.user is not None
+    headers = bearer_headers(authenticated_user.access_token)
 
-    response: Response = await client.get(
-        "/users/me", headers=bearer_headers(registered)
+    response: Response = await integration_client.get(
+        "/users/me", headers=headers
     )
     assert response.status_code == 200
 
     body = UserResponse.model_validate(response.json())
-    assert body.email == registered.body.user.email
+    assert body.email == authenticated_user.email
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_me_without_token_returns_401(client: AsyncClient) -> None:
+async def test_me_without_token_returns_401(integration_client: AsyncClient) -> None:
     """未携带 Authorization 返回 401。"""
-    response: Response = await client.get("/users/me")
+    response: Response = await integration_client.get("/users/me")
 
     assert response.status_code == 401
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_me_with_invalid_token_returns_401(client: AsyncClient) -> None:
+async def test_me_with_invalid_token_returns_401(integration_client: AsyncClient) -> None:
     """无效 Bearer token 返回 401。"""
-    response: Response = await client.get(
+    response: Response = await integration_client.get(
         "/users/me", headers=auth_headers("not-a-valid-jwt")
     )
 

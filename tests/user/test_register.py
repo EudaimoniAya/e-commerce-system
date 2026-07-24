@@ -6,7 +6,7 @@ import uuid
 import pytest
 from httpx import AsyncClient, Response
 
-from tests.support.helpers import register_user
+from tests.support.helper.auth import register_user
 from tests.support.builders import build_register_request, unique_email
 from tests.support.results import RegisterResult
 
@@ -15,10 +15,10 @@ _DEFAULT_NICKNAME_PATTERN = re.compile(r"^用户_\d{14,17}$")
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_success_returns_201_and_token(client: AsyncClient) -> None:
+async def test_register_success_returns_201_and_token(integration_client: AsyncClient) -> None:
     """有效邮箱与密码注册成功，返回 201、token 与用户资料。"""
     email = unique_email()
-    result: RegisterResult = await register_user(client, email=email)
+    result: RegisterResult = await register_user(integration_client, email=email)
 
     assert result.status_code == 201
     assert result.body is not None
@@ -36,13 +36,13 @@ async def test_register_success_returns_201_and_token(client: AsyncClient) -> No
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_duplicate_email_returns_422(client: AsyncClient) -> None:
+async def test_register_duplicate_email_returns_422(integration_client: AsyncClient) -> None:
     """重复邮箱注册返回 422 与 detail 字段。"""
     email = unique_email()
-    first: RegisterResult = await register_user(client, email=email)
+    first: RegisterResult = await register_user(integration_client, email=email)
     assert first.status_code == 201
 
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/auth/register",
         json=build_register_request(email=email).model_dump(mode="json"),
     )
@@ -53,9 +53,9 @@ async def test_register_duplicate_email_returns_422(client: AsyncClient) -> None
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_register_default_nickname_when_omitted(client: AsyncClient) -> None:
+async def test_register_default_nickname_when_omitted(integration_client: AsyncClient) -> None:
     """未提供 nickname 时使用默认昵称（用户_ + 时间戳）。"""
-    result: RegisterResult = await register_user(client)
+    result: RegisterResult = await register_user(integration_client)
 
     assert result.status_code == 201
     assert result.body is not None

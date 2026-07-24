@@ -8,28 +8,22 @@ from httpx import AsyncClient, Response
 from app.catalog.schemas import ProductResponse
 from tests.support.builders import build_product_create, unique_category_name
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.helpers import create_category
-from tests.support.projections import bearer_headers
-from tests.support.results import CategoryResult, LoginResult, RegisterResult, ShopResult
+from tests.support.helper.catalog import create_category
+from tests.support.utils import bearer_headers
+from tests.support.results import CategoryResult
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_success_returns_201(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主在 active 店铺下创建商品成功，返回 201 与 ProductResponse。"""
-    shop_result = shop_owner.root.step(ShopResult)
-    assert shop_result.status_code == 201
-    assert shop_result.body is not None
-
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
     category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
         name=unique_category_name("product"),
     )
     assert category.status_code == 201
@@ -42,10 +36,10 @@ async def test_create_product_success_returns_201(
         primary_category_id=category_id,
     )
 
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/products",
         json=product_request.model_dump(mode="json"),
-        headers=bearer_headers(shop_owner.root.step(RegisterResult)),
+        headers=bearer_headers(shop_owner.access_token),
     )
 
     assert response.status_code == 201
@@ -55,7 +49,7 @@ async def test_create_product_success_returns_201(
     assert body.price == str(product_request.price)
     assert body.stock == product_request.stock
     assert body.is_published is False
-    assert body.shop_id == shop_result.body.id
+    assert body.shop_id == shop_owner.shop_id
     uuid.UUID(body.id)
 
     assert len(body.categories) >= 1
@@ -66,26 +60,23 @@ async def test_create_product_success_returns_201(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_closed_shop_returns_422(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店铺 status 为 closed 时 POST /products 返回 422。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    patch_response: Response = await client.patch(
+    patch_response: Response = await integration_client.patch(
         "/shops/me",
         json={"status": "closed"},
         headers=owner_headers,
     )
     assert patch_response.status_code == 200
 
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
     category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
         name=unique_category_name("product"),
     )
     assert category.status_code == 201
@@ -97,7 +88,7 @@ async def test_create_product_closed_shop_returns_422(
         primary_category_id=category_id,
     )
 
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/products",
         json=product_request.model_dump(mode="json"),
         headers=owner_headers,
@@ -112,19 +103,14 @@ async def test_create_product_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_product_no_shop_returns_404(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     authenticated_user: AuthContext,
 ) -> None:
     """已认证但无店铺的用户 POST /products 返回 404。"""
-    registered = authenticated_user.root.step(RegisterResult)
-    assert registered.status_code == 201
-
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
     category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
         name=unique_category_name("product"),
     )
     assert category.status_code == 201
@@ -136,10 +122,10 @@ async def test_create_product_no_shop_returns_404(
         primary_category_id=category_id,
     )
 
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/products",
         json=product_request.model_dump(mode="json"),
-        headers=bearer_headers(registered),
+        headers=bearer_headers(authenticated_user.access_token),
     )
 
     assert response.status_code == 404

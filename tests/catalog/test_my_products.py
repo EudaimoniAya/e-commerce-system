@@ -2,61 +2,57 @@
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
 from tests.support.builders import unique_category_name
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.helpers import create_category, create_product
-from tests.support.projections import bearer_headers
-from tests.support.results import (
-    CategoryResult,
-    LoginResult,
-    ProductResult,
-    RegisterResult,
-    ShopResult,
-)
+from tests.support.contexts import AuthContext, ShopOwnerContext
+from tests.support.db.catalog import seed_category, seed_product, seed_product_category
+from tests.support.utils import bearer_headers
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_returns_200_with_all_products(
-    client: AsyncClient,
-    admin_auth_headers: AdminAuthContext,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主 GET /shops/me/products 返回 200，含未上架商品。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
-    admin_login = admin_auth_headers.root.step(LoginResult)
-    assert admin_login.status_code == 200
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("product"),
     )
-    assert category.status_code == 201
-    assert category.body is not None
 
-    published: ProductResult = await create_product(
-        client,
-        shop_owner=shop_owner.root,
-        category=category,
+    published_id = await seed_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
+        name=unique_category_name("published"),
         is_published=True,
     )
-    assert published.status_code == 201
-    assert published.body is not None
+    await seed_product_category(
+        db_session,
+        product_id=published_id,
+        category_id=category_id,
+        is_primary=True,
+    )
 
-    unpublished: ProductResult = await create_product(
-        client,
-        shop_owner=shop_owner.root,
-        category=category,
+    unpublished_id = await seed_product(
+        db_session,
+        shop_id=shop_owner.shop_id,
+        name=unique_category_name("unpublished"),
         is_published=False,
     )
-    assert unpublished.status_code == 201
-    assert unpublished.body is not None
+    await seed_product_category(
+        db_session,
+        product_id=unpublished_id,
+        category_id=category_id,
+        is_primary=True,
+    )
 
-    response: Response = await client.get(
+    response: Response = await integration_client.get(
         "/shops/me/products",
         headers=owner_headers,
     )
@@ -66,9 +62,9 @@ async def test_get_my_products_returns_200_with_all_products(
     assert body.total >= 2
 
     by_id = {item.id: item for item in body.items}
-    assert published.body.id in by_id
-    assert unpublished.body.id in by_id
-    for product_id in (published.body.id, unpublished.body.id):
+    assert published_id in by_id
+    assert unpublished_id in by_id
+    for product_id in (published_id, unpublished_id):
         item = by_id[product_id]
         assert isinstance(item, ProductResponse)
         assert len(item.categories) >= 1
@@ -77,15 +73,12 @@ async def test_get_my_products_returns_200_with_all_products(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_returns_404_when_no_shop(
-    client: AsyncClient, authenticated_user: AuthContext
+    integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
     """已认证但无店铺的用户 GET /shops/me/products 返回 404。"""
-    registered = authenticated_user.root.step(RegisterResult)
-    assert registered.status_code == 201
-
-    response: Response = await client.get(
+    response: Response = await integration_client.get(
         "/shops/me/products",
-        headers=bearer_headers(registered),
+        headers=bearer_headers(authenticated_user.access_token),
     )
 
     assert response.status_code == 404
@@ -96,36 +89,34 @@ async def test_get_my_products_returns_404_when_no_shop(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_my_products_supports_pagination(
-    client: AsyncClient,
-    admin_auth_headers: AdminAuthContext,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """GET /shops/me/products 支持 limit 与 offset 分页。"""
-    assert admin_auth_headers.root.step(LoginResult).status_code == 200
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
-    admin_login = admin_auth_headers.root.step(LoginResult)
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    category: CategoryResult = await create_category(
-        client,
-        headers=bearer_headers(admin_login),
+    category_id = await seed_category(
+        db_session,
         name=unique_category_name("product"),
     )
-    assert category.status_code == 201
-    assert category.body is not None
 
     created_ids: list[str] = []
     for _ in range(3):
-        product: ProductResult = await create_product(
-            client,
-            shop_owner=shop_owner.root,
-            category=category,
+        product_id = await seed_product(
+            db_session,
+            shop_id=shop_owner.shop_id,
+            name=unique_category_name("paginated"),
         )
-        assert product.status_code == 201
-        assert product.body is not None
-        created_ids.append(product.body.id)
+        await seed_product_category(
+            db_session,
+            product_id=product_id,
+            category_id=category_id,
+            is_primary=True,
+        )
+        created_ids.append(product_id)
 
-    first_page: Response = await client.get(
+    first_page: Response = await integration_client.get(
         "/shops/me/products",
         params={"limit": 2, "offset": 0},
         headers=owner_headers,
@@ -137,7 +128,7 @@ async def test_get_my_products_supports_pagination(
     assert len(first_body.items) == 2
     assert first_body.total >= 3
 
-    second_page: Response = await client.get(
+    second_page: Response = await integration_client.get(
         "/shops/me/products",
         params={"limit": 2, "offset": 2},
         headers=owner_headers,
