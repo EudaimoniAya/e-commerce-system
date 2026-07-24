@@ -22,8 +22,7 @@ tasks:
       APP_ENV_FILE: .env.test
     cmds:
       # pytest 无测试收集时返回 5；包装为 0，真实失败仍向上传递
-      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest']);sys.exit(0 if c in (0,5) else c)"
-        "
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
 
   ci:
     desc: 本地 CI（ruff + test-import 检查 + test）

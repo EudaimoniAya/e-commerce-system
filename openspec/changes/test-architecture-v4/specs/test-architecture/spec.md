@@ -136,18 +136,49 @@ Integration Case SHALL 以断言为主。被测 HTTP 行为（Act）SHALL 在 Ca
 
 ### Requirement: DB state assertion via tests support db
 
-持久化状态断言（库存、订单 status 等）SHALL 经 `tests/support/db/` helper，使用与 override 相同的 `AsyncSession` 及只读 Repository。Case SHALL NOT 直接 import `app.*.repository`。SHALL NOT 为状态断言调用 service。
+持久化状态断言（库存、订单 status 等）SHALL 经 `tests/support/db/` helper，使用与 override 相同的 `AsyncSession`。Case SHALL NOT 直接 import `app.*.repository`。SHALL NOT 为状态断言调用 service。
+
+DB 断言是验证副作用的**主要路径**。HTTP GET SHALL 仅作为 Act（被测端点本身）保留，SHALL NOT 作为其他端点 Act 后的状态断言手段。同一事实的 HTTP GET 断言与 DB 断言 SHALL NOT 并存——DB 断言替代 HTTP GET，不追加。
+
+#### Scenario: stock change asserted via db helper not http get
+
+- **WHEN** 某测试的 Act 是 POST /orders 或 POST /orders/{id}/cancel 等写操作
+- **THEN** 库存变化的断言 SHALL 使用 `tests/support/db/catalog.py` 的 `get_product_stock`
+- **AND** SHALL NOT 再通过 `GET /products/{id}` 验证同一库存变化
+
+#### Scenario: order status change asserted via db helper not http get
+
+- **WHEN** 某测试的 Act 是 POST /orders/{id}/pay 或 POST /orders/{id}/cancel 等写操作
+- **THEN** 订单 status 变化的断言 SHALL 使用 `tests/support/db/ordering.py` 的 `get_order_status`
+- **AND** SHALL NOT 再通过 `GET /orders/{id}` 仅为验证 status 变化而发 HTTP 请求
 
 #### Scenario: lazy release asserts stock via db helper
 
 - **WHEN** 懒释放 integration 用例断言库存还原
-- **THEN** SHALL 使用 `tests/support/db/catalog.py`（或等价）查询 stock
-- **AND** SHALL NOT 仅依赖 GET `/products/{id}` 作为唯一状态断言
+- **THEN** SHALL 使用 `tests/support/db/catalog.py` 的 `get_product_stock` 查询 stock
+- **AND** SHALL NOT 附带 `GET /products/{id}` HTTP 调用做同一库存验证
 
 #### Scenario: case does not import app repository
 
 - **WHEN** grep `tests/**/test_*.py` 中 `from app\..*\.repository`
 - **THEN** SHALL 无匹配
+
+### Requirement: DB seed for domain data arrange
+
+Shop / Category / Product / Order 的 Arrange SHALL 经 `tests/support/db/` seed helper（直写 SAVEPOINT session，不经 HTTP）。例外：conftest fixture 中的 auth token 生成走 HTTP（身份逻辑不重复）。
+
+#### Scenario: ordering test arranges shop and product via db seed
+
+- **WHEN** 审查 ordering 域 integration 测试的 Arrange 阶段
+- **THEN** shop / category / product 的创建 SHALL 使用 `tests/support/db/catalog.py` 的 `seed_shop`、`seed_category`、`seed_product`
+- **AND** SHALL NOT 通过 `POST /shops`、`POST /categories`、`POST /products` HTTP 端点铺设 Arrange 数据
+
+#### Scenario: seed helpers use same session as integration client
+
+- **WHEN** 审查 `tests/support/db/` 下的 seed 函数签名
+- **THEN** SHALL 接收 ``AsyncSession`` 参数（测试的 ``db_session``）
+- **AND** SHALL 通过 ``session.flush()`` 使数据对同一事务内的 HTTP Act 可见
+- **AND** SHALL NOT 创建独立 engine 或 commit 到事务外
 
 ### Requirement: Lazy expire tests use backdate not ttl env override
 

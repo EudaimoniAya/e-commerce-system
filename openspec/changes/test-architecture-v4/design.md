@@ -32,7 +32,7 @@ Settings 在 helpers 硬编码覆盖；ordering 懒释放测污染生产 `_get_r
 ### D2: Settings 缓存生命周期
 
 - 会话 env 稳定 → 默认零次 `cache_clear`
-- `cache_clear` 仅 `tests/support/env.py` + 极少数 mutating fixture teardown
+- `cache_clear` 仅 `tests/support/utils.py` + 极少数 mutating fixture teardown
 - **禁止** helper 内 `ensure_integration_auth_env()`（helpers 约 14 处 + `conftest` autouse + `tests/infra/test_auth.py`）
 - **删 ensure** 与 §3 SAVEPOINT **同批**（Task 3.4），删后全量 CI 盯 401
 
@@ -61,9 +61,24 @@ await reset_engine()
 - integration autouse **`保留`** 两次 `reset_engine`，防止无 override 路径误建全局连接池
 - override active 期间 HTTP 走测试 session，与全局 engine dispose **无冲突**
 
-### D5: DB 断言 — `tests/support/db/`
+### D5: DB 断言与 Seed — `tests/support/db/`
 
-只读 Repository + 同一 `db_session`。禁止 Case import `app.*.repository`；禁止为 Assert 调 service。
+`tests/support/db/` 承担两个职责：
+
+1. **Seed（Arrange）**：直写合法行，不经 HTTP。用于铺设已被其他测试验证过的域数据
+   （shop、category、product、order）。接收 ``AsyncSession``（同一 SAVEPOINT 事务），
+   用 raw SQL 或 ORM model INSERT + ``flush()``，返回主键 ID。
+2. **Assert**：HTTP Act 后直接查表验证副作用（库存、status 等）。替代 HTTP GET 做状态断言。
+
+纪律：
+- Case SHALL NOT import ``app.*.repository``（探针例外允许）
+- Case SHALL NOT 为 Arrange 调 HTTP 造域数据（除 conftest identity fixture 生成 JWT token）
+- Case SHALL NOT 为状态断言调 service
+- DB 断言替代 HTTP GET 作为状态验证路径：若 Act 是写操作，库存/status 变化通过
+  ``tests/support/db`` 断言，不额外发 ``GET /products/{id}`` 或 ``GET /orders/{id}``
+  仅做验证。HTTP GET 仅保留在 Act 本身是被测端点时（如列表/详情查询测试）。
+- HTTP fixtures（conftest）保持 HTTP — 身份生成（JWT token）依赖 auth service 逻辑，
+  不应在 DB 侧重复
 
 ### D6: 懒释放 — backdate；删除 wait
 

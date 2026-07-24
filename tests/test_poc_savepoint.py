@@ -14,8 +14,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from tests.support.helpers import create_shop, login_admin, register_user
-from tests.support.results import LoginResult
+from tests.support.helper.auth import login_admin, register_user
+from tests.support.helper.catalog import create_shop
 
 pytestmark = pytest.mark.integration
 
@@ -92,8 +92,7 @@ class TestSavepointPOC:
         Alembic migration 已 commit 到 MySQL，外层 BEGIN 可见该数据。
         若因事务隔离看不到 → login_admin 返回 401/422。
         """
-        root = await login_admin(integration_client)
-        logged_in = root.step(LoginResult)
+        logged_in = await login_admin(integration_client)
         assert logged_in.status_code == 200, (
             f"seed 管理员登录失败 (status={logged_in.status_code})"
             " — migration seed 在 SAVEPOINT 事务中不可见"

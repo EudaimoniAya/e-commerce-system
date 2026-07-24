@@ -1,7 +1,6 @@
-"""测试环境 bootstrap：加载 .env.test 并确保 Settings 缓存正确。
+"""tests/support 纯函数工具：请求头投影 + 测试环境 bootstrap。
 
-§1（APP_ENV_FILE + .env.test）完成后，测试环境变量由 ``.env.test`` +
-``APP_ENV_FILE`` 提供，不再需要 conftest/helper 内的 os.environ 覆盖。
+无 HTTP/DB 依赖，不 import 任何业务域模块。
 
 纪律
 ----
@@ -15,6 +14,15 @@ import os
 
 from app.infra.config import get_settings
 
+
+# ── bearer 请求头投影 ──────────────────────────────────────────
+
+def bearer_headers(access_token: str) -> dict[str, str]:
+    """从 access_token 字符串投影 Bearer Authorization 请求头。"""
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+# ── 测试环境 bootstrap ─────────────────────────────────────────
 
 def bootstrap_test_env() -> None:
     """在 import app 之前调用，确保 Settings 从 ``.env.test`` 加载。

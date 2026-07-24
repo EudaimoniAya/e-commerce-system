@@ -7,9 +7,9 @@
 
 ## 2. Settings 缓存
 
-> §2 仅新增 `tests/support/env.py` 与减冗余 cache；**删 `ensure_integration_auth_env` 放在 Task 3.4**（与 SAVEPOINT 同批）。
+> §2 仅新增 `tests/support/utils.py` 与减冗余 cache；**删 `ensure_integration_auth_env` 放在 Task 3.4**（与 SAVEPOINT 同批）。
 
-- [x] 2.1 新增 `tests/support/env.py`：`bootstrap_test_env()`（可选，§1 完成后简化 conftest import 前逻辑）
+- [x] 2.1 新增 `tests/support/utils.py`：`bootstrap_test_env()`（可选，§1 完成后简化 conftest import 前逻辑）
 - [x] 2.2 文档化：`cache_clear` 仅允许 `env.py`（design 纪律）
 
 ## 3. SAVEPOINT + integration_client（POC 门禁）
@@ -37,14 +37,67 @@
 
 > 约 23–28 个文件；**每个 test 文件本节只 touch 一次**。POC 通过后可在 dedicated 分支集中完成。
 
-- [ ] 5.1 全量 `@integration` HTTP 用例：`client` → `integration_client`（health / 探针例外除外）
-- [ ] 5.2 瘦身 `*Context`（`access_token`）；`bearer_headers(token: str)`；Setup fixture 依赖 `integration_client`
-- [ ] 5.3 删除 `PipelineResult` / `pipeline.py`；替换全库 `.root.step(...)` 引用
-- [ ] 5.4 拆分 `helpers.py` → `auth.py`、`catalog/*`、`ordering/*`；更新 conftest re-export
-- [ ] 5.5 更新 `.cursor/rules/test-architecture.mdc`、`docs/decision/测试与数据库策略.md`（SAVEPOINT + 探针例外）
-- [ ] 5.6 grep 验收：无 `PipelineResult`、无 `override_order_reservation_ttl`、无 `wait_past_order_expiry`、test 无 `from app.*.repository`
+- [x] 5.1 全量 `@integration` HTTP 用例：`client` → `integration_client`（health / 探针例外除外）
+- [x] 5.2 瘦身 `*Context`（`access_token`）；`bearer_headers(token: str)`；Setup fixture 依赖 `integration_client`
+- [x] 5.3 删除 `PipelineResult` / `pipeline.py`；替换全库 `.root.step(...)` 引用
+- [x] 5.4 拆分 `helpers.py` → `auth.py`、`catalog.py`、`ordering.py`；更新 conftest re-export
+- [x] 5.5 更新 `.cursor/rules/test-architecture.mdc`、`docs/decision/测试与数据库策略.md`（SAVEPOINT + 探针例外）
+- [x] 5.6 grep 验收：无 `PipelineResult`、无 `override_order_reservation_ttl`、无 `wait_past_order_expiry`、test 无 `from app.*.repository`
 
-## 6. CI 与收尾
+## 6. tests/support/db/ 强化：Seed + Assert 全覆盖
 
-- [ ] 6.1 `devbox run -- task ci` 全绿
-- [ ] 6.2 archive 前 sync delta spec 至 `openspec/specs/test-architecture/spec.md`
+> design D5 扩展：``db/`` 接管 Arrange 阶段的域数据铺设（seed）和 Assert 阶段的副作用验证。
+> 目标：Arrange 不经 HTTP，Assert 不走 HTTP GET。HTTP 只负责 Act 那一跳。
+>
+> 边界：conftest fixture（``authenticated_user``、``shop_owner``、``admin_auth_headers``）
+> 保持 HTTP — JWT token 生成依赖 auth service 逻辑，不应在 DB 侧重复。
+
+### 6a. 新增 seed helpers
+
+> 每个 seed 函数接收 ``AsyncSession``（同一 SAVEPOINT 事务），
+> 用 ORM model INSERT + ``flush()``，返回主键 ID。不经 HTTP stack。
+
+- [ ] 6a.1 `tests/support/db/catalog.py`：追加
+  ``seed_shop(session, *, owner_user_id, name, status="active") → shop_id``、
+  ``seed_category(session, *, name, parent_id=None) → category_id``、
+  ``seed_product(session, *, shop_id, name, price, stock, is_published=False) → product_id``、
+  ``seed_product_category(session, *, product_id, category_id, is_primary=False) → None``
+- [ ] 6a.2 `tests/support/db/ordering.py`：追加
+  ``seed_order(session, *, buyer_user_id, shop_id, total_amount, expires_at=None, status="awaiting_payment", initiated_by="buyer") → order_id``、
+  ``seed_order_item(session, *, order_id, product_id, product_name, unit_price, qty) → item_id``
+- [ ] 6a.3 更新 `tests/support/helper/ordering.py` 的
+  ``arrange_purchasable_product``、``arrange_confirmed_order`` →
+  调用 ``db/`` seed 替代 HTTP helper（``create_category``/``create_product``）。
+  返回类型从 ``(CategoryResult, ProductResult)`` 变为 ``(category_id, product_id)``。
+- [ ] 6a.4 跑全量 CI 确认 seed helper + orchestrator 改造无回归
+
+### 6b. Assert 替换：HTTP GET → db/ 断言
+
+> 当前部分测试 Act 是写操作（下单/取消/支付），却通过 HTTP GET ``/products/{id}``
+> 验证库存变化。这违反 design D5「DB 断言替代 HTTP GET 作为状态验证路径」。
+
+- [ ] 6b.1 `tests/ordering/test_cancel_order.py`：3 个测试 — 删除 4 处 ``GET /products/{id}``，改用 ``get_product_stock``
+- [ ] 6b.2 `tests/ordering/test_create_order.py`：3 个测试 — 删除 5 处 ``GET /products/{id}``，改用 ``get_product_stock``
+- [ ] 6b.3 `tests/ordering/test_create_order_by_seller.py`：1 个测试 — 删除 1 处 ``GET /products/{id}``
+- [ ] 6b.4 `tests/ordering/test_pay_order.py`：2 个测试 — 删除 2 处 ``GET /products/{id}``
+- [ ] 6b.5 lazy-expire 测试（`test_list_orders.py` / `test_pay_order.py`）：清理残留的 HTTP GET ``/products/{id}``（旁已有 ``get_product_stock`` 断言）
+
+### 6c. Arrange 迁移：HTTP → db/ seed
+
+> 将 ``arrange_purchasable_product`` / ``arrange_confirmed_order`` 等 orchestrator
+> 的 HTTP Arrange 替换为 ``db/`` seed，减少测试 Arrange 阶段的 HTTP 往返次数。
+> conftest identity fixture 保持 HTTP（JWT token 生成不重复）。
+
+- [ ] 6c.1 `tests/ordering/test_create_order.py`：``arrange_purchasable_product`` → ``db/`` seed
+- [ ] 6c.2 `tests/ordering/test_cancel_order.py`：``arrange_confirmed_order`` / ``arrange_purchasable_product`` → ``db/`` seed
+- [ ] 6c.3 `tests/ordering/test_pay_order.py`：同模式迁移
+- [ ] 6c.4 `tests/ordering/test_shipments_and_receipt.py`：同模式迁移
+- [ ] 6c.5 `tests/ordering/test_list_orders.py`：同模式迁移
+- [ ] 6c.6 `tests/ordering/test_create_order_by_seller.py`：同模式迁移
+- [ ] 6c.7 catalog 域测试（`test_public_products.py`、`test_update_product.py` 等）：``create_category`` + ``create_product``（HTTP）→ ``seed_category`` + ``seed_product``
+- [ ] 6c.8 CI 全绿
+
+## 7. CI 与收尾
+
+- [ ] 7.1 `devbox run -- task ci` 全绿
+- [ ] 7.2 archive 前 sync delta spec 至 `openspec/specs/test-architecture/spec.md`

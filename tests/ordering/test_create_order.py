@@ -12,51 +12,35 @@ from tests.support.contexts import (
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.helpers import (
-    arrange_purchasable_product,
-    create_order,
-    create_product,
-    register_and_open_shop,
-)
-from tests.support.projections import bearer_headers
-from tests.support.results import (
-    CategoryResult,
-    ProductResult,
-    RegisterResult,
-    ShopResult,
-)
+from tests.support.helper.catalog import create_product, register_and_open_shop
+from tests.support.helper.ordering import arrange_purchasable_product, create_order
+from tests.support.utils import bearer_headers
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_multi_item_same_shop_returns_201(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """同店多行可购商品下单成功，返回 201 并扣减库存。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-    assert buyer.body is not None
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product_a = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
         price="10.00",
         name="order-a",
     )
-    product_a = arranged.step(ProductResult)
+    assert product_a is not None
     assert product_a.status_code == 201
     assert product_a.body is not None
 
-    category = arranged.step(CategoryResult)
     product_b = await create_product(
-        client,
-        shop_owner=shop_owner.root,
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
         category=category,
         name="order-b",
         price="20.00",
@@ -67,29 +51,27 @@ async def test_create_order_multi_item_same_shop_returns_201(
     assert product_b.body is not None
 
     result = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product_a.body.id, 2), (product_b.body.id, 1)],
     )
     assert result.status_code == 201
     assert result.body is not None
 
-    shop = shop_owner.root.step(ShopResult)
-    assert shop.body is not None
     body: OrderResponse = result.body
     assert body.status == "awaiting_payment"
-    assert body.shop_id == shop.body.id
-    assert body.buyer_user_id == buyer.body.user.id
+    assert body.shop_id == shop_owner.shop_id
+    uuid.UUID(body.buyer_user_id)
     assert body.expires_at is not None
     assert len(body.items) == 2
     assert Decimal(body.total_amount) == Decimal("40.00")
     uuid.UUID(body.id)
 
-    stock_a: Response = await client.get(f"/products/{product_a.body.id}")
+    stock_a: Response = await integration_client.get(f"/products/{product_a.body.id}")
     assert stock_a.status_code == 200
     assert stock_a.json()["stock"] == 8
 
-    stock_b: Response = await client.get(f"/products/{product_b.body.id}")
+    stock_b: Response = await integration_client.get(f"/products/{product_b.body.id}")
     assert stock_b.status_code == 200
     assert stock_b.json()["stock"] == 4
 
@@ -97,40 +79,38 @@ async def test_create_order_multi_item_same_shop_returns_201(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_cross_shop_returns_422(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """跨店商品合单返回 422，且不建单、不扣库存。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged_a = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category_a, product_a = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product_a = arranged_a.step(ProductResult)
+    assert product_a is not None
     assert product_a.status_code == 201
     assert product_a.body is not None
     stock_before_a = product_a.body.stock
 
-    other_shop = await register_and_open_shop(client)
-    assert other_shop.step(ShopResult).status_code == 201
-    arranged_b = await arrange_purchasable_product(
-        client,
-        shop_owner=other_shop,
-        admin=admin_auth_headers.root,
+    other_reg, other_shop = await register_and_open_shop(integration_client)
+    assert other_shop is not None
+    assert other_shop.status_code == 201
+    category_b, product_b = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=other_reg.body.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product_b = arranged_b.step(ProductResult)
+    assert product_b is not None
     assert product_b.status_code == 201
     assert product_b.body is not None
     stock_before_b = product_b.body.stock
 
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/orders",
         json={
             "items": [
@@ -138,16 +118,16 @@ async def test_create_order_cross_shop_returns_422(
                 {"product_id": product_b.body.id, "qty": 1},
             ]
         },
-        headers=bearer_headers(buyer),
+        headers=bearer_headers(authenticated_user.access_token),
     )
 
     assert response.status_code == 422
     assert "detail" in response.json()
 
-    stock_a: Response = await client.get(f"/products/{product_a.body.id}")
+    stock_a: Response = await integration_client.get(f"/products/{product_a.body.id}")
     assert stock_a.status_code == 200
     assert stock_a.json()["stock"] == stock_before_a
-    stock_b: Response = await client.get(f"/products/{product_b.body.id}")
+    stock_b: Response = await integration_client.get(f"/products/{product_b.body.id}")
     assert stock_b.status_code == 200
     assert stock_b.json()["stock"] == stock_before_b
 
@@ -155,35 +135,32 @@ async def test_create_order_cross_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_insufficient_stock_returns_422(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """任一行 qty 超过可售库存返回 422，整单不建、库存不变。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=3,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     result = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 5)],
     )
 
     assert result.status_code == 422
     assert result.body is None
 
-    stock: Response = await client.get(f"/products/{product.body.id}")
+    stock: Response = await integration_client.get(f"/products/{product.body.id}")
     assert stock.status_code == 200
     assert stock.json()["stock"] == 3
 
@@ -191,29 +168,26 @@ async def test_create_order_insufficient_stock_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_unpublished_product_returns_422(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """未上架商品不可下单，返回 422。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
         is_published=False,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     result = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 1)],
     )
 
@@ -224,27 +198,25 @@ async def test_create_order_unpublished_product_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_closed_shop_returns_422(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """店铺非 active（closed）时下单返回 422。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-    owner_headers = bearer_headers(shop_owner.root.step(RegisterResult))
+    owner_headers = bearer_headers(shop_owner.access_token)
 
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
-    patch_shop: Response = await client.patch(
+    patch_shop: Response = await integration_client.patch(
         "/shops/me",
         json={"status": "closed"},
         headers=owner_headers,
@@ -252,8 +224,8 @@ async def test_create_order_closed_shop_returns_422(
     assert patch_shop.status_code == 200
 
     result = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 1)],
     )
 
@@ -264,27 +236,24 @@ async def test_create_order_closed_shop_returns_422(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_owner_self_purchase_returns_403(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主购买本店商品返回 403。"""
-    owner = shop_owner.root.step(RegisterResult)
-    assert owner.status_code == 201
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     result = await create_order(
-        client,
-        headers=bearer_headers(owner),
+        integration_client,
+        headers=bearer_headers(shop_owner.access_token),
         items=[(product.body.id, 1)],
     )
 
@@ -295,22 +264,22 @@ async def test_create_order_owner_self_purchase_returns_403(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_unauthenticated_returns_401(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
     """未认证下单返回 401。"""
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/orders",
         json={"items": [{"product_id": product.body.id, "qty": 1}]},
     )

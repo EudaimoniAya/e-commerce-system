@@ -4,22 +4,22 @@ import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.helpers import login_user, register_user
+from tests.support.helper.auth import login_user, register_user
 from tests.support.builders import build_login_request, unique_email
 from tests.support.results import LoginResult, RegisterResult
-from tests.support.seeds import seed_inactive_user
+from tests.support.db.user import seed_inactive_user
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_success_returns_200_and_token(client: AsyncClient) -> None:
+async def test_login_success_returns_200_and_token(integration_client: AsyncClient) -> None:
     """正确凭据且用户 active 时登录返回 200 与 token。"""
     email = unique_email()
     password = "password123"
-    registered: RegisterResult = await register_user(client, email=email, password=password)
+    registered: RegisterResult = await register_user(integration_client, email=email, password=password)
     assert registered.status_code == 201
 
-    result: LoginResult = await login_user(client, email=email, password=password)
+    result: LoginResult = await login_user(integration_client, email=email, password=password)
     assert result.status_code == 200
     assert result.body is not None
     assert result.body.access_token
@@ -33,13 +33,13 @@ async def test_login_success_returns_200_and_token(client: AsyncClient) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_wrong_password_returns_422(client: AsyncClient) -> None:
+async def test_login_wrong_password_returns_422(integration_client: AsyncClient) -> None:
     """密码错误返回 422（不暴露邮箱是否存在）。"""
     email = unique_email()
-    registered: RegisterResult = await register_user(client, email=email)
+    registered: RegisterResult = await register_user(integration_client, email=email)
     assert registered.status_code == 201
 
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/auth/login",
         json=build_login_request(email=email, password="wrongpass99").model_dump(
             mode="json"
@@ -52,9 +52,9 @@ async def test_login_wrong_password_returns_422(client: AsyncClient) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_login_nonexistent_email_returns_422(client: AsyncClient) -> None:
+async def test_login_nonexistent_email_returns_422(integration_client: AsyncClient) -> None:
     """邮箱不存在返回 422（与密码错误响应形态一致）。"""
-    response: Response = await client.post(
+    response: Response = await integration_client.post(
         "/auth/login",
         json=build_login_request(email=unique_email("missing")).model_dump(
             mode="json"

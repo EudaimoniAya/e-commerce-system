@@ -6,24 +6,25 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from tests.support.helper.auth import (
+    _ADMIN_SEED_EMAIL,
+    _ADMIN_SEED_PASSWORD,
+    auth_headers,
+    login_user,
+    register_user,
+)
 from tests.support.builders import (
     unique_category_name,
     unique_email,
     unique_shop_name,
 )
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.env import bootstrap_test_env
-from tests.support.helpers import (
-    auth_headers,
+from tests.support.helper.catalog import (
     create_category,
     create_product,
     create_shop,
-    login_admin,
-    login_user,
-    register_and_open_shop,
-    register_authenticated,
-    register_user,
 )
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.support.utils import bootstrap_test_env
 from tests.support.results import (
     CategoryResult,
     LoginResult,
@@ -52,10 +53,7 @@ __all__ = [
     "create_shop",
     "database_url",
     "db_session",
-    "login_admin",
     "login_user",
-    "register_and_open_shop",
-    "register_authenticated",
     "register_user",
     "shop_owner",
     "unique_category_name",
@@ -94,32 +92,6 @@ async def _reset_global_database_engine(
 
 
 @pytest.fixture
-async def client() -> AsyncIterator[AsyncClient]:
-    """httpx AsyncClient，与 pytest-asyncio 共用同一事件循环。
-
-    无 ``get_db`` override，适合 health 等不需写库的探针测试。
-    """
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
-        yield ac
-
-
-@pytest.fixture
-async def integration_client(
-    db_session: AsyncSession,
-) -> AsyncIterator[AsyncClient]:
-    """httpx AsyncClient，依赖 ``db_session`` 提供 ``get_db`` override。
-
-    所有 HTTP 请求走 SAVEPOINT 测试 session，与 ``db_session`` 同一事务。
-    写入的数据在测试结束后由外层 ROLLBACK 清除，零残留。
-    适合 ``@pytest.mark.integration`` 业务 HTTP 用例。
-    """
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
-        yield ac
-
-
-@pytest.fixture
 async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
     """SAVEPOINT 事务隔离的 AsyncSession，经 dependency_overrides 使 HTTP 共用同一 session。
 
@@ -155,42 +127,81 @@ async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
 
 
 @pytest.fixture
-async def authenticated_user(client: AsyncClient) -> AuthContext:
+async def client() -> AsyncIterator[AsyncClient]:
+    """httpx AsyncClient，与 pytest-asyncio 共用同一事件循环。
+
+    无 ``get_db`` override，适合 health 等不需写库的探针测试。
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
+
+
+@pytest.fixture
+async def integration_client(
+    db_session: AsyncSession,
+) -> AsyncIterator[AsyncClient]:
+    """httpx AsyncClient，依赖 ``db_session`` 提供 ``get_db`` override。
+
+    所有 HTTP 请求走 SAVEPOINT 测试 session，与 ``db_session`` 同一事务。
+    写入的数据在测试结束后由外层 ROLLBACK 清除，零残留。
+    适合 ``@pytest.mark.integration`` 业务 HTTP 用例。
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
+
+
+@pytest.fixture
+async def authenticated_user(integration_client: AsyncClient) -> AuthContext:
     """注册成功后的极薄 AuthContext（orchestrator → fail-fast → Context）。"""
-    root = await register_authenticated(client)
-    registered = root.step(RegisterResult)
+    registered = await register_user(integration_client)
     if registered.status_code != 201 or registered.body is None:
         pytest.fail(
             f"注册 Setup 失败（status={registered.status_code}），"
             "authenticated_user fixture 要求注册成功"
         )
-    return AuthContext(root=root)
+    return AuthContext(
+        access_token=registered.body.access_token,
+        email=registered.email,
+    )
 
 
 @pytest.fixture
-async def shop_owner(client: AsyncClient) -> ShopOwnerContext:
+async def shop_owner(integration_client: AsyncClient) -> ShopOwnerContext:
     """注册并开店成功后的极薄 ShopOwnerContext（orchestrator → fail-fast → Context）。"""
-    root = await register_and_open_shop(client)
-    try:
-        shop = root.step(ShopResult)
-    except LookupError:
-        reg = root.step(RegisterResult)
+    registered = await register_user(integration_client)
+    if registered.status_code != 201 or registered.body is None:
         pytest.fail(
-            f"开店 Setup 未产生 ShopResult（register status={reg.status_code}）"
+            f"注册 Setup 失败（status={registered.status_code}），"
+            "shop_owner fixture 要求注册成功"
         )
-    if shop.status_code != 201 or shop.body is None:
+
+    shop_result = await create_shop(
+        integration_client,
+        headers=auth_headers(registered.body.access_token),
+    )
+    if shop_result.status_code != 201 or shop_result.body is None:
         pytest.fail(
-            f"开店 Setup 失败（status={shop.status_code}），"
+            f"开店 Setup 失败（status={shop_result.status_code}），"
             "shop_owner fixture 要求开店成功"
         )
-    return ShopOwnerContext(root=root)
+
+    return ShopOwnerContext(
+        access_token=registered.body.access_token,
+        shop_id=shop_result.body.id,
+        email=registered.email,
+    )
 
 
 @pytest.fixture
-async def admin_auth_headers(client: AsyncClient) -> AdminAuthContext:
+async def admin_auth_headers(integration_client: AsyncClient) -> AdminAuthContext:
     """seed 管理员登录后的极薄 AdminAuthContext（orchestrator → fail-fast → Context）。"""
-    root = await login_admin(client)
-    logged_in = root.step(LoginResult)
+    logged_in = await login_user(
+        integration_client,
+        email=_ADMIN_SEED_EMAIL,
+        password=_ADMIN_SEED_PASSWORD,
+    )
     if logged_in.status_code != 200 or logged_in.body is None:
         pytest.fail(
             f"seed 管理员登录失败（status={logged_in.status_code}），"
@@ -200,4 +211,4 @@ async def admin_auth_headers(client: AsyncClient) -> AdminAuthContext:
     if not logged_in.body.access_token:
         pytest.fail("seed 管理员登录响应缺少 access_token")
 
-    return AdminAuthContext(root=root)
+    return AdminAuthContext(access_token=logged_in.body.access_token)

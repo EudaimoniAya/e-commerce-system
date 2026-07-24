@@ -4,8 +4,6 @@ import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.schemas import ProductResponse
-from app.ordering.schemas import OrderResponse
 from tests.support.contexts import (
     AdminAuthContext,
     AuthContext,
@@ -13,57 +11,52 @@ from tests.support.contexts import (
 )
 from tests.support.db.catalog import get_product_stock
 from tests.support.db.ordering import backdate_order_expires_at, get_order_status
-from tests.support.helpers import (
+from tests.support.helper.auth import register_authenticated
+from tests.support.helper.ordering import (
     arrange_purchasable_product,
     create_order,
     create_order_by_seller,
     pay_order,
-    register_authenticated,
 )
-from tests.support.projections import bearer_headers
-from tests.support.results import ProductResult, RegisterResult, ShopResult
+from tests.support.utils import bearer_headers
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pay_order_stub_confirms_awaiting_payment(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """支付桩将 awaiting_payment 订单置为 confirmed，且不再扣库存。"""
-    assert shop_owner.root.step(ShopResult).status_code == 201
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     created = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 2)],
     )
     assert created.status_code == 201
     assert created.body is not None
     assert created.body.status == "awaiting_payment"
 
-    stock_after_create: Response = await client.get(f"/products/{product.body.id}")
+    stock_after_create: Response = await integration_client.get(f"/products/{product.body.id}")
     assert stock_after_create.status_code == 200
     stock_before_pay = stock_after_create.json()["stock"]
     assert stock_before_pay == 8
 
     paid = await pay_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         order_id=created.body.id,
     )
 
@@ -72,7 +65,7 @@ async def test_pay_order_stub_confirms_awaiting_payment(
     assert paid.body.status == "confirmed"
     assert paid.body.id == created.body.id
 
-    stock_after_pay: Response = await client.get(f"/products/{product.body.id}")
+    stock_after_pay: Response = await integration_client.get(f"/products/{product.body.id}")
     assert stock_after_pay.status_code == 200
     assert stock_after_pay.json()["stock"] == stock_before_pay
 
@@ -80,41 +73,37 @@ async def test_pay_order_stub_confirms_awaiting_payment(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pay_order_non_buyer_returns_403(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """非买家支付返回 403。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     created = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
 
-    other = await register_authenticated(client)
-    other_user = other.step(RegisterResult)
+    other_user = await register_authenticated(integration_client)
     assert other_user.status_code == 201
     assert other_user.body is not None
 
     paid = await pay_order(
-        client,
-        headers=bearer_headers(other_user),
+        integration_client,
+        headers=bearer_headers(other_user.body.access_token),
         order_id=created.body.id,
     )
 
@@ -125,36 +114,33 @@ async def test_pay_order_non_buyer_returns_403(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pay_order_duplicate_returns_409(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """对已 confirmed 订单重复 pay 返回 409。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     created = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
 
     first = await pay_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         order_id=created.body.id,
     )
     assert first.status_code == 200
@@ -162,8 +148,8 @@ async def test_pay_order_duplicate_returns_409(
     assert first.body.status == "confirmed"
 
     second = await pay_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         order_id=created.body.id,
     )
 
@@ -174,34 +160,31 @@ async def test_pay_order_duplicate_returns_409(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pay_order_unauthenticated_returns_401(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """未认证支付返回 401。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     created = await create_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 1)],
     )
     assert created.status_code == 201
     assert created.body is not None
 
-    response: Response = await client.post(f"/orders/{created.body.id}/pay")
+    response: Response = await integration_client.post(f"/orders/{created.body.id}/pay")
 
     assert response.status_code == 401
 
@@ -216,23 +199,20 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
     authenticated_user: AuthContext,
 ) -> None:
     """过期后 pay 返回 409，订单 cancelled/expired，库存还原。"""
-    buyer = authenticated_user.root.step(RegisterResult)
-    assert buyer.status_code == 201
-
-    arranged = await arrange_purchasable_product(
+    category, product = await arrange_purchasable_product(
         integration_client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=7,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
     initial_stock = product.body.stock
 
     created = await create_order(
         integration_client,
-        headers=bearer_headers(buyer),
+        headers=bearer_headers(authenticated_user.access_token),
         items=[(product.body.id, 3)],
     )
     assert created.status_code == 201
@@ -247,7 +227,7 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
 
     paid = await pay_order(
         integration_client,
-        headers=bearer_headers(buyer),
+        headers=bearer_headers(authenticated_user.access_token),
         order_id=created.body.id,
     )
 
@@ -267,32 +247,28 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pay_order_seller_initiated_by_buyer_returns_200(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
-    authenticated_user: AuthContext,
 ) -> None:
     """指定买家支付卖家发起的订单 → confirmed。"""
-    buyer = authenticated_user.root.step(RegisterResult)
+    buyer = await register_authenticated(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
-    owner = shop_owner.root.step(RegisterResult)
-    assert owner.status_code == 201
-    assert owner.body is not None
 
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     seller_order = await create_order_by_seller(
-        client,
-        headers=bearer_headers(owner),
+        integration_client,
+        headers=bearer_headers(shop_owner.access_token),
         buyer_user_id=str(buyer.body.user.id),
         items=[(product.body.id, 2)],
     )
@@ -300,8 +276,8 @@ async def test_pay_order_seller_initiated_by_buyer_returns_200(
     assert seller_order.body is not None
 
     paid = await pay_order(
-        client,
-        headers=bearer_headers(buyer),
+        integration_client,
+        headers=bearer_headers(buyer.body.access_token),
         order_id=seller_order.body.id,
     )
 
@@ -314,32 +290,28 @@ async def test_pay_order_seller_initiated_by_buyer_returns_200(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pay_order_seller_initiated_by_shop_owner_returns_403(
-    client: AsyncClient,
+    integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
-    authenticated_user: AuthContext,
 ) -> None:
     """店主（非买家）支付卖家发起的订单 → 403。"""
-    buyer = authenticated_user.root.step(RegisterResult)
+    buyer = await register_authenticated(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
-    owner = shop_owner.root.step(RegisterResult)
-    assert owner.status_code == 201
-    assert owner.body is not None
 
-    arranged = await arrange_purchasable_product(
-        client,
-        shop_owner=shop_owner.root,
-        admin=admin_auth_headers.root,
+    category, product = await arrange_purchasable_product(
+        integration_client,
+        shop_owner_token=shop_owner.access_token,
+        admin_token=admin_auth_headers.access_token,
         stock=10,
     )
-    product = arranged.step(ProductResult)
+    assert product is not None
     assert product.status_code == 201
     assert product.body is not None
 
     seller_order = await create_order_by_seller(
-        client,
-        headers=bearer_headers(owner),
+        integration_client,
+        headers=bearer_headers(shop_owner.access_token),
         buyer_user_id=str(buyer.body.user.id),
         items=[(product.body.id, 1)],
     )
@@ -347,8 +319,8 @@ async def test_pay_order_seller_initiated_by_shop_owner_returns_403(
     assert seller_order.body is not None
 
     paid = await pay_order(
-        client,
-        headers=bearer_headers(owner),
+        integration_client,
+        headers=bearer_headers(shop_owner.access_token),
         order_id=seller_order.body.id,
     )
 
