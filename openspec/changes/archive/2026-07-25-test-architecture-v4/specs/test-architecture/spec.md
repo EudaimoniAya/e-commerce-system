@@ -2,21 +2,13 @@
 
 ## Purpose
 
-测试代码四层架构与数据流纪律：Case（Assert-First）、Fixture（fail-fast 瘦身 Context + fixture 依赖链）、Support（helper + builders/results + db 断言）、Utilities（纯函数）。HTTP 集成测通过 SAVEPOINT 单事务隔离；持久状态经 `tests/support/db` 查询，无需 PipelineResult 传递 ID。
+测试代码四层架构与数据流纪律：Case（Assert-First）、Fixture（fail-fast 瘦身 Context + fixture 依赖链）、Support（helper + builders/results + db 断言/seed）、Utilities（纯函数）。HTTP 集成测通过 SAVEPOINT 单事务隔离；持久状态经 `tests/support/db` 查询与 Arrange，无需 PipelineResult 传递 ID。
 
-## REMOVED Requirements
-
-### Requirement: PipelineResult as sole composition container
-
-**Reason**: SAVEPOINT 使 HTTP 与 `db_session` 共用同一事务，**持久 ID 与系统状态可由 `tests/support/db` 查询**；Setup 鉴权由 **瘦身 Context + fixture 依赖链**（`access_token`）承担。Pipeline 的类型安全组合能力仍有效，但 **不再承担数据传递职责**——非因 `step(T)` 认知成本。
-
-**Migration**: orchestrator 仅在 fixture 内顺序调用 atomic helper；Case 使用瘦身 Context 与 `tests/support/db`；删除 `tests/support/pipeline.py`。§5 单批迁移，每测试文件只改一次。
-
-## MODIFIED Requirements
+## Requirements
 
 ### Requirement: Four-layer test architecture
 
-测试代码 SHALL 分为 Case、Fixture、Support、Utilities 四层。Case 层位于 `tests/**/test_*.py`；Fixture 层位于 `tests/conftest.py`；Support 层位于 `tests/support/`（含 `tests/support/db/`）；Utilities 为 Support 内无 HTTP/DB 的纯函数。
+测试代码 SHALL 分为 Case、Fixture、Support、Utilities 四层。Case 层位于 `tests/**/test_*.py`；Fixture 层位于 `tests/conftest.py`；Support 层位于 `tests/support/`（含 `tests/support/db/`、`tests/support/helper/`）；Utilities 为 Support 内无 HTTP/DB 的纯函数。
 
 #### Scenario: Case layer contains only test functions
 
@@ -26,10 +18,50 @@
 
 #### Scenario: Support layer owns HTTP and DB helpers
 
-- **WHEN** 测试需要可复用 HTTP 调用或 DB 状态查询
-- **THEN** HTTP helper SHALL 位于 `tests/support/` 域子模块（如 `auth.py`、`catalog/`、`ordering/`）
-- **AND** DB 断言 helper SHALL 位于 `tests/support/db/`
+- **WHEN** 测试需要可复用 HTTP 调用或 DB 状态查询/seed
+- **THEN** HTTP helper SHALL 位于 `tests/support/helper/` 域子模块（如 `auth.py`、`catalog.py`、`ordering.py`）
+- **AND** DB 断言与 seed helper SHALL 位于 `tests/support/db/`
 - **AND** SHALL NOT 位于 `test_*.py` 或跨 test 文件 import
+
+### Requirement: Case layer import discipline
+
+Case 文件 SHALL NOT import 其他 test 模块（`from tests.<domain>.test_* import ...`）。Case MAY import `tests.support.*` 与 `tests.conftest` re-export 的符号。`tests/unit/**` SHALL NOT import `tests.support` 或 `tests.conftest`。
+
+#### Scenario: no cross-test-module imports
+
+- **WHEN** 对 `tests/` 运行 grep 检查 `from tests\.(catalog|user|infra|health|ops)\.test_`
+- **THEN** SHALL 无匹配
+
+### Requirement: Assert-First and visible Act
+
+Integration Case SHALL 以断言为主。被测 HTTP 行为（Act）SHALL 在 Case 内可见（inline `integration_client.*` 或 Act 型 helper 调用）。Act 的返回值 SHALL NOT 写入 Setup Context fixture。
+
+#### Scenario: integration HTTP uses integration_client
+
+- **WHEN** 审查带 `@pytest.mark.integration` 且发 HTTP 的 Case
+- **THEN** SHALL 使用 `integration_client` fixture（或等价依赖 `db_session` override 的 client）
+- **AND** SHALL NOT 仅用无 override 的 `client` 写库
+
+#### Scenario: create product Act visible in case
+
+- **WHEN** 审查 `test_create_product_success` 类用例
+- **THEN** POST `/products` 或 `create_product` helper 调用 SHALL 出现在 Case 函数体内
+- **AND** SHALL NOT 仅依赖 fixture 隐式完成该 POST
+
+#### Scenario: Act result not in context
+
+- **WHEN** 审查 Setup fixture 注入的 `*Context`
+- **THEN** Context SHALL NOT 包含被测 Act 的 `*Result` 字段
+
+### Requirement: Atomic helpers return typed Result without success assert
+
+单次 HTTP helper SHALL 返回 `*Result`（含 `status_code`、`body: DomainResponse | None`）。SHALL NOT 在 helper 内 assert 成功状态码。SHALL NOT 接收或返回 `*Context`。
+
+#### Scenario: register_user returns honest failure
+
+- **WHEN** 调用 `register_user` 且 API 返回 422
+- **THEN** helper SHALL 返回 `RegisterResult` 且 `status_code == 422`
+- **AND** helper SHALL NOT raise 因 status 非 201
 
 ### Requirement: Fan-in orchestrator prerequisites in case scope
 
@@ -40,6 +72,60 @@
 - **WHEN** 调用 `create_product(integration_client, shop_token=..., category=...)`
 - **THEN** Case 或 fixture SHALL 仍持有 `shop_owner` / `admin_auth_headers` 等 Context
 - **AND** 持久 ID（如 `product_id`）MAY 来自 Act 的 `*Result.body` 或 `tests/support/db` 查询
+
+### Requirement: Setup fixture fail-fast
+
+表示 happy-path 前置世界的 Setup fixture SHALL 在任一步失败时 `pytest.fail`（或 documented skip）。失败路径测试 SHALL 在 Case 内调用原子 helper，SHALL NOT 使用失败状态 Setup fixture。
+
+#### Scenario: shop owner fixture fails on unsuccessful shop
+
+- **WHEN** `register_and_open_shop` 返回的 `ShopResult.status_code != 201`
+- **THEN** `shop_owner` fixture SHALL `pytest.fail`
+- **AND** SHALL NOT 向 Case 注入失败状态的 Context
+
+#### Scenario: login failure tested in case not fixture
+
+- **WHEN** 测试密码错误登录
+- **THEN** Case SHALL 调用 `login_user` 并 assert `status_code`
+- **AND** SHALL NOT 依赖「错误密码 Context」fixture
+
+### Requirement: Arrange versus Act boundary
+
+除当前 Case 被测 API 外，所有 helper 与 fixture 执行均为 Arrange。Setup fixture SHALL NOT 替 Case 执行被测端点。
+
+#### Scenario: fixture register and open shop is arrange
+
+- **WHEN** Case 被测为 POST `/products`
+- **THEN** fixture 内 `register_and_open_shop` SHALL 视为 Arrange
+- **AND** fixture SHALL NOT 调用 `create_product` 作为 Setup
+
+### Requirement: Simple GET Act may be inline
+
+简单 GET 端点的 Act MAY 在 Case 内使用 `await integration_client.get(...)` 与 `model_validate`，不强制 action helper。
+
+#### Scenario: public shop get inline
+
+- **WHEN** 审查 `test_get_public_shop_*` 类用例
+- **THEN** MAY 在 Case 内直接 `integration_client.get`
+- **AND** SHALL 仍遵守 Act 在 Case 可见
+
+### Requirement: Test directory layout for ops probes
+
+Health、readiness、migration smoke 探针 SHALL 位于 `tests/ops/`。纯 JWT/DB 逻辑测试 MAY 保留在 `tests/infra/` 或 `tests/unit/`。
+
+#### Scenario: ops directory contains health
+
+- **WHEN** 审查运维探针测试
+- **THEN** `tests/ops/test_health.py` SHALL 存在（自 `tests/health/` 迁入）
+
+### Requirement: Enforcement tooling
+
+项目 SHALL 对 `tests/` 启用 ruff ANN 规则。CI SHALL 包含 grep 检查禁止 test 模块互 import。
+
+#### Scenario: ci rejects cross test import
+
+- **WHEN** 某 test 文件新增 `from tests.catalog.test_create_product import ...`
+- **THEN** CI grep step SHALL 失败
 
 ### Requirement: Bearer header projection without stored copies
 
@@ -52,22 +138,20 @@ Bearer 请求头 SHALL 通过纯函数 `bearer_headers(access_token: str)` 投�
 - **AND** SHALL NOT 含 `root: PipelineResult`
 - **AND** SHALL NOT 含 `headers: dict[str, str]` 存储型字段
 
-### Requirement: Assert-First and visible Act
+### Requirement: Legacy anti-pattern documentation
 
-Integration Case SHALL 以断言为主。被测 HTTP 行为（Act）SHALL 在 Case 内可见（inline `integration_client.*` 或 Act 型 helper 调用）。Act 的返回值 SHALL NOT 写入 Setup Context fixture。
+refactor 前 SHALL 在 `docs/troubleshooting/测试架构-旧模式反模式记录.md` 记录旧架构反模式：每个反模式 SHALL 含真实代码片段、问题标注与应然方向；SHALL 覆盖 test 互 import、helper 内 assert、helper 返 Context、Context 嵌套/存储字段、fixture 不 fail-fast、test 内 DB seed 等；每个反模式 MAY 仅举 1–2 个最突出案例。
 
-#### Scenario: integration HTTP uses integration_client
+#### Scenario: troubleshooting doc explains create product anti-pattern
 
-- **WHEN** 审查带 `@pytest.mark.integration` 且发 HTTP 的 Case
-- **THEN** SHALL 使用 `integration_client` fixture（或等价依赖 `db_session` override 的 client）
-- **AND** SHALL NOT 仅用无 override 的 `client` 写库
+- **WHEN** 阅读 troubleshooting 文档中关于 test 内 helper 的章节
+- **THEN** SHALL 含 `_create_product` 实现片段及 `from tests.catalog.test_create_product import` 互 import 示例
+- **AND** SHALL 标明 helper 内 assert 201 与 Case 层重复 POST 的问题
 
-#### Scenario: Act result not in context
+#### Scenario: troubleshooting doc exists before catalog refactor
 
-- **WHEN** 审查 Setup fixture 注入的 `*Context`
-- **THEN** Context SHALL NOT 包含被测 Act 的 `*Result` 字段
-
-## ADDED Requirements
+- **WHEN** 开始迁移 `tests/catalog/` 前
+- **THEN** troubleshooting 文档 SHALL 已存在且可被 reviewer 对照迁移
 
 ### Requirement: Test environment via APP_ENV_FILE and dotenv test file
 
@@ -82,11 +166,11 @@ Integration Case SHALL 以断言为主。被测 HTTP 行为（Act）SHALL 在 Ca
 #### Scenario: helpers do not duplicate jwt constants
 
 - **WHEN** grep `tests/support/` 中硬编码 `JWT_SECRET_KEY` 或 `configure_integration_test_env` duplicate 常量
-- **THEN** §1 完成后 SHALL 无匹配（env 加载迁出）
+- **THEN** SHALL 无匹配（env 加载迁出）
 
 ### Requirement: Settings cache lifecycle
 
-`get_settings.cache_clear()` SHALL 仅出现在 `tests/support/env.py` 及文档化的 mutating fixture teardown。HTTP helper 与 atomic orchestrator SHALL NOT 调用 `cache_clear` 或 `ensure_integration_auth_env`。
+`get_settings.cache_clear()` SHALL 仅出现在 `tests/support/utils.py`（或文档化的 env 模块）及 mutating fixture teardown。HTTP helper 与 atomic orchestrator SHALL NOT 调用 `cache_clear` 或 `ensure_integration_auth_env`。
 
 #### Scenario: no cache clear in register helper
 
@@ -95,7 +179,7 @@ Integration Case SHALL 以断言为主。被测 HTTP 行为（Act）SHALL 在 Ca
 
 #### Scenario: test auth module aligned after ensure removal
 
-- **WHEN** §3 删除 `ensure_integration_auth_env` 后审查 `tests/infra/test_auth.py`
+- **WHEN** 审查 `tests/infra/test_auth.py`
 - **THEN** SHALL 与 `.env.test` / env 纪律一致，SHALL NOT 单独保留 obsolete ensure 调用
 
 ### Requirement: Integration transaction isolation via dependency override and SAVEPOINT
@@ -176,8 +260,8 @@ Shop / Category / Product / Order 的 Arrange SHALL 经 `tests/support/db/` seed
 #### Scenario: seed helpers use same session as integration client
 
 - **WHEN** 审查 `tests/support/db/` 下的 seed 函数签名
-- **THEN** SHALL 接收 ``AsyncSession`` 参数（测试的 ``db_session``）
-- **AND** SHALL 通过 ``session.flush()`` 使数据对同一事务内的 HTTP Act 可见
+- **THEN** SHALL 接收 `AsyncSession` 参数（测试的 `db_session`）
+- **AND** SHALL 通过 `session.flush()` 使数据对同一事务内的 HTTP Act 可见
 - **AND** SHALL NOT 创建独立 engine 或 commit 到事务外
 
 ### Requirement: Lazy expire tests use backdate not ttl env override
@@ -187,11 +271,11 @@ ordering 懒释放 integration 测 SHALL 通过 `tests/support/db` backdate `ord
 #### Scenario: no ttl or wait helpers after migration
 
 - **WHEN** grep `tests/` 中 `override_order_reservation_ttl` 或 `wait_past_order_expiry`
-- **THEN** §4 完成后 SHALL 无匹配
+- **THEN** SHALL 无匹配
 
 #### Scenario: lazy release test backdates expires at
 
-- **WHEN** 审查迁移后的 lazy release Case
+- **WHEN** 审查 lazy release Case
 - **THEN** SHALL 在 HTTP GET 触发懒释放前调用 backdate helper
 - **AND** SHALL NOT 使用 sleep/wait 等待 TTL 过期作为主触发手段
 
@@ -222,7 +306,7 @@ ordering 懒释放 integration 测 SHALL 通过 `tests/support/db` backdate `ord
 
 - **WHEN** 审查 `test_migration_seed_admin_exists`
 - **THEN** MAY 继续使用 `database_url` 与独立 `create_async_engine`
-- **AND** SHALL NOT 被 §5 单批迁移强制改为 SAVEPOINT 模式
+- **AND** SHALL NOT 被强制改为 SAVEPOINT 模式
 
 ### Requirement: Unique builders retained within test
 
