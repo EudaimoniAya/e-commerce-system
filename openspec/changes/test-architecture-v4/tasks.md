@@ -25,13 +25,13 @@
 
 ## 4. tests/support/db + 懒释放 backdate + seed
 
-- [ ] 4.1 新增 `tests/support/db/ordering.py`（`backdate_order_expires_at`、`get_order_status` 等）
-- [ ] 4.2 新增 `tests/support/db/catalog.py`（`get_product_stock` 等）
-- [ ] 4.3 迁移 ordering lazy-expire 用例：backdate + DB assert；**删除** `override_order_reservation_ttl` 与 **`wait_past_order_expiry`**
-- [ ] 4.4 `seed_inactive_user(session: AsyncSession, ...)`；删独立 `create_async_engine`
-- [ ] 4.4a 迁移 `tests/user/test_login.py`：`integration_client` + `db_session` 作用域内 seed
-- [ ] 4.4b 迁移 `tests/ordering/test_create_order_by_seller.py` 中 seed 调用
-- [ ] 4.5 design/spec 文档化探针例外：`test_admin_seed.py`、`test_readiness.py`、`test_user_summary.py` 不迁移 override
+- [x] 4.1 新增 `tests/support/db/ordering.py`（`backdate_order_expires_at`、`get_order_status` 等）
+- [x] 4.2 新增 `tests/support/db/catalog.py`（`get_product_stock` 等）
+- [x] 4.3 迁移 ordering lazy-expire 用例：backdate + DB assert；**删除** `override_order_reservation_ttl` 与 **`wait_past_order_expiry`**
+- [x] 4.4 `seed_inactive_user(session: AsyncSession, ...)`；删独立 `create_async_engine`
+- [x] 4.4a 迁移 `tests/user/test_login.py`：`integration_client` + `db_session` 作用域内 seed
+- [x] 4.4b 迁移 `tests/ordering/test_create_order_by_seller.py` 中 seed 调用
+- [x] 4.5 design/spec 文档化探针例外：`test_admin_seed.py`、`test_readiness.py`、`test_user_summary.py` 不迁移 override
 
 ## 5. 单批测试大迁移（integration_client + Pipeline 删除 + helper 分域）
 

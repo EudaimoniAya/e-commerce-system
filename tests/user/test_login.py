@@ -2,6 +2,7 @@
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.helpers import login_user, register_user
 from tests.support.builders import build_login_request, unique_email
@@ -68,13 +69,13 @@ async def test_login_nonexistent_email_returns_422(client: AsyncClient) -> None:
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_inactive_user_returns_403(
-    client: AsyncClient, database_url: str
+    integration_client: AsyncClient, db_session: AsyncSession
 ) -> None:
     """is_active=false 用户凭据正确时返回 403。"""
     email = unique_email("inactive")
     password = "password123"
-    await seed_inactive_user(database_url, email=email, password=password)
+    await seed_inactive_user(db_session, email=email, password=password)
 
-    result: LoginResult = await login_user(client, email=email, password=password)
+    result: LoginResult = await login_user(integration_client, email=email, password=password)
     assert result.status_code == 403
     assert result.body is None

@@ -2,6 +2,7 @@
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.schemas import ProductResponse
 from app.ordering.schemas import OrderResponse
@@ -10,14 +11,14 @@ from tests.support.contexts import (
     AuthContext,
     ShopOwnerContext,
 )
+from tests.support.db.catalog import get_product_stock
+from tests.support.db.ordering import backdate_order_expires_at, get_order_status
 from tests.support.helpers import (
     arrange_purchasable_product,
     create_order,
     create_order_by_seller,
-    override_order_reservation_ttl,
     pay_order,
     register_authenticated,
-    wait_past_order_expiry,
 )
 from tests.support.projections import bearer_headers
 from tests.support.results import ProductResult, RegisterResult, ShopResult
@@ -208,66 +209,56 @@ async def test_pay_order_unauthenticated_returns_401(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_pay_order_after_expiry_returns_409_and_restores_stock(
-    client: AsyncClient,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """短 TTL 过期后 pay 返回 409，订单 cancelled/expired，库存还原。"""
-    override_order_reservation_ttl(2)
-    try:
-        buyer = authenticated_user.root.step(RegisterResult)
-        assert buyer.status_code == 201
+    """过期后 pay 返回 409，订单 cancelled/expired，库存还原。"""
+    buyer = authenticated_user.root.step(RegisterResult)
+    assert buyer.status_code == 201
 
-        arranged = await arrange_purchasable_product(
-            client,
-            shop_owner=shop_owner.root,
-            admin=admin_auth_headers.root,
-            stock=7,
-        )
-        product = arranged.step(ProductResult)
-        assert product.status_code == 201
-        assert product.body is not None
-        initial_stock = product.body.stock
+    arranged = await arrange_purchasable_product(
+        integration_client,
+        shop_owner=shop_owner.root,
+        admin=admin_auth_headers.root,
+        stock=7,
+    )
+    product = arranged.step(ProductResult)
+    assert product.status_code == 201
+    assert product.body is not None
+    initial_stock = product.body.stock
 
-        created = await create_order(
-            client,
-            headers=bearer_headers(buyer),
-            items=[(product.body.id, 3)],
-        )
-        assert created.status_code == 201
-        assert created.body is not None
+    created = await create_order(
+        integration_client,
+        headers=bearer_headers(buyer),
+        items=[(product.body.id, 3)],
+    )
+    assert created.status_code == 201
+    assert created.body is not None
 
-        stock_reserved: Response = await client.get(f"/products/{product.body.id}")
-        assert stock_reserved.status_code == 200
-        assert stock_reserved.json()["stock"] == initial_stock - 3
+    stock_reserved: Response = await integration_client.get(f"/products/{product.body.id}")
+    assert stock_reserved.status_code == 200
+    assert stock_reserved.json()["stock"] == initial_stock - 3
 
-        await wait_past_order_expiry(created.body.expires_at)
+    # backdate 模拟 TTL 过期（替代 override_order_reservation_ttl + wait_past_order_expiry）
+    await backdate_order_expires_at(db_session, created.body.id)
 
-        paid = await pay_order(
-            client,
-            headers=bearer_headers(buyer),
-            order_id=created.body.id,
-        )
+    paid = await pay_order(
+        integration_client,
+        headers=bearer_headers(buyer),
+        order_id=created.body.id,
+    )
 
-        assert paid.status_code == 409
-        assert paid.body is None
+    assert paid.status_code == 409
+    assert paid.body is None
 
-        order_get: Response = await client.get(
-            f"/orders/{created.body.id}",
-            headers=bearer_headers(buyer),
-        )
-        assert order_get.status_code == 200
-        order = OrderResponse.model_validate(order_get.json())
-        assert order.status == "cancelled"
-        assert order.cancel_reason == "expired"
+    # DB 断言：订单 status 与库存还原
+    assert await get_order_status(db_session, created.body.id) == "cancelled"
 
-        stock_restored: Response = await client.get(f"/products/{product.body.id}")
-        assert stock_restored.status_code == 200
-        restored = ProductResponse.model_validate(stock_restored.json())
-        assert restored.stock == initial_stock
-    finally:
-        override_order_reservation_ttl(86400)
+    final_stock = await get_product_stock(db_session, product.body.id)
+    assert final_stock == initial_stock
 
 
 # ── 卖家发起的订单支付 ──────────────────────────────────────

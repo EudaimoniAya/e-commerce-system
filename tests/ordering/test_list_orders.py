@@ -2,6 +2,7 @@
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.schemas import ProductResponse
 from app.ordering.schemas import OrderResponse, PaginatedOrders
@@ -10,14 +11,14 @@ from tests.support.contexts import (
     AuthContext,
     ShopOwnerContext,
 )
+from tests.support.db.catalog import get_product_stock
+from tests.support.db.ordering import backdate_order_expires_at, get_order_status
 from tests.support.helpers import (
     arrange_purchasable_product,
     create_order,
     create_order_by_seller,
-    override_order_reservation_ttl,
     register_and_open_shop,
     register_authenticated,
-    wait_past_order_expiry,
 )
 from tests.support.projections import bearer_headers
 from tests.support.results import ProductResult, RegisterResult, ShopResult
@@ -229,173 +230,164 @@ async def test_list_and_get_orders_unauthenticated_returns_401(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_order_triggers_lazy_release_after_expiry(
-    client: AsyncClient,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """短 TTL 过期后 GET /orders/{id} 触发懒释放：cancelled/expired 且库存还原。"""
-    override_order_reservation_ttl(2)
-    try:
-        buyer = authenticated_user.root.step(RegisterResult)
-        assert buyer.status_code == 201
-        assert buyer.body is not None
+    """过期后 GET /orders/{id} 触发懒释放：cancelled/expired 且库存还原。"""
+    buyer = authenticated_user.root.step(RegisterResult)
+    assert buyer.status_code == 201
+    assert buyer.body is not None
 
-        arranged = await arrange_purchasable_product(
-            client,
-            shop_owner=shop_owner.root,
-            admin=admin_auth_headers.root,
-            stock=9,
-        )
-        product = arranged.step(ProductResult)
-        assert product.status_code == 201
-        assert product.body is not None
-        initial_stock = product.body.stock
+    arranged = await arrange_purchasable_product(
+        integration_client,
+        shop_owner=shop_owner.root,
+        admin=admin_auth_headers.root,
+        stock=9,
+    )
+    product = arranged.step(ProductResult)
+    assert product.status_code == 201
+    assert product.body is not None
+    initial_stock = product.body.stock
 
-        created = await create_order(
-            client,
-            headers=bearer_headers(buyer),
-            items=[(product.body.id, 4)],
-        )
-        assert created.status_code == 201
-        assert created.body is not None
+    created = await create_order(
+        integration_client,
+        headers=bearer_headers(buyer),
+        items=[(product.body.id, 4)],
+    )
+    assert created.status_code == 201
+    assert created.body is not None
 
-        await wait_past_order_expiry(created.body.expires_at)
+    # backdate 模拟 TTL 过期（替代 override_order_reservation_ttl + wait_past_order_expiry）
+    await backdate_order_expires_at(db_session, created.body.id)
 
-        response: Response = await client.get(
-            f"/orders/{created.body.id}",
-            headers=bearer_headers(buyer),
-        )
+    response: Response = await integration_client.get(
+        f"/orders/{created.body.id}",
+        headers=bearer_headers(buyer),
+    )
 
-        assert response.status_code == 200
-        order = OrderResponse.model_validate(response.json())
-        assert order.status == "cancelled"
-        assert order.cancel_reason == "expired"
+    assert response.status_code == 200
+    order = OrderResponse.model_validate(response.json())
+    assert order.status == "cancelled"
+    assert order.cancel_reason == "expired"
 
-        stock: Response = await client.get(f"/products/{product.body.id}")
-        assert stock.status_code == 200
-        assert ProductResponse.model_validate(stock.json()).stock == initial_stock
-    finally:
-        override_order_reservation_ttl(86400)
+    # DB 断言库存还原
+    assert await get_product_stock(db_session, product.body.id) == initial_stock
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_buyer_list_triggers_lazy_release_after_expiry(
-    client: AsyncClient,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """短 TTL 过期后 GET /orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
-    override_order_reservation_ttl(2)
-    try:
-        buyer = authenticated_user.root.step(RegisterResult)
-        assert buyer.status_code == 201
-        assert buyer.body is not None
+    """过期后 GET /orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
+    buyer = authenticated_user.root.step(RegisterResult)
+    assert buyer.status_code == 201
+    assert buyer.body is not None
 
-        arranged = await arrange_purchasable_product(
-            client,
-            shop_owner=shop_owner.root,
-            admin=admin_auth_headers.root,
-            stock=9,
-        )
-        product = arranged.step(ProductResult)
-        assert product.status_code == 201
-        assert product.body is not None
-        initial_stock = product.body.stock
+    arranged = await arrange_purchasable_product(
+        integration_client,
+        shop_owner=shop_owner.root,
+        admin=admin_auth_headers.root,
+        stock=9,
+    )
+    product = arranged.step(ProductResult)
+    assert product.status_code == 201
+    assert product.body is not None
+    initial_stock = product.body.stock
 
-        created = await create_order(
-            client,
-            headers=bearer_headers(buyer),
-            items=[(product.body.id, 4)],
-        )
-        assert created.status_code == 201
-        assert created.body is not None
+    created = await create_order(
+        integration_client,
+        headers=bearer_headers(buyer),
+        items=[(product.body.id, 4)],
+    )
+    assert created.status_code == 201
+    assert created.body is not None
 
-        await wait_past_order_expiry(created.body.expires_at)
+    # backdate 模拟 TTL 过期（替代 override_order_reservation_ttl + wait_past_order_expiry）
+    await backdate_order_expires_at(db_session, created.body.id)
 
-        response: Response = await client.get(
-            "/orders",
-            headers=bearer_headers(buyer),
-        )
+    response: Response = await integration_client.get(
+        "/orders",
+        headers=bearer_headers(buyer),
+    )
 
-        assert response.status_code == 200
-        body = PaginatedOrders.model_validate(response.json())
-        expired_order = next(
-            (item for item in body.items if item.id == created.body.id),
-            None,
-        )
-        assert expired_order is not None
-        assert expired_order.status == "cancelled"
-        assert expired_order.cancel_reason == "expired"
+    assert response.status_code == 200
+    body = PaginatedOrders.model_validate(response.json())
+    expired_order = next(
+        (item for item in body.items if item.id == created.body.id),
+        None,
+    )
+    assert expired_order is not None
+    assert expired_order.status == "cancelled"
+    assert expired_order.cancel_reason == "expired"
 
-        stock: Response = await client.get(f"/products/{product.body.id}")
-        assert stock.status_code == 200
-        assert ProductResponse.model_validate(stock.json()).stock == initial_stock
-    finally:
-        override_order_reservation_ttl(86400)
+    # DB 断言库存还原
+    assert await get_product_stock(db_session, product.body.id) == initial_stock
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_shop_owner_list_triggers_lazy_release_after_expiry(
-    client: AsyncClient,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """短 TTL 过期后 GET /shops/me/orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
-    override_order_reservation_ttl(2)
-    try:
-        buyer = authenticated_user.root.step(RegisterResult)
-        assert buyer.status_code == 201
-        assert buyer.body is not None
-        owner = shop_owner.root.step(RegisterResult)
-        assert owner.status_code == 201
-        assert owner.body is not None
+    """过期后 GET /shops/me/orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"""
+    buyer = authenticated_user.root.step(RegisterResult)
+    assert buyer.status_code == 201
+    assert buyer.body is not None
+    owner = shop_owner.root.step(RegisterResult)
+    assert owner.status_code == 201
+    assert owner.body is not None
 
-        arranged = await arrange_purchasable_product(
-            client,
-            shop_owner=shop_owner.root,
-            admin=admin_auth_headers.root,
-            stock=9,
-        )
-        product = arranged.step(ProductResult)
-        assert product.status_code == 201
-        assert product.body is not None
-        initial_stock = product.body.stock
+    arranged = await arrange_purchasable_product(
+        integration_client,
+        shop_owner=shop_owner.root,
+        admin=admin_auth_headers.root,
+        stock=9,
+    )
+    product = arranged.step(ProductResult)
+    assert product.status_code == 201
+    assert product.body is not None
+    initial_stock = product.body.stock
 
-        created = await create_order(
-            client,
-            headers=bearer_headers(buyer),
-            items=[(product.body.id, 4)],
-        )
-        assert created.status_code == 201
-        assert created.body is not None
+    created = await create_order(
+        integration_client,
+        headers=bearer_headers(buyer),
+        items=[(product.body.id, 4)],
+    )
+    assert created.status_code == 201
+    assert created.body is not None
 
-        await wait_past_order_expiry(created.body.expires_at)
+    # backdate 模拟 TTL 过期（替代 override_order_reservation_ttl + wait_past_order_expiry）
+    await backdate_order_expires_at(db_session, created.body.id)
 
-        response: Response = await client.get(
-            "/shops/me/orders",
-            headers=bearer_headers(owner),
-        )
+    response: Response = await integration_client.get(
+        "/shops/me/orders",
+        headers=bearer_headers(owner),
+    )
 
-        assert response.status_code == 200
-        body = PaginatedOrders.model_validate(response.json())
-        expired_order = next(
-            (item for item in body.items if item.id == created.body.id),
-            None,
-        )
-        assert expired_order is not None
-        assert expired_order.status == "cancelled"
-        assert expired_order.cancel_reason == "expired"
+    assert response.status_code == 200
+    body = PaginatedOrders.model_validate(response.json())
+    expired_order = next(
+        (item for item in body.items if item.id == created.body.id),
+        None,
+    )
+    assert expired_order is not None
+    assert expired_order.status == "cancelled"
+    assert expired_order.cancel_reason == "expired"
 
-        stock: Response = await client.get(f"/products/{product.body.id}")
-        assert stock.status_code == 200
-        assert ProductResponse.model_validate(stock.json()).stock == initial_stock
-    finally:
-        override_order_reservation_ttl(86400)
+    # DB 断言库存还原
+    assert await get_product_stock(db_session, product.body.id) == initial_stock
 
 
 # ── 卖家建单可见性 ───────────────────────────────────────────
@@ -505,60 +497,57 @@ async def test_buyer_order_initiated_by_buyer_in_list(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_seller_order_lazy_release_in_buyer_list(
-    client: AsyncClient,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """短 TTL 过期后，卖家建单在买家 GET /orders 列表触发懒释放。"""
-    override_order_reservation_ttl(2)
-    try:
-        buyer = authenticated_user.root.step(RegisterResult)
-        assert buyer.status_code == 201
-        assert buyer.body is not None
-        owner = shop_owner.root.step(RegisterResult)
-        assert owner.status_code == 201
-        assert owner.body is not None
+    """过期后，卖家建单在买家 GET /orders 列表触发懒释放。"""
+    buyer = authenticated_user.root.step(RegisterResult)
+    assert buyer.status_code == 201
+    assert buyer.body is not None
+    owner = shop_owner.root.step(RegisterResult)
+    assert owner.status_code == 201
+    assert owner.body is not None
 
-        arranged = await arrange_purchasable_product(
-            client,
-            shop_owner=shop_owner.root,
-            admin=admin_auth_headers.root,
-            stock=9,
-        )
-        product = arranged.step(ProductResult)
-        assert product.status_code == 201
-        assert product.body is not None
-        initial_stock = product.body.stock
+    arranged = await arrange_purchasable_product(
+        integration_client,
+        shop_owner=shop_owner.root,
+        admin=admin_auth_headers.root,
+        stock=9,
+    )
+    product = arranged.step(ProductResult)
+    assert product.status_code == 201
+    assert product.body is not None
+    initial_stock = product.body.stock
 
-        seller_order = await create_order_by_seller(
-            client,
-            headers=bearer_headers(owner),
-            buyer_user_id=str(buyer.body.user.id),
-            items=[(product.body.id, 4)],
-        )
-        assert seller_order.status_code == 201
-        assert seller_order.body is not None
+    seller_order = await create_order_by_seller(
+        integration_client,
+        headers=bearer_headers(owner),
+        buyer_user_id=str(buyer.body.user.id),
+        items=[(product.body.id, 4)],
+    )
+    assert seller_order.status_code == 201
+    assert seller_order.body is not None
 
-        await wait_past_order_expiry(seller_order.body.expires_at)
+    # backdate 模拟 TTL 过期（替代 override_order_reservation_ttl + wait_past_order_expiry）
+    await backdate_order_expires_at(db_session, seller_order.body.id)
 
-        response: Response = await client.get(
-            "/orders",
-            headers=bearer_headers(buyer),
-        )
+    response: Response = await integration_client.get(
+        "/orders",
+        headers=bearer_headers(buyer),
+    )
 
-        assert response.status_code == 200
-        body = PaginatedOrders.model_validate(response.json())
-        expired_order = next(
-            (item for item in body.items if item.id == seller_order.body.id),
-            None,
-        )
-        assert expired_order is not None
-        assert expired_order.status == "cancelled"
-        assert expired_order.cancel_reason == "expired"
+    assert response.status_code == 200
+    body = PaginatedOrders.model_validate(response.json())
+    expired_order = next(
+        (item for item in body.items if item.id == seller_order.body.id),
+        None,
+    )
+    assert expired_order is not None
+    assert expired_order.status == "cancelled"
+    assert expired_order.cancel_reason == "expired"
 
-        stock: Response = await client.get(f"/products/{product.body.id}")
-        assert stock.status_code == 200
-        assert ProductResponse.model_validate(stock.json()).stock == initial_stock
-    finally:
-        override_order_reservation_ttl(86400)
+    # DB 断言库存还原
+    assert await get_product_stock(db_session, product.body.id) == initial_stock

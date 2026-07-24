@@ -15,6 +15,7 @@ import uuid
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.builders import unique_email, unique_category_name
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
@@ -119,16 +120,16 @@ async def test_create_order_by_seller_buyer_not_found_returns_404(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_create_order_by_seller_disabled_buyer_returns_422(
-    client: AsyncClient,
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
-    database_url: str,
 ) -> None:
     """指定买家 is_active=false 返回 422。"""
     assert shop_owner.root.step(ShopResult).status_code == 201
 
     arranged = await arrange_purchasable_product(
-        client,
+        integration_client,
         shop_owner=shop_owner.root,
         admin=admin_auth_headers.root,
         stock=10,
@@ -139,11 +140,11 @@ async def test_create_order_by_seller_disabled_buyer_returns_422(
     assert product.body is not None
 
     disabled_user_id = await seed_inactive_user(
-        database_url, unique_email("disabled-seller"), "password123"
+        db_session, unique_email("disabled-seller"), "password123"
     )
 
     result = await create_order_by_seller(
-        client,
+        integration_client,
         headers=bearer_headers(shop_owner.root.step(RegisterResult)),
         buyer_user_id=disabled_user_id,
         items=[(product.body.id, 1)],
