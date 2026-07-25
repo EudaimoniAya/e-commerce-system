@@ -2,7 +2,7 @@
 
 > 本 Task 仅交付 infra 日志与 middleware；**不**注册 exception handlers；**不**改各域 service 打点。
 
-- [ ] 1.1 `pyproject.toml` 增加 `loguru`；确认或补充 `.env.test` 中 `APP_ENV=test`；更新 `.env.example` 文档
+- [x] 1.1 `pyproject.toml` 增加 `loguru`；确认或补充 `.env.test` 中 `APP_ENV=test`；更新 `.env.example` 文档
 - [ ] 1.2 按 `specs/infra-logging/spec.md` 编写 `tests/infra/test_logging.py`（app_env 格式、X-Request-ID、logs/app.log、test 不写文件）；**不编写** 实现
 - [ ] 1.3 新增 `app/infra/logging/setup.py`（`setup_logging`、`InterceptHandler`、`app_env` 格式/级别、`logs/app.log` rotation+gzip）
 - [ ] 1.4 新增 `app/infra/logging/middleware.py`（`X-Request-ID` 透传/生成、`ContextVar`、`logger.contextualize`）
