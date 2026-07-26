@@ -47,7 +47,7 @@
 ## 6. 本地验证与 CI
 
 - [x] 6.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl 烟雾：加购 → checkout → batch-pay（`scripts/ordering_cart_curl_smoke.sh`）
-- [ ] 6.2 确认远程 CI 全绿
+- [x] 6.2 确认远程 CI 全绿（workflow_dispatch [run #30223329794](https://github.com/EudaimoniAya/e-commerce-system/actions/runs/30223329794) success）
 
 ## 7. 文档与 DoD
 
