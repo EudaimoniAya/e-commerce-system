@@ -22,7 +22,7 @@
 
 - **WHEN** 客户端提交的 `email` 已存在于 `users` 表
 - **THEN** 响应状态码 SHALL 为 422
-- **AND** 响应 SHALL 为 FastAPI 校验/业务错误格式（`detail` 字段）
+- **AND** 响应 SHALL 符合 `infra-api-errors` 统一 error JSON（顶层键 `error`）
 
 #### Scenario: 密码长度不合规返回 422
 
@@ -49,13 +49,13 @@
 
 - **WHEN** 客户端提交的 `email` 不存在于 `users` 表
 - **THEN** 响应状态码 SHALL 为 422
-- **AND** 响应 SHALL 为 FastAPI 校验/业务错误格式（`detail` 字段）
+- **AND** 响应 SHALL 符合 `infra-api-errors` 统一 error JSON（顶层键 `error`）
 
 #### Scenario: 密码错误返回 422
 
 - **WHEN** 客户端提交的 `email` 存在但 `password` 不正确
 - **THEN** 响应状态码 SHALL 为 422
-- **AND** 响应 SHALL 为 FastAPI 校验/业务错误格式（`detail` 字段）
+- **AND** 响应 SHALL 符合 `infra-api-errors` 统一 error JSON（顶层键 `error`）
 - **AND** 响应 SHALL NOT 区分「邮箱不存在」与「密码错误」（防止用户枚举）
 
 #### Scenario: 用户已禁用返回 403

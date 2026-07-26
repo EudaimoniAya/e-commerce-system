@@ -21,5 +21,5 @@
 
 ## 3. 文档与收尾（Task 3）
 
-- [ ] 3.1 更新 `docs/architecture.md`：补充 `infra/logging/`、`infra/errors/`、`create_app` 说明
-- [ ] 3.2 archive change 并 sync specs（`infra-logging`、`infra-api-errors`、`user-auth` delta）
+- [x] 3.1 更新 `docs/architecture.md`：补充 `infra/logging/`、`infra/errors/`、`create_app` 说明
+- [x] 3.2 archive change 并 sync specs（`infra-logging`、`infra-api-errors`、`user-auth` delta）
