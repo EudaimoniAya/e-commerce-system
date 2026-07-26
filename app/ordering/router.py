@@ -15,6 +15,8 @@ from app.ordering.deps import (
 )
 from app.ordering.models import Order
 from app.ordering.schemas import (
+    BatchPayRequest,
+    BatchPayResponse,
     OrderCreate,
     OrderResponse,
     PaginatedOrders,
@@ -38,6 +40,7 @@ def _to_response(order: Order) -> OrderResponse:
         initiated_by=order.initiated_by,  # type: ignore[arg-type]
         status=order.status,  # type: ignore[arg-type]
         cancel_reason=order.cancel_reason,
+        checkout_batch_id=str(order.checkout_batch_id) if order.checkout_batch_id else None,
         total_amount=str(order.total_amount),
         expires_at=order.expires_at,
         items=[
@@ -274,3 +277,25 @@ async def list_shop_orders(
         limit=limit,
         offset=offset,
     )
+
+
+# ── 批量支付 ──────────────────────────────────────────────
+
+
+@router.post(
+    "/orders/batch-pay",
+    response_model=BatchPayResponse,
+    tags=["orders"],
+)
+async def batch_pay(
+    body: BatchPayRequest,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    service: OrderService = Depends(get_order_service),
+) -> BatchPayResponse:
+    """批量支付桩：全有或全无，单事务。"""
+    order_ids = [uuid.UUID(oid) for oid in body.order_ids]
+    orders = await service.batch_pay_orders(
+        user_id=user_id,
+        order_ids=order_ids,
+    )
+    return BatchPayResponse(orders=[_to_response(o) for o in orders])

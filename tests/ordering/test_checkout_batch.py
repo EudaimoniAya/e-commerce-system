@@ -114,10 +114,11 @@ async def test_get_checkout_batch_with_cancelled_order(
     integration_client: AsyncClient,
     db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
+    second_shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
     """batch 含 cancelled 子单时 remaining_total 仅计 awaiting_payment 子单。"""
-    # 两个商品分别 checkout 到两个子订单
+    # 两个不同店的商品 → checkout 产生 2 个子订单
     _, product_a = await arrange_purchasable_product(
         db_session,
         shop_id=shop_owner.shop_id,
@@ -127,7 +128,7 @@ async def test_get_checkout_batch_with_cancelled_order(
     )
     _, product_b = await arrange_purchasable_product(
         db_session,
-        shop_id=shop_owner.shop_id,
+        shop_id=second_shop_owner.shop_id,
         stock=10,
         price="20.00",
         name="batch-cancel-b",
@@ -149,6 +150,7 @@ async def test_get_checkout_batch_with_cancelled_order(
     assert checkout.status_code == 201
     batch_id = checkout.body["checkout_batch_id"]
     orders = checkout.body["orders"]
+    assert len(orders) == 2
 
     # 取消第一个子订单
     from tests.support.helper.ordering import cancel_order

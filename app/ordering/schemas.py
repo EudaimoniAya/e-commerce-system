@@ -1,5 +1,7 @@
 """ordering 域请求/响应 DTO（供 API 与 integration 测试 builders 使用）。"""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from typing import Literal
@@ -75,6 +77,79 @@ class CartListResponse(BaseModel):
     invalid_items: list[CartInvalidItem]
 
 
+# ── Checkout ───────────────────────────────────────────────────
+
+
+class CheckoutRequest(BaseModel):
+    """结算请求体。"""
+
+    cart_item_ids: list[str] = Field(min_length=1)
+
+
+class CheckoutResponse(BaseModel):
+    """结算成功响应。"""
+
+    checkout_batch_id: str
+    orders: list["OrderResponse"]
+
+
+class BatchPayRequest(BaseModel):
+    """批量支付请求体。"""
+
+    order_ids: list[str] = Field(min_length=1)
+
+
+class BatchPayResponse(BaseModel):
+    """批量支付成功响应。"""
+
+    orders: list["OrderResponse"]
+
+
+# ── Checkout Batch Detail ──────────────────────────────────────
+
+
+class CheckoutBatchOrderItem(BaseModel):
+    """batch 详情中订单行。"""
+
+    id: str
+    product_id: str
+    product_name: str
+    unit_price: str
+    qty: int
+
+
+class CheckoutBatchOrder(BaseModel):
+    """batch 详情中子订单。"""
+
+    id: str
+    shop_id: str
+    status: str
+    initiated_by: str
+    total_amount: str
+    expires_at: datetime
+    items: list[CheckoutBatchOrderItem]
+    created_at: datetime
+
+
+class CheckoutBatchShopGroup(BaseModel):
+    """batch 详情中按店分组的 orders。"""
+
+    shop_id: str
+    orders: list[CheckoutBatchOrder]
+
+
+class CheckoutBatchResponse(BaseModel):
+    """GET /orders/checkout-batches/{id} 响应。"""
+
+    id: str
+    buyer_user_id: str
+    created_at: datetime
+    shops: list[CheckoutBatchShopGroup]
+    paid_total: str
+    remaining_total: str
+    status: str
+
+
 # ── Order ──────────────────────────────────────────────────────
 
 
@@ -141,6 +216,7 @@ class OrderResponse(BaseModel):
         "cancelled",
     ]
     cancel_reason: str | None
+    checkout_batch_id: str | None = None
     total_amount: str
     expires_at: datetime
     items: list[OrderItemResponse]

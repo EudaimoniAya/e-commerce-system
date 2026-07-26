@@ -40,9 +40,9 @@
 
 ## 5. Checkout batch 与 batch-pay（绿）
 
-- [ ] 5.1 `checkout_batch_repository.py` + **`CartService.checkout` 唯一编排入口**（单事务：batch + N×`_create_order_core(commit=False)` + 删 cart；唯一 commit）
-- [ ] 5.2 `GET /orders/checkout-batches/{id}` router + 聚合响应（paid_total、remaining_total、派生 status、shops）
-- [ ] 5.3 `OrderService.batch_pay_orders` + `POST /orders/batch-pay` router
+- [x] 5.1 `checkout_batch_repository.py` + **`CartService.checkout` 唯一编排入口**（单事务：batch + N×`_create_order_core(commit=False)` + 删 cart；唯一 commit）
+- [x] 5.2 `GET /orders/checkout-batches/{id}` router + 聚合响应（paid_total、remaining_total、派生 status、shops）
+- [x] 5.3 `OrderService.batch_pay_orders` + `POST /orders/batch-pay` router
 
 ## 6. 本地验证与 CI
 

@@ -11,6 +11,7 @@ from app.infra.auth import get_current_user_id
 from app.infra.database import get_db
 from app.ordering.cart_repository import CartRepository
 from app.ordering.cart_service import CartService
+from app.ordering.checkout_batch_repository import CheckoutBatchRepository
 from app.ordering.models import Order
 from app.ordering.repository import OrderItemRepository, OrderRepository
 from app.ordering.service import OrderService
@@ -27,13 +28,11 @@ def get_cart_repository(
     return CartRepository(session)
 
 
-def get_cart_service(
+def get_checkout_batch_repository(
     session: AsyncSession = Depends(get_db),
-    cart_repo: CartRepository = Depends(get_cart_repository),
-    catalog_service: ShopService = Depends(get_shop_service),
-) -> CartService:
-    """注入购物车编排服务（共享同一 DB 事务）。"""
-    return CartService(session, cart_repo, catalog_service)
+) -> CheckoutBatchRepository:
+    """注入结算批次仓储。"""
+    return CheckoutBatchRepository(session)
 
 
 def get_order_repository(
@@ -59,6 +58,17 @@ def get_order_service(
 ) -> OrderService:
     """注入 ordering 编排服务（共享同一 DB 事务）。"""
     return OrderService(session, catalog_service, order_repo, item_repo, user_service)
+
+
+def get_cart_service(
+    session: AsyncSession = Depends(get_db),
+    cart_repo: CartRepository = Depends(get_cart_repository),
+    catalog_service: ShopService = Depends(get_shop_service),
+    batch_repo: CheckoutBatchRepository = Depends(get_checkout_batch_repository),
+    order_service: OrderService = Depends(get_order_service),
+) -> CartService:
+    """注入购物车编排服务（共享同一 DB 事务；含 checkout 依赖）。"""
+    return CartService(session, cart_repo, catalog_service, batch_repo, order_service)
 
 
 async def get_order_by_id(
