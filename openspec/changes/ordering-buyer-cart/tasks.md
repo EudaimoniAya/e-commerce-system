@@ -46,7 +46,7 @@
 
 ## 6. 本地验证与 CI
 
-- [ ] 6.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl 烟雾：加购 → checkout → batch-pay
+- [x] 6.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl 烟雾：加购 → checkout → batch-pay（`scripts/ordering_cart_curl_smoke.sh`）
 - [ ] 6.2 确认远程 CI 全绿
 
 ## 7. 文档与 DoD

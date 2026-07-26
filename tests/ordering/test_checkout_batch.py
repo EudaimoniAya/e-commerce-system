@@ -7,14 +7,12 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.ordering import backdate_order_expires_at, seed_cart_item, seed_order
+from tests.support.db.ordering import backdate_order_expires_at, seed_cart_item
 from tests.support.helper.auth import register_user
-from tests.support.helper.catalog import register_and_open_shop
 from tests.support.helper.ordering import (
     arrange_purchasable_product,
     checkout_cart,
     get_checkout_batch,
-    pay_order,
 )
 from tests.support.utils import bearer_headers, decode_jwt_sub
 
