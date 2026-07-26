@@ -14,10 +14,10 @@
 > **BREAKING**：错误 JSON 由 `detail` 变为 `error`；一次性迁移测试断言；默认不改 service 的 `HTTPException`（handler 对字符串 detail 按 status 映射泛化 code，dict detail 可含语义 code）。
 
 - [x] 2.1 按 `specs/infra-api-errors/spec.md` 编写 `tests/infra/test_error_handlers.py`（ValidationError、HTTPException 混合 code 解析、500 泛化、request_id）；**不编写** handlers
-- [ ] 2.2 新增 `app/infra/errors/handlers.py` 与 `register.py`（三个 handler + HTTP status 泛化码/dict detail 语义码映射 + 结构化 error log）
-- [ ] 2.3 `create_app()` 调用 `register_exception_handlers(app)`
-- [ ] 2.4 迁移 integration 测试中 `detail` 断言为 `error` 结构（grep `tests/**/*.py`）；含 `test_my_products.py` 精确断言
-- [ ] 2.5 跑 `devbox run -- task ci` 全绿
+- [x] 2.2 新增 `app/infra/errors/handlers.py` 与 `register.py`（三个 handler + HTTP status 泛化码/dict detail 语义码映射 + 结构化 error log）
+- [x] 2.3 `create_app()` 调用 `register_exception_handlers(app)`
+- [x] 2.4 迁移 integration 测试中 `detail` 断言为 `error` 结构（grep `tests/**/*.py`）；含 `test_my_products.py` 精确断言
+- [x] 2.5 跑 `devbox run -- task ci` 全绿
 
 ## 3. 文档与收尾（Task 3）
 

@@ -4,8 +4,9 @@ from fastapi import FastAPI
 
 from app.catalog.router import router as catalog_router
 from app.infra.config import get_settings
+from app.infra.errors.register import register_exception_handlers
 from app.infra.health.router import router as health_router
-from app.infra.logging.middleware import request_id_middleware
+from app.infra.logging.middleware import RequestIDMiddleware
 from app.infra.logging.setup import setup_logging
 from app.infra.readiness.router import router as readiness_router
 from app.ordering.router import router as ordering_router
@@ -18,16 +19,19 @@ def create_app() -> FastAPI:
     组装顺序：
     1. setup_logging（按 Settings.app_env 推导 loguru sink）
     2. request_id middleware（X-Request-ID 透传/生成 + logger.contextualize）
-    3. 挂载各业务域路由
-    4. 暂不注册 exception handlers（Task 2.3）
+    3. exception handlers（统一 error JSON 契约）
+    4. 挂载各业务域路由
     """
     settings = get_settings()
     setup_logging(settings)
 
     app = FastAPI(title="e-commerce-system")
 
-    # request_id middleware（应在路由之前注册，使 200 路径日志也含 request_id）
-    app.middleware("http")(request_id_middleware)
+    # request_id middleware（纯 ASGI 避免 BaseHTTPMiddleware ContextVar 丢失）
+    app.add_middleware(RequestIDMiddleware)
+
+    # exception handlers（覆盖 FastAPI 默认 detail 响应为统一 error JSON）
+    register_exception_handlers(app)
 
     # 路由
     app.include_router(health_router)

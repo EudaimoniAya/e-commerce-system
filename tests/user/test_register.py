@@ -48,7 +48,7 @@ async def test_register_duplicate_email_returns_422(integration_client: AsyncCli
     )
     assert response.status_code == 422
     body = response.json()
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration

@@ -62,4 +62,4 @@ async def test_get_public_shop_not_found_returns_404(
     assert response.status_code == 404
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body

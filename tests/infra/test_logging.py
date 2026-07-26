@@ -172,10 +172,10 @@ class TestRequestIdMiddleware:
     @pytest.fixture
     def app_with_middleware(self) -> FastAPI:
         """最小 FastAPI app，注册 request_id middleware。"""
-        from app.infra.logging.middleware import request_id_middleware
+        from app.infra.logging.middleware import RequestIDMiddleware
 
         app = FastAPI()
-        app.middleware("http")(request_id_middleware)
+        app.add_middleware(RequestIDMiddleware)
 
         @app.get("/ping")
         async def ping() -> dict[str, str]:

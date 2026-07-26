@@ -40,7 +40,7 @@ async def test_get_my_shop_returns_404_when_no_shop(
     assert response.status_code == 404
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration
@@ -106,7 +106,7 @@ async def test_patch_my_shop_returns_404_when_no_shop(
     assert response.status_code == 404
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration
@@ -133,7 +133,7 @@ async def test_patch_my_shop_name_conflict_returns_422(
     assert response.status_code == 422
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration

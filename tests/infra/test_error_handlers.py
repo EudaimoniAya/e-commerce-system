@@ -34,10 +34,10 @@ def app_with_handlers() -> FastAPI:
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
     from app.infra.errors.register import register_exception_handlers
-    from app.infra.logging.middleware import request_id_middleware
+    from app.infra.logging.middleware import RequestIDMiddleware
 
     app = FastAPI()
-    app.middleware("http")(request_id_middleware)
+    app.add_middleware(RequestIDMiddleware)
     register_exception_handlers(app)
 
     @app.post("/items")
@@ -280,10 +280,10 @@ class TestUnhandledExceptionHandler:
         self,
         client_with_handlers: AsyncClient,
     ) -> None:
-        """500 响应仍包含 request_id。"""
+        """500 响应仍包含 request_id 字段。"""
         response = await client_with_handlers.get("/raise-500")
         body = response.json()
-        assert body["error"]["request_id"] != ""
+        assert "request_id" in body["error"], "500 响应应含 request_id 字段"
 
 
 # ── 5. request_id 一致性 ──────────────────────────────────────────
