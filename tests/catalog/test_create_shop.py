@@ -55,7 +55,7 @@ async def test_create_shop_duplicate_returns_422(
     assert response.status_code == 422
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration
@@ -84,7 +84,7 @@ async def test_create_shop_name_conflict_returns_422(
     assert response.status_code == 422
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration

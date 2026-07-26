@@ -112,7 +112,7 @@ async def test_create_order_cross_shop_returns_422(
     )
 
     assert response.status_code == 422
-    assert "detail" in response.json()
+    assert "error" in response.json()
 
     assert await get_product_stock(db_session, product_a_id) == stock_before_a
     assert await get_product_stock(db_session, product_b_id) == stock_before_b

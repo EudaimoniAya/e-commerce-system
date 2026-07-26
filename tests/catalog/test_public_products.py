@@ -186,7 +186,7 @@ async def test_get_public_product_detail_returns_404_when_unpublished(
     assert response.status_code == 404
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration
@@ -227,4 +227,4 @@ async def test_get_public_product_detail_returns_404_when_shop_closed(
     assert response.status_code == 404
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body

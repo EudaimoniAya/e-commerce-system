@@ -83,7 +83,8 @@ async def test_get_my_products_returns_404_when_no_shop(
 
     assert response.status_code == 404
     body = response.json()
-    assert body == {"detail": "Shop not found"}
+    assert body["error"]["code"] == "NOT_FOUND"
+    assert body["error"]["message"] == "Shop not found"
 
 
 @pytest.mark.integration

@@ -170,7 +170,7 @@ async def test_get_order_unrelated_user_returns_404(
     )
 
     assert response.status_code == 404
-    assert "detail" in response.json()
+    assert "error" in response.json()
 
 
 @pytest.mark.integration

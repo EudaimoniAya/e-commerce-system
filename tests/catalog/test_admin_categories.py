@@ -90,7 +90,7 @@ async def test_create_category_duplicate_sibling_name_returns_422(
     assert response.status_code == 422
     body = response.json()
     assert body is not None
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration

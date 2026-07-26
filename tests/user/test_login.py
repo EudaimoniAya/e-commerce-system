@@ -47,7 +47,7 @@ async def test_login_wrong_password_returns_422(integration_client: AsyncClient)
     )
     assert response.status_code == 422
     body = response.json()
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration
@@ -63,7 +63,7 @@ async def test_login_nonexistent_email_returns_422(integration_client: AsyncClie
 
     assert response.status_code == 422
     body = response.json()
-    assert "detail" in body
+    assert "error" in body
 
 
 @pytest.mark.integration

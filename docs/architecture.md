@@ -74,7 +74,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 | 模块 | 职责 |
 |------|------|
-| `infra/` | 配置、数据库 Session、健康探针、readiness、公共异常、分页 |
+| `infra/` | 配置、数据库 Session、JWT、健康/readiness 探针、**结构化日志**、**统一 error JSON**、分页（后期） |
 | `events/`（后期） | Outbox、领域事件，驱动 MySQL → pgvector ACL 同步 |
 | `shared/`（可选） | 无业务含义的公共类型，保持极简 |
 
@@ -117,11 +117,13 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 ```text
 e-commerce-system/
 ├── app/
-│   ├── main.py                   # FastAPI 入口，挂载 health / readiness / user / catalog / ordering 路由
+│   ├── main.py                   # create_app() 工厂：logging → middleware → handlers → 路由
 │   ├── infra/
 │   │   ├── config.py             # DATABASE_URL、APP_ENV、jwt_*、ORDER_RESERVATION_TTL_SECONDS
 │   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
 │   │   ├── auth.py               # PyJWT、OAuth2PasswordBearer、get_current_user_id
+│   │   ├── logging/              # loguru setup、InterceptHandler、RequestIDMiddleware
+│   │   ├── errors/               # 全局 exception handlers、统一 error JSON
 │   │   ├── health/               # 存活探针 GET /health
 │   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL 检查）
 │   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
@@ -157,6 +159,8 @@ e-commerce-system/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop/category/order helper
 │   ├── health/
 │   ├── infra/
+│   │   ├── test_logging.py       # loguru、request_id、logs/app.log
+│   │   └── test_error_handlers.py # 统一 error JSON
 │   ├── user/                     # 注册/登录/me integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
 │   └── ordering/                 # 买家订单 integration（27 项）
@@ -166,6 +170,8 @@ e-commerce-system/
 ├── .github/workflows/ci.yml      # DATABASE_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
+
+**应用入口（`create_app`）**：按序组装 `setup_logging(settings)` → `RequestIDMiddleware`（纯 ASGI，`X-Request-ID` 透传/生成）→ `register_exception_handlers(app)` → 各域 router。错误响应统一为 `{"error": {"code", "message", "request_id"}}`（详见 `infra-api-errors` spec）。日志经 loguru 输出至 stderr 与 `logs/app.log`（development/production；test 仅 stderr 且 level=WARNING）。详见 [中间件栈与异常处理架构决策（ADR-005）](./decision/中间件栈与异常处理架构决策.md)。
 
 **`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_url`、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
 
@@ -187,11 +193,13 @@ e-commerce-system/
 
 ```text
 app/
-├── main.py
+├── main.py                       # create_app()：setup_logging → middleware → handlers → routers
 ├── infra/
 │   ├── health/                   # 已实现
 │   ├── readiness/                # 已实现
-│   ├── config.py                 # 已实现（含 jwt_*）
+│   ├── logging/                  # 已实现（loguru、request_id、logs/app.log）
+│   ├── errors/                   # 已实现（统一 error JSON、全局 handlers）
+│   ├── config.py                 # 已实现（含 jwt_*、app_env）
 │   ├── database.py               # 已实现
 │   └── auth.py                   # 已实现
 ├── user/                         # 已实现（认证垂直切片）
@@ -300,5 +308,7 @@ awaiting_payment ──pay──▶ confirmed ──shipments──▶ shipped �
 
 - [单体多域架构决策](./decision/单体多域架构.md)
 - [测试与数据库策略（ADR）](./decision/测试与数据库策略.md)
+- [中间件栈与异常处理架构决策（ADR-005）](./decision/中间件栈与异常处理架构决策.md)
+- [异常处理 ServerErrorMiddleware 与测试陷阱（排错）](./troubleshooting/异常处理-ServerErrorMiddleware与测试陷阱.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](./troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)
