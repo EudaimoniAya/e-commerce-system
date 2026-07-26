@@ -1,4 +1,4 @@
-"""tests/support 纯函数工具：请求头投影 + 测试环境 bootstrap。
+"""tests/support 纯函数工具：请求头投影 + JWT 解码 + 测试环境 bootstrap。
 
 无 HTTP/DB 依赖，不 import 任何业务域模块。
 
@@ -10,6 +10,8 @@
   ``cache_clear``。
 """
 
+import base64
+import json
 import os
 
 from app.infra.config import get_settings
@@ -20,6 +22,16 @@ from app.infra.config import get_settings
 def bearer_headers(access_token: str) -> dict[str, str]:
     """从 access_token 字符串投影 Bearer Authorization 请求头。"""
     return {"Authorization": f"Bearer {access_token}"}
+
+
+# ── JWT 工具 ───────────────────────────────────────────────────
+
+def decode_jwt_sub(access_token: str) -> str:
+    """从 JWT access_token 中提取 ``sub`` claim（user_id），不验证签名。"""
+    payload_b64 = access_token.split(".")[1]
+    payload_b64 += "=" * (4 - len(payload_b64) % 4)
+    decoded = base64.urlsafe_b64decode(payload_b64)
+    return json.loads(decoded)["sub"]
 
 
 # ── 测试环境 bootstrap ─────────────────────────────────────────

@@ -15,7 +15,7 @@ from tests.support.helper.ordering import (
     checkout_cart,
     get_cart,
 )
-from tests.support.utils import bearer_headers
+from tests.support.utils import bearer_headers, decode_jwt_sub
 
 
 @pytest.mark.integration
@@ -44,7 +44,7 @@ async def test_checkout_cross_shop_returns_201(
         name="checkout-b",
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_a = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_a, qty=2
     )
@@ -114,7 +114,7 @@ async def test_checkout_partial_keeps_unselected_cart_items(
         price="20.00",
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_a = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_a, qty=1
     )
@@ -174,7 +174,7 @@ async def test_checkout_insufficient_stock_returns_422_cart_unchanged(
         stock=2,
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_id = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_id, qty=5
     )
@@ -223,7 +223,7 @@ async def test_checkout_price_snapshot(
         price="50.00",
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_id = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_id, qty=1
     )
@@ -256,7 +256,7 @@ async def test_checkout_self_purchase_returns_403(
     )
 
     # 用店主自己的 token 加购 + checkout
-    user_id_placeholder = shop_owner.access_token
+    user_id_placeholder = decode_jwt_sub(shop_owner.access_token)
     cart_id = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_id, qty=1
     )

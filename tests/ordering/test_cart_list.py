@@ -8,7 +8,7 @@ from tests.support.contexts import AuthContext, ShopOwnerContext
 from tests.support.db.ordering import seed_cart_item
 from tests.support.helper.catalog import register_and_open_shop
 from tests.support.helper.ordering import arrange_purchasable_product, get_cart
-from tests.support.utils import bearer_headers
+from tests.support.utils import bearer_headers, decode_jwt_sub
 
 
 @pytest.mark.integration
@@ -57,7 +57,7 @@ async def test_cart_list_grouped_by_shop(
     )
 
     # TODO(green): use actual user UUID instead of placeholder
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     await seed_cart_item(
         db_session,
         user_id=user_id_placeholder,
@@ -110,7 +110,7 @@ async def test_cart_list_invalid_items_unpublished_product(
         is_published=False,
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     await seed_cart_item(
         db_session,
         user_id=user_id_placeholder,
@@ -150,7 +150,7 @@ async def test_cart_list_invalid_items_closed_shop(
         is_published=True,
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     await seed_cart_item(
         db_session,
         user_id=user_id_placeholder,
@@ -199,7 +199,7 @@ async def test_cart_list_real_time_price(
         price="99.00",
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     await seed_cart_item(
         db_session,
         user_id=user_id_placeholder,
@@ -248,7 +248,7 @@ async def test_cart_list_no_auto_delete_invalid(
         is_published=False,
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     await seed_cart_item(
         db_session,
         user_id=user_id_placeholder,

@@ -16,7 +16,7 @@ from tests.support.helper.ordering import (
     create_order,
     pay_order,
 )
-from tests.support.utils import bearer_headers
+from tests.support.utils import bearer_headers, decode_jwt_sub
 
 
 @pytest.mark.integration
@@ -97,7 +97,7 @@ async def test_batch_pay_cross_batch_and_immediate(
         db_session, shop_id=second_shop_owner.shop_id, stock=10, price="30.00", name="cross-c"
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
 
     # 立即购买单（shop A）
     immediate = await create_order(
@@ -173,7 +173,7 @@ async def test_batch_pay_subset(
         db_session, shop_id=second_shop_owner.shop_id, stock=10, price="10.00", name="sub-b2"
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
 
     # Checkout batch 1：跨店 cart → 2 orders（shop A + shop B）
     c_a1 = await seed_cart_item(db_session, user_id=user_id_placeholder, product_id=prod_a1, qty=1)

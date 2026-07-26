@@ -14,7 +14,7 @@ from tests.support.helper.ordering import (
     delete_cart_item,
     patch_cart_item,
 )
-from tests.support.utils import bearer_headers
+from tests.support.utils import bearer_headers, decode_jwt_sub
 
 
 # ── POST /cart/items ──────────────────────────────────────────
@@ -120,7 +120,7 @@ async def test_patch_cart_item_updates_qty_returns_200(
     )
     cart_item_id = await seed_cart_item(
         db_session,
-        user_id=authenticated_user.access_token,  # 注：seed 需 user_id，此处用 token 作为占位
+        user_id=decode_jwt_sub(authenticated_user.access_token),  # 注：seed 需 user_id，此处用 token 作为占位
         product_id=product_id,
         qty=1,
     )
@@ -169,8 +169,7 @@ async def test_patch_other_user_cart_item_returns_404(
         shop_id=shop_owner.shop_id,
         stock=10,
     )
-    # 用另一用户 ID 创建 cart item
-    other_user_id = str(uuid.uuid4())
+    other_user_id = decode_jwt_sub(shop_owner.access_token)
     cart_item_id = await seed_cart_item(
         db_session,
         user_id=other_user_id,
@@ -206,7 +205,7 @@ async def test_delete_cart_item_returns_204(
     )
     cart_item_id = await seed_cart_item(
         db_session,
-        user_id=authenticated_user.access_token,
+        user_id=decode_jwt_sub(authenticated_user.access_token),
         product_id=product_id,
         qty=1,
     )
@@ -250,7 +249,7 @@ async def test_delete_other_user_cart_item_returns_404(
         shop_id=shop_owner.shop_id,
         stock=10,
     )
-    other_user_id = str(uuid.uuid4())
+    other_user_id = decode_jwt_sub(shop_owner.access_token)
     cart_item_id = await seed_cart_item(
         db_session,
         user_id=other_user_id,

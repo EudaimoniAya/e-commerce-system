@@ -9,6 +9,8 @@ from app.catalog.deps import get_shop_service
 from app.catalog.service import ShopService
 from app.infra.auth import get_current_user_id
 from app.infra.database import get_db
+from app.ordering.cart_repository import CartRepository
+from app.ordering.cart_service import CartService
 from app.ordering.models import Order
 from app.ordering.repository import OrderItemRepository, OrderRepository
 from app.ordering.service import OrderService
@@ -16,6 +18,22 @@ from app.user.deps import get_user_service
 from app.user.service import UserService
 
 _NOT_FOUND_MSG = "Order not found"
+
+
+def get_cart_repository(
+    session: AsyncSession = Depends(get_db),
+) -> CartRepository:
+    """注入购物车仓储。"""
+    return CartRepository(session)
+
+
+def get_cart_service(
+    session: AsyncSession = Depends(get_db),
+    cart_repo: CartRepository = Depends(get_cart_repository),
+    catalog_service: ShopService = Depends(get_shop_service),
+) -> CartService:
+    """注入购物车编排服务（共享同一 DB 事务）。"""
+    return CartService(session, cart_repo, catalog_service)
 
 
 def get_order_repository(

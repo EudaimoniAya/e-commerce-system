@@ -16,7 +16,7 @@ from tests.support.helper.ordering import (
     get_checkout_batch,
     pay_order,
 )
-from tests.support.utils import bearer_headers
+from tests.support.utils import bearer_headers, decode_jwt_sub
 
 
 @pytest.mark.integration
@@ -35,7 +35,7 @@ async def test_get_checkout_batch_returns_hierarchy_and_totals(
         price="30.00",
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_id = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_id, qty=2
     )
@@ -83,7 +83,7 @@ async def test_get_checkout_batch_other_user_returns_404(
         stock=10,
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_id = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_id, qty=1
     )
@@ -133,7 +133,7 @@ async def test_get_checkout_batch_with_cancelled_order(
         name="batch-cancel-b",
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_a = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_a, qty=1
     )
@@ -194,7 +194,7 @@ async def test_get_checkout_batch_lazy_release(
         price="25.00",
     )
 
-    user_id_placeholder = authenticated_user.access_token
+    user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
     cart_id = await seed_cart_item(
         db_session, user_id=user_id_placeholder, product_id=product_id, qty=1
     )

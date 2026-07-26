@@ -33,10 +33,10 @@
 
 ## 4. Cart 实现（绿）
 
-- [ ] 4.0 **（apply 开始前）** 确认 task 6.1：当前 `PurchasableProduct` 无 `shop_name`，须在 4.2 前定案是否扩展
-- [ ] 4.1 `cart_repository.py` + cart 相关 schemas（或合入 schemas.py）
-- [ ] 4.2 `CartService`：CRUD + `GET /cart` enrichment（批量 `get_purchasable_products`、按店分组、invalid_items）
-- [ ] 4.3 `cart_router.py`（或 router 前缀）；`main.py` 挂载 `/cart*`
+- [x] 4.0a 扩展 `PurchasableProduct.shop_name` + `get_purchasable_products`（catalog 域；禁止 ordering 跨域 ORM）
+- [x] 4.1 `cart_repository.py` + cart 相关 schemas（或合入 schemas.py）
+- [x] 4.2 `CartService`：CRUD + `GET /cart` enrichment（批量 `get_purchasable_products`、按店分组、invalid_items）
+- [x] 4.3 `cart_router.py`（或 router 前缀）；`main.py` 挂载 `/cart*`
 
 ## 5. Checkout batch 与 batch-pay（绿）
 
@@ -44,18 +44,14 @@
 - [ ] 5.2 `GET /orders/checkout-batches/{id}` router + 聚合响应（paid_total、remaining_total、派生 status、shops）
 - [ ] 5.3 `OrderService.batch_pay_orders` + `POST /orders/batch-pay` router
 
-## 6. catalog schema（若需要）
+## 6. 本地验证与 CI
 
-- [ ] 6.1 扩展 `PurchasableProduct.shop_name`（或等价）+ `get_purchasable_products` 返回值；禁止 ordering 跨域 ORM
+- [ ] 6.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl 烟雾：加购 → checkout → batch-pay
+- [ ] 6.2 确认远程 CI 全绿
 
-## 7. 本地验证与 CI
+## 7. 文档与 DoD
 
-- [ ] 7.1 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl 烟雾：加购 → checkout → batch-pay
-- [ ] 7.2 确认远程 CI 全绿
+- [ ] 7.1 更新 `docs/architecture.md`（cart、checkout_batch、batch-pay、007 migration）
+- [ ] 7.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
 
-## 8. 文档与 DoD
-
-- [ ] 8.1 更新 `docs/architecture.md`（cart、checkout_batch、batch-pay、007 migration）
-- [ ] 8.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
-
-> **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§5；§3 refactor 须在 §5.1 checkout 前完成；task 4.0/6.1 须在 §4.2 前定案；每个 apply 会话建议只完成 1–2 个 task。
+> **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§5；§3 refactor 须在 §5.1 checkout 前完成；task 4.0a 须在 4.2 前完成；每个 apply 会话建议只完成 1–2 个 task。
