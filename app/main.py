@@ -9,6 +9,7 @@ from app.infra.health.router import router as health_router
 from app.infra.logging.middleware import RequestIDMiddleware
 from app.infra.logging.setup import setup_logging
 from app.infra.readiness.router import router as readiness_router
+from app.ordering.cart_router import router as cart_router
 from app.ordering.router import router as ordering_router
 from app.user.router import router as user_router
 
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(readiness_router)
     app.include_router(user_router)
     app.include_router(catalog_router)
+    app.include_router(cart_router)
     app.include_router(ordering_router)
 
     return app

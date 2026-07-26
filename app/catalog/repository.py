@@ -280,6 +280,7 @@ class ProductRepository:
                 Product.price,
                 Product.stock,
                 Product.is_published,
+                Shop.name.label("shop_name"),
                 Shop.status.label("shop_status"),
                 Shop.owner_user_id,
             )
@@ -294,6 +295,7 @@ class ProductRepository:
                 "price": row.price,
                 "stock": row.stock,
                 "is_published": row.is_published,
+                "shop_name": row.shop_name,
                 "shop_status": row.shop_status,
                 "owner_user_id": str(row.owner_user_id),
             }

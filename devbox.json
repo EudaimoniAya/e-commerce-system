@@ -1,7 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.1/.schema/devbox.schema.json",
   "packages": [
-    "python@3.13",
     "uv@latest",
     "go-task@latest",
     "mysql80@latest"

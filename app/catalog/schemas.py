@@ -158,6 +158,7 @@ class PurchasableProduct(BaseModel):
 
     id: str
     shop_id: str
+    shop_name: str
     name: str
     price: str
     stock: int

@@ -96,6 +96,8 @@ class OrderService:
         *,
         initiated_by: str = "buyer",
         expected_shop_id: uuid.UUID | None = None,
+        commit: bool = True,
+        checkout_batch_id: uuid.UUID | None = None,
     ) -> Order:
         """建单内核：校验商品可购/库存 → 预留 → 建单。
 
@@ -103,6 +105,12 @@ class OrderService:
         - seller 路径：expected_shop_id=卖家店铺，所有商品必须归属该店
         自购校验由内核统一处理（owner_id 从商品推导）。
         买家存在/active 校验由调用方负责。
+
+        Args:
+            commit: True（默认）时末尾 commit + refresh（立即购买/卖家建单）；
+                    False 时仅 flush，由调用方（CartService.checkout）统一 commit。
+            checkout_batch_id: 通过 cart checkout 建单时传入的 batch ID；
+                               None 表示立即购买/卖家建单。
         """
         item_dicts = _to_items_list(items)
         product_ids = [d["product_id"] for d in item_dicts]
@@ -180,11 +188,13 @@ class OrderService:
             expires_at=now
             + timedelta(seconds=_get_reservation_ttl()),
             initiated_by=initiated_by,
+            checkout_batch_id=checkout_batch_id,
         )
         await self._order_repo.save(order)
         await self._session.flush()
 
         # 9. 创建订单行
+        created_items: list[OrderItem] = []
         for d in item_dicts:
             pid = d["product_id"]
             product = product_map[pid]
@@ -196,10 +206,21 @@ class OrderService:
                 qty=d["qty"],
             )
             await self._item_repo.save(item)
+            created_items.append(item)
 
-        await self._session.commit()
-        await self._session.refresh(order)
-        order.items = await self._item_repo.list_by_order_id(order.id)
+        if commit:
+            await self._session.commit()
+            await self._session.refresh(order)
+            order.items = await self._item_repo.list_by_order_id(order.id)
+        else:
+            await self._session.flush()
+            # refresh 以填充 server_default 列（created_at/updated_at），
+            # 避免 CartService 后续访问时触发 MissingGreenlet
+            await self._session.refresh(order)
+            for item in created_items:
+                await self._session.refresh(item)
+            order.items = created_items
+
         return order
 
     # ── 买家建单 ────────────────────────────────────────────
@@ -419,3 +440,76 @@ class OrderService:
             )
         order.items = await self._item_repo.list_by_order_id(order.id)
         return order
+
+    # ── 批量支付 ──────────────────────────────────────────────
+
+    async def batch_pay_orders(
+        self,
+        user_id: uuid.UUID,
+        order_ids: list[uuid.UUID],
+    ) -> list[Order]:
+        """批量支付桩：全有或全无，单事务。
+
+        1. 校验全部 order 存在且属当前用户
+        2. 对全部执行 expire_if_needed
+        3. 校验全部为 awaiting_payment（任一不满足 → 409）
+        4. 批量条件更新 → confirmed
+        5. commit
+        """
+        if not order_ids:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="order_ids must not be empty",
+            )
+
+        # 1. 加载全部订单，校验归属
+        orders: list[Order] = []
+        for oid in order_ids:
+            order = await self._order_repo.get_by_id(oid)
+            if order is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=_NOT_FOUND_MSG,
+                )
+            if str(order.buyer_user_id) != str(user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not allowed to pay this order",
+                )
+            orders.append(order)
+
+        # 2. 对全部执行懒释放
+        for order in orders:
+            await self.expire_if_needed(order)
+
+        # 3. 重新加载，校验全部 awaiting_payment
+        for order in orders:
+            refreshed = await self._order_repo.get_by_id(order.id)
+            if refreshed is None or refreshed.status != "awaiting_payment":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=_INVALID_STATE_MSG,
+                )
+
+        # 4. 批量条件更新
+        updated = await self._order_repo.batch_update_status(
+            order_ids,
+            from_statuses={"awaiting_payment"},
+            to_status="confirmed",
+        )
+        if updated != len(order_ids):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=_INVALID_STATE_MSG,
+            )
+
+        await self._session.commit()
+
+        # 5. 刷新并加载 items
+        result: list[Order] = []
+        for order in orders:
+            await self._session.refresh(order)
+            order.items = await self._item_repo.list_by_order_id(order.id)
+            result.append(order)
+
+        return result

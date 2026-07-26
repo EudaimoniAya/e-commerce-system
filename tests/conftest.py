@@ -26,7 +26,12 @@ from tests.support.helper.catalog import (
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.utils import bootstrap_test_env
 from tests.support.results import (
+    BatchPayResult,
+    CartItemResult,
+    CartListResult,
     CategoryResult,
+    CheckoutBatchResult,
+    CheckoutResult,
     LoginResult,
     ProductResult,
     RegisterResult,
@@ -37,7 +42,12 @@ from tests.support.results import (
 __all__ = [
     "AdminAuthContext",
     "AuthContext",
+    "BatchPayResult",
+    "CartItemResult",
+    "CartListResult",
     "CategoryResult",
+    "CheckoutBatchResult",
+    "CheckoutResult",
     "LoginResult",
     "ProductResult",
     "RegisterResult",
@@ -55,6 +65,7 @@ __all__ = [
     "db_session",
     "login_user",
     "register_user",
+    "second_shop_owner",
     "shop_owner",
     "unique_category_name",
     "unique_email",
@@ -185,6 +196,36 @@ async def shop_owner(integration_client: AsyncClient) -> ShopOwnerContext:
         pytest.fail(
             f"开店 Setup 失败（status={shop_result.status_code}），"
             "shop_owner fixture 要求开店成功"
+        )
+
+    return ShopOwnerContext(
+        access_token=registered.body.access_token,
+        shop_id=shop_result.body.id,
+        email=registered.email,
+    )
+
+
+@pytest.fixture
+async def second_shop_owner(integration_client: AsyncClient) -> ShopOwnerContext:
+    """注册第二个用户并开店（与 ``shop_owner`` 独立，用于跨店场景）。
+
+    与 ``shop_owner`` 逻辑完全相同，仅身份独立。
+    """
+    registered = await register_user(integration_client)
+    if registered.status_code != 201 or registered.body is None:
+        pytest.fail(
+            f"注册 Setup 失败（status={registered.status_code}），"
+            "second_shop_owner fixture 要求注册成功"
+        )
+
+    shop_result = await create_shop(
+        integration_client,
+        headers=auth_headers(registered.body.access_token),
+    )
+    if shop_result.status_code != 201 or shop_result.body is None:
+        pytest.fail(
+            f"开店 Setup 失败（status={shop_result.status_code}），"
+            "second_shop_owner fixture 要求开店成功"
         )
 
     return ShopOwnerContext(

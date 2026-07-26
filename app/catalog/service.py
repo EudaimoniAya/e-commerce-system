@@ -327,6 +327,7 @@ class ShopService:
             PurchasableProduct(
                 id=row["id"],
                 shop_id=row["shop_id"],
+                shop_name=row["shop_name"],
                 name=row["name"],
                 price=f"{row['price']:.2f}",
                 stock=row["stock"],
