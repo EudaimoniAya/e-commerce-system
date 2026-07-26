@@ -106,3 +106,68 @@ class OrderResult:
     status_code: int
     body: OrderResponse | None
     request: OrderCreate | None = None
+
+
+@dataclass
+class CartItemResult:
+    """购物车行 HTTP 调用结果（POST/PATCH /cart/items 等返回 cart item 的端点）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx/201 时解析为 dict（cart item 响应）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class CartListResult:
+    """GET /cart HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（含 shops/invalid_items）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class CheckoutResult:
+    """POST /cart/checkout HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 201 时解析为 dict（含 checkout_batch_id/orders）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class CheckoutBatchResult:
+    """GET /orders/checkout-batches/{id} HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（含 shops/paid_total/remaining_total/status）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class BatchPayResult:
+    """POST /orders/batch-pay HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（含 orders 数组）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None

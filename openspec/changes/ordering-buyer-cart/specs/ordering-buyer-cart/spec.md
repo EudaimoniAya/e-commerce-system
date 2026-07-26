@@ -155,7 +155,7 @@ ordering 域买家购物车垂直切片：cart 暂存（多店、实时价展示
 
 ### Requirement: Checkout batch detail for grouped display
 
-系统 SHALL 提供 `GET /checkout-batches/{id}`（需认证，仅 `buyer_user_id` 本人）。SHALL 返回该 batch 下子 orders 的层级结构及聚合字段（如 `paid_total`、`remaining_total`、派生展示 status）。SHALL 在读路径触发子订单懒释放（`expire_if_needed`）。父级 SHALL NOT 有独立 pay 端点。
+系统 SHALL 提供 `GET /orders/checkout-batches/{id}`（需认证，仅 `buyer_user_id` 本人）。SHALL 返回该 batch 下子 orders 的层级结构及聚合字段（如 `paid_total`、`remaining_total`、派生展示 status）。SHALL 在读路径触发子订单懒释放（`expire_if_needed`）。父级 SHALL NOT 有独立 pay 端点。
 
 #### Scenario: 买家查看结算分组
 
@@ -172,7 +172,7 @@ ordering 域买家购物车垂直切片：cart 暂存（多店、实时价展示
 #### Scenario: batch 含已取消子单时 remaining_total 正确
 
 - **WHEN** checkout_batch 下部分子单为 `confirmed`、部分为 `cancelled`（含过期）、部分仍为 `awaiting_payment`
-- **THEN** `GET /checkout-batches/{id}` 响应 SHALL 逐单展示真实 status
+- **THEN** `GET /orders/checkout-batches/{id}` 响应 SHALL 逐单展示真实 status
 - **AND** `remaining_total` SHALL 仅含仍 `awaiting_payment` 子单的 total_amount 之和
 
 ### Requirement: General batch payment stub

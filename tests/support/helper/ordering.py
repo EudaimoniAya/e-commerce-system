@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ordering.schemas import OrderCreate, OrderResponse, ShipmentCreate
 from tests.support.builders import build_order_create, unique_category_name
 from tests.support.db.catalog import seed_category, seed_product, seed_product_category
-from tests.support.results import OrderResult
+from tests.support.results import (
+    BatchPayResult,
+    CartItemResult,
+    CartListResult,
+    CheckoutBatchResult,
+    CheckoutResult,
+    OrderResult,
+)
 
 
 def _parse_order_body(response: Response) -> OrderResponse | None:
@@ -212,3 +219,127 @@ async def arrange_confirmed_order(
         order_id=created.body.id,
     )
     return (category_id, product_id, paid)
+
+
+# ── Cart HTTP helpers ──────────────────────────────────────────
+
+
+async def add_cart_item(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    product_id: str,
+    qty: int = 1,
+) -> CartItemResult:
+    """调用 POST /cart/items，返回 CartItemResult（不 assert 成功状态码）。"""
+    response: Response = await client.post(
+        "/cart/items",
+        json={"product_id": product_id, "qty": qty},
+        headers=headers,
+    )
+    body = None
+    if 200 <= response.status_code < 300 and response.content:
+        body = response.json()
+    return CartItemResult(status_code=response.status_code, body=body)
+
+
+async def patch_cart_item(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    cart_item_id: str,
+    qty: int,
+) -> CartItemResult:
+    """调用 PATCH /cart/items/{id}，返回 CartItemResult（不 assert 成功状态码）。"""
+    response: Response = await client.patch(
+        f"/cart/items/{cart_item_id}",
+        json={"qty": qty},
+        headers=headers,
+    )
+    body = None
+    if 200 <= response.status_code < 300 and response.content:
+        body = response.json()
+    return CartItemResult(status_code=response.status_code, body=body)
+
+
+async def delete_cart_item(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    cart_item_id: str,
+) -> CartItemResult:
+    """调用 DELETE /cart/items/{id}，返回 CartItemResult（status_code 204 时 body 为 None）。"""
+    response: Response = await client.delete(
+        f"/cart/items/{cart_item_id}",
+        headers=headers,
+    )
+    return CartItemResult(status_code=response.status_code, body=None)
+
+
+async def get_cart(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+) -> CartListResult:
+    """调用 GET /cart，返回 CartListResult（不 assert 成功状态码）。"""
+    response: Response = await client.get(
+        "/cart",
+        headers=headers,
+    )
+    body = None
+    if 200 <= response.status_code < 300 and response.content:
+        body = response.json()
+    return CartListResult(status_code=response.status_code, body=body)
+
+
+async def checkout_cart(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    cart_item_ids: list[str],
+) -> CheckoutResult:
+    """调用 POST /cart/checkout，返回 CheckoutResult（不 assert 成功状态码）。"""
+    response: Response = await client.post(
+        "/cart/checkout",
+        json={"cart_item_ids": cart_item_ids},
+        headers=headers,
+    )
+    body = None
+    if 200 <= response.status_code < 300 and response.content:
+        body = response.json()
+    return CheckoutResult(status_code=response.status_code, body=body)
+
+
+async def get_checkout_batch(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    batch_id: str,
+) -> CheckoutBatchResult:
+    """调用 GET /orders/checkout-batches/{id}，返回 CheckoutBatchResult（不 assert 成功状态码）。"""
+    response: Response = await client.get(
+        f"/orders/checkout-batches/{batch_id}",
+        headers=headers,
+    )
+    body = None
+    if 200 <= response.status_code < 300 and response.content:
+        body = response.json()
+    return CheckoutBatchResult(status_code=response.status_code, body=body)
+
+
+async def batch_pay_orders(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    order_ids: list[str],
+) -> BatchPayResult:
+    """调用 POST /orders/batch-pay，返回 BatchPayResult（不 assert 成功状态码）。"""
+    response: Response = await client.post(
+        "/orders/batch-pay",
+        json={"order_ids": order_ids},
+        headers=headers,
+    )
+    body = None
+    if 200 <= response.status_code < 300 and response.content:
+        body = response.json()
+    return BatchPayResult(status_code=response.status_code, body=body)

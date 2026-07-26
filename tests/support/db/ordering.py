@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ordering.models import Order, OrderItem
@@ -97,6 +97,32 @@ async def backdate_order_expires_at(
 
 
 # ── Assert（HTTP Act 后查表验证副作用）────────────────────────
+
+async def seed_cart_item(
+    session: AsyncSession,
+    *,
+    user_id: str,
+    product_id: str,
+    qty: int = 1,
+) -> str:
+    """INSERT cart_items 行（raw SQL，待 ORM 模型就绪后改为 model-based），返回 cart_item_id。"""
+    cart_item_id = str(uuid.uuid4())
+    stmt = text(
+        "INSERT INTO cart_items (id, user_id, product_id, qty, created_at, updated_at) "
+        "VALUES (:id, :user_id, :product_id, :qty, NOW(), NOW())"
+    )
+    await session.execute(
+        stmt,
+        {
+            "id": cart_item_id,
+            "user_id": user_id,
+            "product_id": product_id,
+            "qty": qty,
+        },
+    )
+    await session.flush()
+    return cart_item_id
+
 
 async def get_order_status(
     session: AsyncSession,

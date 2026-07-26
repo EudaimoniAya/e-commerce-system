@@ -21,7 +21,7 @@
 - 未登录 cart、selected 字段、跨域 ORM relationship、父级行项目/总价/独立 pay
 - checkout 失败或 cancel 后自动恢复 cart；GET 自动清理失效行
 - checkout 多事务建单、真实支付、运费/地址
-- `GET /checkout-batches` 列表（无 buyer 维度 batch 列表 API；不做 `ix_checkout_batches_buyer_user_id`）
+- `GET /orders/checkout-batches` 列表（无 buyer 维度 batch 列表 API；不做 `ix_checkout_batches_buyer_user_id`）
 
 ## Decisions
 
@@ -29,7 +29,7 @@
 
 ```text
 app/ordering/
-  cart_router.py          # /cart*、/checkout-batches/{id}（或合入 router.py 前缀分组）
+  cart_router.py          # /cart*、/orders/checkout-batches/{id}（或合入 router.py 前缀分组）
   cart_service.py         # CartService：CRUD + list enrichment + checkout 编排入口
   cart_repository.py
   checkout_batch_repository.py
@@ -130,7 +130,7 @@ POST /orders → OrderService.create_order
 
 任一 shop 建单失败（422/403）→ **整单 rollback**，cart 不变。
 
-### 6. GET /checkout-batches/{id}
+### 6. GET /orders/checkout-batches/{id}
 
 - 仅买家本人；否则 404
 - 加载 batch + `orders WHERE checkout_batch_id=?`

@@ -8,7 +8,7 @@
 - **列表展示**：`GET /cart` 通过 **catalog.service** 批量 enrichment、按店铺分组；不可购项（下架/关店/不存在）进入 `invalid_items`；**不**使用跨域 ORM relationship
 - **加购语义**：`POST /cart/items` 新增行；`PATCH /cart/items/{id}` 改数量；同一用户同一商品唯一（`UNIQUE(user_id, product_id)`）
 - **部分结算**：`POST /cart/checkout` body `{ "cart_item_ids": [...] }`；按店 split 建单；未提交行保留在 cart
-- **轻量结算分组**：`checkout_batches` 表（仅 `id`、`buyer_user_id`、`created_at`）；`orders.checkout_batch_id` 可空（立即购买为 NULL）；`GET /checkout-batches/{id}` 供前端层级展示与「离开后再回来」找回同批待付
+- **轻量结算分组**：`checkout_batches` 表（仅 `id`、`buyer_user_id`、`created_at`）；`orders.checkout_batch_id` 可空（立即购买为 NULL）；`GET /orders/checkout-batches/{id}` 供前端层级展示与「离开后再回来」找回同批待付
 - **结算事务**：checkout **单 DB 事务**——创建 batch + N 个子订单（`awaiting_payment` + 库存预留 + 行快照）+ 删除对应 cart 行；任一失败全 rollback
 - **锁价**：购物车展示 catalog 实时价；成交价以 checkout 建单时 `order_items` 快照为准
 - **通用合并支付**：`POST /orders/batch-pay` `{ "order_ids": [...] }`——任意本人合法 `awaiting_payment` 且未过期子集（可跨 batch、可含立即购买单）；支付桩；**不要求**一次付清某 batch 全部子单
@@ -26,7 +26,7 @@
 - 不实现真实支付渠道、退款、运费、地址簿
 - 不实现跨 checkout 的「父级部分金额支付」（仅对子 order 粒度 batch-pay）
 - 不实现 checkout 多事务建单（非 MVP；失败补偿/saga 留后续）
-- 不实现 `GET /checkout-batches` 列表（仅按 id 查单 batch；不做 buyer 维度 batch 列表）
+- 不实现 `GET /orders/checkout-batches` 列表（仅按 id 查单 batch；不做 buyer 维度 batch 列表）
 - 不修改 catalog / user 域对外 API 契约（仅调用既有 service）
 
 ## Capabilities
@@ -45,5 +45,5 @@
 - **跨域只读**：`catalog.service`（可购查询、列表 enrichment）；checkout 写路径复用既有 `reserve_stock` / `_create_order_core`
 - **新增/修改**：`app/ordering/*`（cart router/service/repo、checkout_batch、batch-pay）、`alembic/versions/007_*.py`、`app/main.py`、`tests/ordering/`、`docs/architecture.md`
 - **测试支持层**：`tests/support/helper/ordering.py`（cart/checkout/batch-pay 原子 helper）、`tests/support/db/ordering.py`（必要时 cart seed）、`tests/support/results.py`（Cart/CheckoutBatch 等 `*Result`）
-- **API**：新增 `/cart*`、`/cart/checkout`、`/checkout-batches/{id}`、`POST /orders/batch-pay`；保留 `/orders` 立即购买
+- **API**：新增 `/cart*`、`/cart/checkout`、`/orders/checkout-batches/{id}`、`POST /orders/batch-pay`；保留 `/orders` 立即购买
 - **分支**：基于 `dev` 的 `feature/ordering-buyer-cart`
