@@ -51,7 +51,7 @@
 
 ## 7. 文档与 DoD
 
-- [ ] 7.1 更新 `docs/architecture.md`（cart、checkout_batch、batch-pay、007 migration）
-- [ ] 7.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿；可 `/opsx:archive`
+- [x] 7.1 更新 `docs/architecture.md`（cart、checkout_batch、batch-pay、007 migration）
+- [x] 7.2 确认 DoD：本地 `task ci` 全绿、远程 CI 全绿（已由 §6 覆盖）；可 `/opsx:archive`
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§5；§3 refactor 须在 §5.1 checkout 前完成；task 4.0a 须在 4.2 前完成；每个 apply 会话建议只完成 1–2 个 task。

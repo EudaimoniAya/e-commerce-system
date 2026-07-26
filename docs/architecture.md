@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域认证、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单** 已交付（注册/登录/JWT、开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家下单/支付桩/发货/确认收货/取消与懒释放）；继续扩展 engagement 等 MVP 域
+- **当前阶段**：user 域认证、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车** 已交付（注册/登录/JWT、开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放）；继续扩展 engagement 等 MVP 域
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -58,7 +58,7 @@
 |----|------|----------|------|
 | `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
-| `ordering` | 买家订单、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem | **MVP（买家路径已实现）** |
+| `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
 | `engagement` | 收藏、浏览记录 | UserFavorite, BrowseEvent | Phase 2 |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
@@ -141,20 +141,26 @@ e-commerce-system/
 │   │   ├── models.py             # shops、categories、products、product_categories
 │   │   ├── schemas.py            # 含 PurchasableProduct 等跨域 DTO
 │   │   └── deps.py               # get_current_shop
-│   └── ordering/                 # 订单域（买家发起路径）
-│       ├── router.py             # POST/GET /orders、pay/shipments/confirm-receipt/cancel、GET /shops/me/orders
-│       ├── service.py            # 建单、懒释放 expire_if_needed、状态迁移
+│   └── ordering/                 # 订单域（买家订单 + 购物车）
+│       ├── router.py             # POST/GET /orders、pay/shipments/confirm-receipt/cancel、batch-pay、GET /shops/me/orders
+│       ├── cart_router.py        # /cart*、GET /orders/checkout-batches/{id}
+│       ├── service.py            # 建单、懒释放、batch_pay_orders
+│       ├── cart_service.py       # Cart CRUD、list enrichment、checkout 编排
+│       ├── cart_repository.py
+│       ├── checkout_batch_repository.py
 │       ├── repository.py
-│       ├── models.py             # orders、order_items
+│       ├── models.py             # orders、order_items、cart_items、checkout_batches
 │       ├── schemas.py
-│       └── deps.py               # 订单归属解析
+│       └── deps.py
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
 │       ├── 002_create_users.py
 │       ├── 003_catalog_shop.py   # users.is_admin + shops 表 + seed 管理员
 │       ├── 004_catalog_products.py  # categories、products、product_categories（无 seed）
-│       └── 0ca23eb664a9_005_ordering_orders.py  # orders、order_items
+│       ├── 0ca23eb664a9_005_ordering_orders.py  # orders、order_items
+│       ├── e1674055eb99_006_ordering_initiated_by.py  # orders.initiated_by
+│       └── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop/category/order helper
 │   ├── health/
@@ -163,10 +169,11 @@ e-commerce-system/
 │   │   └── test_error_handlers.py # 统一 error JSON
 │   ├── user/                     # 注册/登录/me integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
-│   └── ordering/                 # 买家订单 integration（27 项）
+│   └── ordering/                 # 买家订单 + 购物车 integration（185 项）
 ├── scripts/
 │   ├── catalog_shop_curl_smoke.sh
-│   └── ordering_buyer_curl_smoke.sh
+│   ├── ordering_buyer_curl_smoke.sh
+│   └── ordering_cart_curl_smoke.sh
 ├── .github/workflows/ci.yml      # DATABASE_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
@@ -181,11 +188,17 @@ e-commerce-system/
 
 **`product_categories` 表（catalog 域）**：`(product_id, category_id)` 复合 PK、`is_primary`（BOOLEAN）；service 保证每个商品至多一个主类目；`primary_category_id` 必须 ∈ `category_ids`。
 
-**`orders` 表（ordering 域）**：`id`（UUID PK）、`buyer_user_id`（FK 语义 → `users.id`）、`shop_id`（FK 语义 → `shops.id`）、`status`（`awaiting_payment` | `confirmed` | `shipped` | `completed` | `cancelled`）、`cancel_reason`（可空）、`total_amount`（DECIMAL 12,2）、`expires_at`（待支付预留截止）、`created_at`、`updated_at`；索引 `ix_orders_buyer_user_id`、`ix_orders_shop_id`、`ix_orders_status`、`ix_orders_expires_at`。跨域仅存 FK 字段，**不**声明跨域 relationship。
+**`orders` 表（ordering 域）**：`id`（UUID PK）、`buyer_user_id`（FK 语义 → `users.id`）、`shop_id`（FK 语义 → `shops.id`）、`status`（`awaiting_payment` | `confirmed` | `shipped` | `completed` | `cancelled`）、`cancel_reason`（可空）、`total_amount`（DECIMAL 12,2）、`expires_at`（待支付预留截止）、`initiated_by`（`buyer` | `seller`）、`checkout_batch_id`（可空 FK → `checkout_batches.id`；立即购买为 NULL）、`created_at`、`updated_at`；索引含 `ix_orders_buyer_user_id`、`ix_orders_shop_id`、`ix_orders_status`、`ix_orders_expires_at`、`ix_orders_checkout_batch_id`。跨域仅存 FK 字段，**不**声明跨域 relationship。
 
 **`order_items` 表（ordering 域）**：`id`（UUID PK）、`order_id`（FK → `orders.id`）、`product_id`（快照关联）、`product_name`、`unit_price`（DECIMAL 10,2）、`qty`（> 0）。创建时写入价格与商品名快照；1 订单 = 1 店 + 多行。
 
-**库存预留（catalog ↔ ordering）**：创建订单时 ordering service 在同一事务内调用 catalog `reserve_stock`（条件 `UPDATE ... SET stock=stock-qty WHERE stock>=qty`）；取消或懒过期释放时调用 `release_stock`。ordering **不得** import catalog ORM/repository。
+**`cart_items` 表（ordering 域）**：`id`（UUID PK）、`user_id`（FK → `users.id`）、`product_id`（仅存 ID，展示走 catalog.service）、`qty`（> 0）、`created_at`、`updated_at`；`UNIQUE(user_id, product_id)`；索引 `ix_cart_items_user_id`。暂存不占库存、不建单；**不**跨域 ORM relationship。
+
+**`checkout_batches` 表（ordering 域）**：`id`（UUID PK）、`buyer_user_id`（FK → `users.id`）、`created_at`。轻量分组标签（无行项目/总价/status）；cart checkout 时创建，供 `GET /orders/checkout-batches/{id}` 层级展示；支付走通用 `POST /orders/batch-pay`。
+
+**库存预留（catalog ↔ ordering）**：创建订单时 ordering service 在同一事务内调用 catalog `reserve_stock`（条件 `UPDATE ... SET stock=stock-qty WHERE stock>=qty`）；取消或懒过期释放时调用 `release_stock`。cart checkout 在单事务内按店 split 多次建单（`_create_order_core(commit=False)`）后统一 commit。ordering **不得** import catalog ORM/repository。
+
+**购物车读路径**：`GET /cart` 批量调用 `catalog.service.get_purchasable_products` enrichment，按店分组；不可购项进 `invalid_items`（不自动删除）。列表展示 catalog 实时价；成交价以 checkout 建单时 `order_items` 快照为准。
 
 ### 5.2 规划中的完整结构
 
@@ -216,9 +229,13 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── ordering/                     # MVP（买家路径已实现）
+├── ordering/                     # MVP（买家路径 + 购物车已实现）
 │   ├── router.py
+│   ├── cart_router.py
 │   ├── service.py
+│   ├── cart_service.py
+│   ├── cart_repository.py
+│   ├── checkout_batch_repository.py
 │   ├── repository.py
 │   ├── models.py
 │   ├── schemas.py
@@ -236,7 +253,7 @@ app/
 - 商品 CRUD、类目、上下架
 - 创建订单、查询订单、取消订单、支付桩、发货、确认收货
 - 库存预留与释放（创建扣减、取消/超时加回；订单行快照价格与商品名）
-- 购物车（Phase 2，归入 ordering 域）
+- **购物车**（ordering 域）：`cart_items` 暂存、`POST /cart/checkout` 跨店单事务建单 + 轻量 `checkout_batches`、`POST /orders/batch-pay` 合并支付；与 `POST /orders` 立即购买并行
 - 收藏、浏览记录（Phase 2，归入 engagement 域）
 
 ### 6.2 明确不做（MVP）
@@ -262,6 +279,26 @@ awaiting_payment ──pay──▶ confirmed ──shipments──▶ shipped �
 - 创建订单时**预留库存**（非直接进 confirmed）；`expires_at = now + ORDER_RESERVATION_TTL_SECONDS`（默认 86400 秒）
 - **懒释放**：读单、支付等路径检查过期 → `cancelled` + `cancel_reason=expired` 并释放库存（无 Redis/MQ/周期扫描）
 - 支付为**桩**（无外部渠道）；非法状态迁移 → **409**；跨店/超卖/未上架 → **422**；禁自购 → **403**
+
+### 6.4 购物车与结算（买家路径）
+
+```text
+加购（cart_items，实时价展示）
+       │
+       ▼
+POST /cart/checkout（部分 cart_item_ids，单事务）
+  · 创建 checkout_batch + 按店 N 个 awaiting_payment 子单（快照锁价）
+  · 删除已结算 cart 行
+       │
+       ▼
+POST /orders/batch-pay（通用；可子集、可跨 batch）
+       │
+       ▼
+confirmed → shipped → completed（与立即购买相同履约路径）
+```
+
+- **立即购买**：`POST /orders` → `checkout_batch_id IS NULL` → 单笔 `pay` 或 batch-pay
+- **CartService.checkout** 为 checkout 唯一编排入口与 commit 边界；`OrderService._create_order_core(commit=False)` 参与外层事务
 
 ## 7. AI 功能路线图（后期）
 
