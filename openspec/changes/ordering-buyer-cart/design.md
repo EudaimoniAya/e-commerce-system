@@ -91,7 +91,7 @@ migration：`007_ordering_cart.py`（当前 head 为 `006_ordering_initiated_by`
 
 | 方法 | 行为 |
 |------|------|
-| `POST /cart/items` | `{ product_id, qty }`；`product_id` 在 catalog 不存在 → **422**；若 `(user_id, product_id)` 已存在 → **422**（提示用 PATCH 改数量） |
+| `POST /cart/items` | `{ product_id, qty }`；`product_id` 在 catalog 不存在 → **422**；若 `(user_id, product_id)` 已存在 → **200**（累加 qty） |
 | `PATCH /cart/items/{id}` | 改 `qty`（≥ 1）；须属当前用户；id 不存在 → **404** |
 | `DELETE /cart/items/{id}` | 删单行；须属当前用户；id 不存在 → **404** |
 | 认证 | 全部需 JWT；未登录 → 401 |

@@ -72,11 +72,11 @@ ordering 域买家购物车垂直切片：cart 暂存（多店、实时价展示
 - **THEN** 响应状态码 SHALL 为 422（SHALL NOT 为 404）
 - **AND** SHALL NOT 创建 cart_item
 
-#### Scenario: 重复加购同一商品返回 422
+#### Scenario: 重复加购同一商品累加数量
 
 - **WHEN** 认证用户对已存在于 cart 的 `product_id` 再次 `POST /cart/items`
-- **THEN** 响应状态码 SHALL 为 422
-- **AND** SHALL NOT 累加 qty（须用 PATCH 改数量）
+- **THEN** 响应状态码 SHALL 为 200
+- **AND** 该 cart item 的 `qty` SHALL 累加为原有 qty + 本次 qty
 
 #### Scenario: 修改数量
 

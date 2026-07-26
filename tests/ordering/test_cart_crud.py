@@ -69,20 +69,20 @@ async def test_add_cart_item_product_not_found_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_add_cart_item_duplicate_product_returns_422(
+async def test_add_cart_item_duplicate_product_accumulates_qty(
     integration_client: AsyncClient,
     db_session: AsyncSession,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """重复加购同一商品返回 422，不累加 qty。"""
+    """重复加购同一商品累加 qty，不报错。"""
     _, product_id = await arrange_purchasable_product(
         db_session,
         shop_id=shop_owner.shop_id,
         stock=10,
     )
 
-    # 首次加购
+    # 首次加购 qty=2
     first = await add_cart_item(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
@@ -90,15 +90,21 @@ async def test_add_cart_item_duplicate_product_returns_422(
         qty=2,
     )
     assert first.status_code == 201
+    assert first.body is not None
+    assert first.body["qty"] == 2
+    first_id = first.body["id"]
 
-    # 重复加购 → 422
+    # 重复加购 qty=5 → 200，qty 累加为 7
     second = await add_cart_item(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
         product_id=product_id,
         qty=5,
     )
-    assert second.status_code == 422
+    assert second.status_code == 200
+    assert second.body is not None
+    assert second.body["qty"] == 7
+    assert second.body["id"] == first_id  # 同一行
 
 
 # ── PATCH /cart/items/{id} ─────────────────────────────────────

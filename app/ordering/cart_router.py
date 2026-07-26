@@ -4,7 +4,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from app.infra.auth import get_current_user_id
 from app.ordering.cart_service import CartService
@@ -45,19 +45,22 @@ def _to_cart_item_response(item) -> CartItemResponse:
     )
 
 
-@router.post("/cart/items", status_code=201, response_model=CartItemResponse)
+@router.post("/cart/items", response_model=CartItemResponse)
 async def add_cart_item(
     body: CartItemCreate,
     user_id: uuid.UUID = Depends(get_current_user_id),
     service: CartService = Depends(get_cart_service),
-) -> CartItemResponse:
-    """加购商品到购物车。"""
-    item = await service.add_item(
+) -> JSONResponse:
+    """加购商品（新建→201，已存在→200 累加 qty）。"""
+    item, created = await service.add_item(
         user_id=user_id,
         product_id=uuid.UUID(body.product_id),
         qty=body.qty,
     )
-    return _to_cart_item_response(item)
+    return JSONResponse(
+        content=_to_cart_item_response(item).model_dump(mode="json"),
+        status_code=201 if created else 200,
+    )
 
 
 @router.get("/cart", response_model=CartListResponse)

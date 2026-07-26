@@ -45,8 +45,12 @@ class CartService:
         user_id: uuid.UUID,
         product_id: uuid.UUID,
         qty: int,
-    ) -> CartItem:
-        """加购：商品须存在 → 校验不重复 → 创建。"""
+    ) -> tuple[CartItem, bool]:
+        """加购：校验商品存在 → 查重累加或新建。
+
+        Returns:
+            (CartItem, created): ``created=True`` 表示新建行；``False`` 表示累加。
+        """
         # 校验商品存在（通过可购查询）
         products = await self._catalog.get_purchasable_products([str(product_id)])
         if not products:
@@ -55,15 +59,15 @@ class CartService:
                 detail=f"Product {product_id} not found",
             )
 
-        # 校验不重复
+        # 查重：已存在则累加数量
         existing = await self._cart_repo.get_by_user_and_product(
             user_id, product_id,
         )
         if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Product already in cart; use PATCH to update quantity",
-            )
+            existing.qty += qty
+            await self._session.commit()
+            await self._session.refresh(existing)
+            return existing, False
 
         item = CartItem(
             id=uuid.uuid4(),
@@ -74,7 +78,7 @@ class CartService:
         await self._cart_repo.save(item)
         await self._session.commit()
         await self._session.refresh(item)
-        return item
+        return item, True
 
     async def update_qty(
         self,
