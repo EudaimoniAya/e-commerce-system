@@ -96,6 +96,8 @@ class OrderService:
         *,
         initiated_by: str = "buyer",
         expected_shop_id: uuid.UUID | None = None,
+        commit: bool = True,
+        checkout_batch_id: uuid.UUID | None = None,
     ) -> Order:
         """建单内核：校验商品可购/库存 → 预留 → 建单。
 
@@ -103,6 +105,12 @@ class OrderService:
         - seller 路径：expected_shop_id=卖家店铺，所有商品必须归属该店
         自购校验由内核统一处理（owner_id 从商品推导）。
         买家存在/active 校验由调用方负责。
+
+        Args:
+            commit: True（默认）时末尾 commit + refresh（立即购买/卖家建单）；
+                    False 时仅 flush，由调用方（CartService.checkout）统一 commit。
+            checkout_batch_id: 通过 cart checkout 建单时传入的 batch ID；
+                               None 表示立即购买/卖家建单。
         """
         item_dicts = _to_items_list(items)
         product_ids = [d["product_id"] for d in item_dicts]
@@ -180,11 +188,13 @@ class OrderService:
             expires_at=now
             + timedelta(seconds=_get_reservation_ttl()),
             initiated_by=initiated_by,
+            checkout_batch_id=checkout_batch_id,
         )
         await self._order_repo.save(order)
         await self._session.flush()
 
         # 9. 创建订单行
+        created_items: list[OrderItem] = []
         for d in item_dicts:
             pid = d["product_id"]
             product = product_map[pid]
@@ -196,10 +206,16 @@ class OrderService:
                 qty=d["qty"],
             )
             await self._item_repo.save(item)
+            created_items.append(item)
 
-        await self._session.commit()
-        await self._session.refresh(order)
-        order.items = await self._item_repo.list_by_order_id(order.id)
+        if commit:
+            await self._session.commit()
+            await self._session.refresh(order)
+            order.items = await self._item_repo.list_by_order_id(order.id)
+        else:
+            await self._session.flush()
+            order.items = created_items
+
         return order
 
     # ── 买家建单 ────────────────────────────────────────────

@@ -101,6 +101,42 @@ class OrderRepository:
         result = await self._session.execute(stmt)
         return result.rowcount == 1
 
+    async def list_by_checkout_batch_id(
+        self,
+        batch_id: uuid.UUID,
+    ) -> list[Order]:
+        """按 checkout_batch_id 查询所有子订单（不含 items）。"""
+        stmt = (
+            select(Order)
+            .where(Order.checkout_batch_id == str(batch_id))
+            .order_by(Order.created_at.asc())
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def batch_update_status(
+        self,
+        order_ids: list[uuid.UUID],
+        from_statuses: set[str],
+        to_status: str,
+    ) -> int:
+        """批量条件更新订单状态。
+
+        ``UPDATE orders SET status=to_status
+        WHERE id IN (order_ids) AND status IN from_statuses``。
+        返回实际更新的行数；若返回值 < len(order_ids)，说明部分订单条件不满足。
+        """
+        stmt = (
+            update(Order)
+            .where(
+                Order.id.in_([str(oid) for oid in order_ids]),
+                Order.status.in_(from_statuses),
+            )
+            .values(status=to_status)
+        )
+        result = await self._session.execute(stmt)
+        return result.rowcount
+
 
 class OrderItemRepository:
     """订单行仓储（order_items 表）。"""

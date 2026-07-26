@@ -23,13 +23,13 @@
 
 ## 2. 迁移与 ORM（绿 · 基础）
 
-- [ ] 2.1 扩展 `app/ordering/models.py`：`CartItem`、`CheckoutBatch`；`Order.checkout_batch_id`；`alembic/env.py` 导入
-- [ ] 2.2 新增 migration `007`：`cart_items`、`checkout_batches`、`orders.checkout_batch_id` 及索引
+- [x] 2.1 扩展 `app/ordering/models.py`：`CartItem`、`CheckoutBatch`；`Order.checkout_batch_id`；`alembic/env.py` 导入
+- [x] 2.2 新增 migration `007`：`cart_items`、`checkout_batches`、`orders.checkout_batch_id` 及索引
 
 ## 3. OrderService refactor（checkout 原子性）
 
-- [ ] 3.1 为 `_create_order_core` 增加 `commit: bool = True`、`checkout_batch_id` 参数；`commit=False` 时仅 flush；**确保** `tests/ordering/test_create_order.py` 与卖家建单测试 refactor 后仍全绿（外部行为不变）
-- [ ] 3.2 扩展 `Order` repository：按 `checkout_batch_id` 查询；batch-pay 批量条件更新 status
+- [x] 3.1 为 `_create_order_core` 增加 `commit: bool = True`、`checkout_batch_id` 参数；`commit=False` 时仅 flush；**确保** `tests/ordering/test_create_order.py` 与卖家建单测试 refactor 后仍全绿（外部行为不变）
+- [x] 3.2 扩展 `Order` repository：按 `checkout_batch_id` 查询；batch-pay 批量条件更新 status
 
 ## 4. Cart 实现（绿）
 
