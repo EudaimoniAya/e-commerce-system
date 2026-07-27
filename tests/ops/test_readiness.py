@@ -9,27 +9,31 @@ from httpx import AsyncClient, Response
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_readiness_returns_200_when_mysql_ok(client: AsyncClient) -> None:
-    """MySQL 可用时 GET /health/ready 返回 200 与 ready 响应体。"""
+    """MySQL 可用时 GET /health/ready 返回 200 与 ready 响应体（checks 含 redis）。"""
     response: Response = await client.get("/health/ready")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready", "checks": {"mysql": "ok"}}
+    body = response.json()
+    assert body["status"] == "ready"
+    assert body["checks"]["mysql"] == "ok"
+    # redis 也参与 readiness；当 Redis 在线时 checks.redis 为 ok
+    assert "redis" in body["checks"]
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_readiness_returns_503_when_mysql_unavailable(client: AsyncClient) -> None:
-    """MySQL 不可用时 GET /health/ready 返回 503 与 not_ready 响应体。"""
-    with patch(
-        "app.infra.readiness.service.is_mysql_ready",
-        return_value=False,
+    """MySQL 不可用时 GET /health/ready 返回 503 与 not_ready（checks 仍含 redis）。"""
+    with (
+        patch("app.infra.readiness.service.is_mysql_ready", return_value=False),
+        patch("app.infra.readiness.service.is_redis_ready", return_value=True),
     ):
         response: Response = await client.get("/health/ready")
 
     assert response.status_code == 503
     assert response.json() == {
         "status": "not_ready",
-        "checks": {"mysql": "unavailable"},
+        "checks": {"mysql": "unavailable", "redis": "ok"},
     }
 
 

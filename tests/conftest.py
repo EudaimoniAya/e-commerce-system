@@ -102,6 +102,22 @@ async def _reset_global_database_engine(
     await reset_engine()
 
 
+@pytest.fixture(autouse=True)
+async def _reset_global_redis(
+    request: pytest.FixtureRequest,
+) -> AsyncIterator[None]:
+    """integration 测试前后重置全局 Redis 连接，避免跨事件循环复用连接池。"""
+    if request.node.get_closest_marker("integration") is None:
+        yield
+        return
+
+    from app.infra.redis import reset_redis
+
+    await reset_redis()
+    yield
+    await reset_redis()
+
+
 @pytest.fixture
 async def db_session(database_url: str) -> AsyncIterator[AsyncSession]:
     """SAVEPOINT 事务隔离的 AsyncSession，经 dependency_overrides 使 HTTP 共用同一 session。

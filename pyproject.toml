@@ -14,7 +14,7 @@ dependencies = [
     "pwdlib[argon2]",
     "email-validator",
     "loguru",
-    "redis>=5.2,<7",
+    "redis>=5.2",
 ]
 
 [dependency-groups]

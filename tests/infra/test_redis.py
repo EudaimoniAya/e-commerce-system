@@ -10,15 +10,25 @@ from httpx import AsyncClient
 # ── Settings 必填 REDIS_URL ──────────────────────────────────────────────────
 
 
-def test_redis_url_is_required_in_settings() -> None:
-    """缺少 REDIS_URL 时 Settings 初始化应抛出 ValidationError。"""
+def test_redis_url_is_required_when_missing() -> None:
+    """缺少 REDIS_URL 时 Settings 构造会因字段必填而失败。
+
+    pydantic-settings 的 model_validate 仍会读取 env 文件；通过临时
+    删除系统环境变量中的 REDIS_URL 来真正测试必填校验。
+    """
+    import os
+
     from pydantic import ValidationError
 
     from app.infra.config import Settings
 
-    with pytest.raises(ValidationError):
-        # database_url 有效，但缺少 redis_url
-        Settings(database_url="mysql+asyncmy://root@localhost/db")
+    old = os.environ.pop("REDIS_URL", None)
+    try:
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)  # type: ignore[call-arg]
+    finally:
+        if old is not None:
+            os.environ["REDIS_URL"] = old
 
 
 def test_redis_url_appears_in_settings() -> None:
