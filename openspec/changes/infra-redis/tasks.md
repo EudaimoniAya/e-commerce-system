@@ -23,7 +23,7 @@
 
 - [x] 3.1 `.github/workflows/ci.yml` 增加 `services.redis`（`redis:8.0` + healthcheck）与 `REDIS_URL` env（`/1`）
 - [x] 3.2 本地`devbox run -- task db:up`、`devbox run -- task redis:up`、`devbox run -- task migrate`、`devbox run -- task ci` 全绿
-- [ ] 3.3 push 并确认 GitHub Actions CI 全绿（或 `workflow_dispatch`）；更新本 tasks 勾选
+- [x] 3.3 push 并确认 GitHub Actions CI 全绿（workflow_dispatch [run #30234717824](https://github.com/EudaimoniAya/e-commerce-system/actions/runs/30234717824) success）
 
 ## 4. 归档
 
