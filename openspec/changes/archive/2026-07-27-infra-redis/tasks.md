@@ -27,6 +27,6 @@
 
 ## 4. 归档
 
-- [ ] 4.1 更新 `docs/decision/测试与数据库策略.md`：增补 Redis 小节（本地 devbox / CI container / 8.0 / db 0 vs 1）
-- [ ] 4.2 更新 `docs/architecture.md`：`infra/redis.py`、`REDIS_URL`、readiness 含 redis
-- [ ] 4.3 `/opsx:archive` 并 sync specs（`infra-redis` 新增、`infra-readiness` delta）
+- [x] 4.1 更新 `docs/decision/测试与数据库策略.md`：增补 Redis 小节（本地 devbox / CI container / 8.0 / db 0 vs 1）
+- [x] 4.2 更新 `docs/architecture.md`：`infra/redis.py`、`REDIS_URL`、readiness 含 redis
+- [x] 4.3 `/opsx:archive` 并 sync specs（`infra-redis` 新增、`infra-readiness` delta）
