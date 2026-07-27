@@ -1,10 +1,4 @@
-# infra-readiness
-
-## Purpose
-
-聚合 readiness 探针，检查应用是否可接收依赖 MySQL 与 Redis 的业务流量；与 liveness（`GET /health`）职责分离。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Aggregated readiness endpoint
 

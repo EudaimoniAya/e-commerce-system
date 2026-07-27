@@ -11,11 +11,16 @@ router = APIRouter(tags=["readiness"])
 
 @router.get("/health/ready", response_model=ReadinessResponse)
 def readiness_check() -> JSONResponse:
-    """聚合 readiness 探针，检查 MySQL 连通性。"""
+    """聚合 readiness 探针，检查 MySQL 与 Redis 连通性。"""
     mysql_ok = readiness_service.is_mysql_ready()
+    redis_ok = readiness_service.is_redis_ready()
+    ready = mysql_ok and redis_ok
     body = ReadinessResponse(
-        status="ready" if mysql_ok else "not_ready",
-        checks={"mysql": "ok" if mysql_ok else "unavailable"},
+        status="ready" if ready else "not_ready",
+        checks={
+            "mysql": "ok" if mysql_ok else "unavailable",
+            "redis": "ok" if redis_ok else "unavailable",
+        },
     )
-    status_code = 200 if mysql_ok else 503
+    status_code = 200 if ready else 503
     return JSONResponse(status_code=status_code, content=body.model_dump())

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
     database_url: str
+    redis_url: str
     app_env: str = "development"
     jwt_secret_key: str = Field(min_length=32)
     jwt_issuer: str = "e-commerce-system"

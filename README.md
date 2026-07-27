@@ -1,15 +1,15 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前处于 **ordering 订单域** 阶段：在 user 认证与 catalog（店铺 / 类目 / 商品）之上已交付**买家与卖家**建单、支付桩、发货、确认收货与取消；migration `005` 新增 `orders` / `order_items`，`006` 追加 `initiated_by`；health/readiness 探针与 CI integration 测试（**112 项**）已就绪。
+AI 赋能电商个人练习项目。当前已交付 **user 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `007`（购物车与 checkout batch）；本地与 CI integration 测试 **192 项**。
 
 ## 前置条件
 
 - [devbox](https://www.jetify.com/devbox)（推荐在 **WSL2** 下使用）
 - Git
 
-本地工具链由 devbox 提供：Python 3.13、uv、go-task、MySQL 8.0。
+本地工具链由 devbox 提供：Python 3.13、uv、go-task、MySQL 8.0、**Redis 8.0**。
 
-> **重要**：所有 `task` 命令（含 `db:*`）须在 `devbox shell` 内执行。
+> **重要**：所有 `task` 命令（含 `db:*`、`redis:*`）须在 `devbox shell` 内执行（或使用 `devbox run -- task …`）。
 
 ## 快速开始
 
@@ -20,23 +20,26 @@ devbox shell
 # 2. 安装 Python 依赖
 task sync
 
-# 3. 配置环境变量（本地私有，不入库）
+# 3. 配置环境变量（本地私有，不入库；须含 DATABASE_URL、REDIS_URL、JWT_SECRET_KEY）
 cp .env.example .env
 
 # 4. 启动本地 MySQL 并创建 dev/test 双库
 task db:up
 
-# 5. 执行迁移（dev 库）
+# 5. 启动本地 Redis 8（readiness 与 integration 测试依赖）
+task redis:up
+
+# 6. 执行迁移（dev 库）
 task migrate
 
-# 6. 运行本地 CI（ruff + pytest；含 integration，需 db:up）
+# 7. 运行本地 CI（ruff + pytest；含 integration，需 db:up + redis:up）
 task ci
 
-# 7. 启动开发服务器（自动依赖 db:up）
+# 8. 启动开发服务器（自动依赖 db:up；不自动 redis:up）
 task dev
 ```
 
-开发服务器默认 `http://127.0.0.1:8000`（须已配置 `.env` 中的 `DATABASE_URL`）。
+开发服务器默认 `http://127.0.0.1:8000`（须已配置 `.env` 中的 `DATABASE_URL`、`REDIS_URL`）。
 
 存活探针：
 
@@ -45,12 +48,14 @@ curl http://127.0.0.1:8000/health
 # {"status":"ok"}
 ```
 
-就绪探针（检查 MySQL 连通性）：
+就绪探针（检查 **MySQL + Redis** 连通性）：
 
 ```bash
 curl http://127.0.0.1:8000/health/ready
-# {"status":"ready","checks":{"mysql":"ok"}}
+# {"status":"ready","checks":{"mysql":"ok","redis":"ok"}}
 ```
+
+> 若未 `task redis:up`，`/health/ready` 返回 503（`redis: unavailable`）；`/health` 仍 200。
 
 认证 API（须已 `task migrate` 且 `.env` 含 `JWT_SECRET_KEY`）：
 
@@ -181,6 +186,32 @@ curl -X POST http://127.0.0.1:8000/orders/<order_id>/cancel \
 # 店主分页查看本店订单（200；读列表时触发懒释放）
 curl "http://127.0.0.1:8000/shops/me/orders?limit=20&offset=0" \
   -H "Authorization: Bearer <shop_owner_token>"
+
+# 批量支付（200；可跨 batch、可子集；须 awaiting_payment）
+curl -X POST http://127.0.0.1:8000/orders/batch-pay \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <buyer_token>" \
+  -d '{"order_ids":["<order_id>"]}'
+```
+
+购物车 API（须买家 Bearer token；列表展示 catalog 实时价，checkout 时快照锁价）：
+
+```bash
+# 加购（201 或累加数量）
+curl -X POST http://127.0.0.1:8000/cart/items \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <buyer_token>" \
+  -d '{"product_id":"<product_id>","qty":1}'
+
+# 购物车列表（按店分组；不可购项在 invalid_items）
+curl http://127.0.0.1:8000/cart \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 部分 checkout（201；创建 checkout_batch + 按店子单）
+curl -X POST http://127.0.0.1:8000/cart/checkout \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <buyer_token>" \
+  -d '{"cart_item_ids":["<cart_item_id>"]}'
 ```
 
 一键烟雾测试：
@@ -191,6 +222,9 @@ bash scripts/catalog_shop_curl_smoke.sh
 
 # 订单：下单 → pay → shipments → confirm-receipt；短 TTL 懒释放
 bash scripts/ordering_buyer_curl_smoke.sh
+
+# 购物车：加购 → list → checkout → batch-pay
+bash scripts/ordering_cart_curl_smoke.sh
 ```
 
 验证 MySQL 双库（可选）：
@@ -208,8 +242,8 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 |------|------|
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
-| `task test` | 运行 pytest |
-| `task ci` | 本地 CI：`ruff` + `test`（**不**自动启动 MySQL；integration 需先 `db:up`） |
+| `task test` | 运行 pytest（自动 `APP_ENV_FILE=.env.test`） |
+| `task ci` | 本地 CI：`ruff` + test-import 检查 + `test`（**不**自动 `db:up` / `redis:up`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
 
 ### 数据库（本地 devbox）
@@ -223,6 +257,15 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task migrate:new -- "描述"` | 新建 Alembic revision（autogenerate） |
 
 实现脚本：`scripts/devbox_mysql_{up,down,reset}.sh`。
+
+### Redis（本地 devbox）
+
+| 命令 | 说明 |
+|------|------|
+| `task redis:up` | 启动 Redis 8，轮询 `redis-cli ping` 直至 PONG |
+| `task redis:down` | 停止 devbox Redis 服务 |
+
+实现脚本：`scripts/devbox_redis_{up,down}.sh`。
 
 ### `db:up` 预期输出
 
@@ -240,6 +283,12 @@ MySQL 数据目录: .../mysql-data
 MySQL 已就绪；数据目录: .../mysql-data；已有库: ecommerce_dev, ecommerce_test
 ```
 
+### `redis:up` 预期输出
+
+```text
+Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
+```
+
 ## 本地 MySQL 与双库
 
 | 库名 | 用途 |
@@ -251,7 +300,18 @@ MySQL 已就绪；数据目录: .../mysql-data；已有库: ecommerce_dev, ecomm
 - 本地连接：**unix socket**（非 TCP 3306），见 `.env.example` 与 `devbox.d/mysql80/my.cnf`
 - CI 使用 **TCP** `127.0.0.1:3306`（GitHub Actions mysql service container）
 
-本地与远程 CI 均执行 `task ci`（ruff + pytest）。本地须先 `task db:up`；CI 在 workflow 内自动启动 mysql service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库策略](docs/decision/测试与数据库策略.md)。
+本地与远程 CI 均执行 `task ci`（ruff + pytest）。本地须先 `task db:up` 与 `task redis:up`；CI 在 workflow 内自动启动 mysql + redis service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/测试与数据库策略.md)。
+
+## 本地 Redis 与逻辑库
+
+| 逻辑库 | 用途 |
+|--------|------|
+| `db 0` | 本地开发（`.env` 中 `REDIS_URL=…/0`） |
+| `db 1` | pytest `@integration` 与 CI（`.env.test` / workflow `REDIS_URL`） |
+
+- 本地连接：`redis://127.0.0.1:6379`（TCP）
+- CI 使用 **redis:8.0** service container（`127.0.0.1:6379`）
+- 业务代码通过 `app/infra/redis.py` 的 `get_redis()` 访问；**禁止**业务域自行 `Redis.from_url`
 
 ## 环境变量
 
@@ -264,11 +324,14 @@ cp .env.example .env
 | 变量 | 说明 |
 |------|------|
 | `APP_ENV` | `development` / `test` / `production` |
-| `DATABASE_URL` | 本地用 socket URL；跑 integration 测试时改为 `ecommerce_test` |
+| `DATABASE_URL` | 本地用 socket URL；integration 测试用 `ecommerce_test` |
+| `REDIS_URL` | **必填**；本地 dev 用 `/0`，测试/CI 用 `/1` |
 | `JWT_SECRET_KEY` | JWT 签名密钥（≥ 32 字节）；本地与 CI 均必填 |
 | `JWT_ISSUER` | 可选，默认 `e-commerce-system` |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | 可选，默认 `30` |
 | `ORDER_RESERVATION_TTL_SECONDS` | 可选，默认 `86400`；待支付订单预留时长，超时懒释放为 `cancelled`/`expired`（pay、详情、**订单列表**路径触发） |
+
+`task test` / CI 通过 `APP_ENV_FILE=.env.test` 加载测试配置（含 `REDIS_URL=…/1`）。
 
 ## 分支工作流
 
@@ -278,7 +341,7 @@ feature/* ──PR──▶ dev ──PR──▶ main（可部署线）
 
 | 场景 | 说明 |
 |------|------|
-| feature 分支开发 | 从 `dev` 切出，本地 `task db:up` + `task ci` 通过后提 PR |
+| feature 分支开发 | 从 `dev` 切出，本地 `task db:up` + `task redis:up` + `task ci` 通过后提 PR |
 | feature 远程 CI | push 不自动触发；可用 **Actions → CI → Run workflow**（`workflow_dispatch`）或开 Draft PR → `dev` |
 | 合入 dev | PR → `dev` 触发 GitHub Actions CI |
 | 合入 main | `dev` → `main` PR，CI 通过后可部署 |
@@ -295,11 +358,11 @@ Workflow：`.github/workflows/ci.yml`
 | `push` | `dev`, `main` |
 | `workflow_dispatch` | 任意分支手动触发（feature 开发验证用） |
 
-CI job 顺序：mysql service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`（workflow `env` 含 `DATABASE_URL` 与 `JWT_SECRET_KEY`）。
+CI job 顺序：mysql + **redis** service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`（workflow `env` 含 `DATABASE_URL`、`REDIS_URL` 与 `JWT_SECRET_KEY`）。
 
 ```bash
 # feature 分支手动触发远程 CI（CLI）
-gh workflow run ci.yml --ref feature/infra-database
+gh workflow run CI --ref <your-feature-branch>
 ```
 
 GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/github-actions-pinning.mdc`）。
@@ -308,15 +371,16 @@ GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/g
 
 单个 OpenSpec change 完成标准：
 
-1. 本地 `task ci` 全绿
+1. 本地 `task db:up` + `task redis:up` 后 `task ci` 全绿
 2. push 后远程 GitHub Actions 全绿
-3. 文档已更新（README、architecture 等）
+3. 文档已更新（README、architecture、ADR 等）
 4. 使用 `/opsx:archive` 归档 change
 
 ## 文档
 
 - [架构设计](docs/architecture.md)
-- [测试与数据库策略（ADR）](docs/decision/测试与数据库策略.md)
+- [测试与数据库/Redis 策略（ADR）](docs/decision/测试与数据库策略.md)
+- [中间件栈与异常处理（ADR）](docs/decision/中间件栈与异常处理架构决策.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [devbox MySQL 竞态条件排查](docs/troubleshooting/devbox-mysql-竞态条件.md)
-- [OpenSpec 变更](openspec/changes/)
+- [OpenSpec 变更归档](openspec/changes/archive/)

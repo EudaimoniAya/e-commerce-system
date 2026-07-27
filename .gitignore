@@ -93,6 +93,7 @@ logs/
 *.sqlite3
 data/
 mysql-data/
+redis-data/
 postgres-data/
 
 # =========================

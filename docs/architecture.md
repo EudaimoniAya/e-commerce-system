@@ -74,7 +74,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 | 模块 | 职责 |
 |------|------|
-| `infra/` | 配置、数据库 Session、JWT、健康/readiness 探针、**结构化日志**、**统一 error JSON**、分页（后期） |
+| `infra/` | 配置、数据库 Session、**Redis 客户端**、JWT、健康/readiness 探针、**结构化日志**、**统一 error JSON**、分页（后期） |
 | `events/`（后期） | Outbox、领域事件，驱动 MySQL → pgvector ACL 同步 |
 | `shared/`（可选） | 无业务含义的公共类型，保持极简 |
 
@@ -119,13 +119,14 @@ e-commerce-system/
 ├── app/
 │   ├── main.py                   # create_app() 工厂：logging → middleware → handlers → 路由
 │   ├── infra/
-│   │   ├── config.py             # DATABASE_URL、APP_ENV、jwt_*、ORDER_RESERVATION_TTL_SECONDS
+│   │   ├── config.py             # DATABASE_URL、REDIS_URL、APP_ENV、jwt_*、ORDER_RESERVATION_TTL_SECONDS
 │   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
+│   │   ├── redis.py              # redis.asyncio 连接池、get_redis、reset_redis
 │   │   ├── auth.py               # PyJWT、OAuth2PasswordBearer、get_current_user_id
 │   │   ├── logging/              # loguru setup、InterceptHandler、RequestIDMiddleware
 │   │   ├── errors/               # 全局 exception handlers、统一 error JSON
 │   │   ├── health/               # 存活探针 GET /health
-│   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL 检查）
+│   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL + Redis 检查）
 │   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
 │   ├── user/                     # 用户域（router → service → repository → model）
 │   │   ├── router.py             # POST /auth/register|login，GET /users/me
@@ -162,11 +163,13 @@ e-commerce-system/
 │       ├── e1674055eb99_006_ordering_initiated_by.py  # orders.initiated_by
 │       └── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
 ├── tests/
-│   ├── conftest.py               # httpx AsyncClient、reset_engine、auth/shop/category/order helper
-│   ├── health/
+│   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
+│   ├── ops/                        # health、readiness、migration smoke
 │   ├── infra/
 │   │   ├── test_logging.py       # loguru、request_id、logs/app.log
-│   │   └── test_error_handlers.py # 统一 error JSON
+│   │   ├── test_error_handlers.py # 统一 error JSON
+│   │   ├── test_database.py      # AsyncSession 烟雾
+│   │   └── test_redis.py         # REDIS_URL、PING、SET/GET/TTL
 │   ├── user/                     # 注册/登录/me integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
 │   └── ordering/                 # 买家订单 + 购物车 integration（185 项）
@@ -174,7 +177,7 @@ e-commerce-system/
 │   ├── catalog_shop_curl_smoke.sh
 │   ├── ordering_buyer_curl_smoke.sh
 │   └── ordering_cart_curl_smoke.sh
-├── .github/workflows/ci.yml      # DATABASE_URL + JWT_SECRET_KEY；migrate + task ci
+├── .github/workflows/ci.yml      # DATABASE_URL + REDIS_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
 
@@ -209,7 +212,8 @@ app/
 ├── main.py                       # create_app()：setup_logging → middleware → handlers → routers
 ├── infra/
 │   ├── health/                   # 已实现
-│   ├── readiness/                # 已实现
+│   ├── readiness/                # 已实现（MySQL + Redis 聚合检查）
+│   ├── redis.py                  # 已实现（redis.asyncio、get_redis）
 │   ├── logging/                  # 已实现（loguru、request_id、logs/app.log）
 │   ├── errors/                   # 已实现（统一 error JSON、全局 handlers）
 │   ├── config.py                 # 已实现（含 jwt_*、app_env）
