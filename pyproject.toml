@@ -14,6 +14,7 @@ dependencies = [
     "pwdlib[argon2]",
     "email-validator",
     "loguru",
+    "redis>=5.2,<7",
 ]
 
 [dependency-groups]
@@ -49,5 +50,5 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
-    "integration: 依赖 MySQL 的集成测试；需 task db:up，DATABASE_URL 指向 ecommerce_test",
+    "integration: 依赖 MySQL 与 Redis 的集成测试；需 task db:up + task redis:up，DATABASE_URL 指向 ecommerce_test，REDIS_URL 指向 /1",
 ]

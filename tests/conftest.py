@@ -253,3 +253,36 @@ async def admin_auth_headers(integration_client: AsyncClient) -> AdminAuthContex
         pytest.fail("seed 管理员登录响应缺少 access_token")
 
     return AdminAuthContext(access_token=logged_in.body.access_token)
+
+
+# ── Redis fixtures ───────────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def redis_url() -> str:
+    """当前测试会话使用的 Redis 连接串（指向 /1，从 Settings 读取）。"""
+    from app.infra.config import get_settings
+
+    return get_settings().redis_url
+
+
+@pytest.fixture
+async def redis_client(redis_url: str):  # type: ignore[no-untyped-def]
+    """Async Redis client，经 infra get_redis() 获取（连接池复用）。
+
+    写 key 的用例请同时依赖 ``flush_test_redis_db`` 以隔离残留。
+    """
+    from app.infra.redis import get_redis  # noqa: E402  # 红阶段：redis.py 尚未创建
+
+    client = get_redis()
+    yield client
+    # 不 close——连接池由 infra 模块级管理，复用连接
+
+
+@pytest.fixture
+async def flush_test_redis_db(redis_client) -> None:  # type: ignore[no-untyped-def]
+    """对当前逻辑库执行 FLUSHDB，确保 test 用例之间 key 无残留。
+
+    禁止 FLUSHALL：它清空所有 db（含 dev /0），无视逻辑库隔离。
+    """
+    await redis_client.flushdb()
