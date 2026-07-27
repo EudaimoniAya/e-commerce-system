@@ -1,7 +1,7 @@
 ## 1. Infra 分页模块（TDD）
 
-- [ ] 1.1 编写 `tests/infra/test_pagination.py`（Query 边界、`PaginationParams` 为 Pydantic model 非 tuple、`Paginated[TResponse]` 序列化；**不编写** `app/infra/pagination/` 实现）
-- [ ] 1.2 实现 `app/infra/pagination/`：`__init__.py`、`constants.py`、`schemas.py`（`Paginated[TResponse]`、`PaginationParams`）、`deps.py`（`get_pagination_params` 返回 `PaginationParams` + `Annotated` Query）；跑绿 1.1
+- [x] 1.1 编写 `tests/infra/test_pagination.py`（Query 边界、`PaginationParams` 为 Pydantic model 非 tuple、`Paginated[TResponse]` 序列化；**不编写** `app/infra/pagination/` 实现）
+- [x] 1.2 实现 `app/infra/pagination/`：`__init__.py`、`constants.py`、`schemas.py`（`Paginated[TResponse]`、`PaginationParams`）、`deps.py`（`get_pagination_params` 返回 `PaginationParams` + `Annotated` Query）；跑绿 1.1
 
 ## 2. Catalog 域迁移
 

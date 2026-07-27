@@ -7,7 +7,7 @@
 - `limit`：默认 **20**，最小 **1**，最大 **100**
 - `offset`：默认 **0**，最小 **0**
 
-常量 `DEFAULT_PAGE_LIMIT` 与 `MAX_PAGE_LIMIT` SHALL 仅在 infra 模块 `constants.py` 定义一次（**本 change 不**迁入 `Settings` 环境变量），并作为 `Annotated[..., Query(...)]` 的默认值来源。
+常量 `DEFAULT_PAGE_LIMIT` 与 `MAX_PAGE_LIMIT` SHALL 随 `get_pagination_params` 在 `deps.py` 定义（**本 change 不**迁入 `Settings` 环境变量），并作为 `Annotated[..., Query(...)]` 的默认值来源。
 
 `get_pagination_params` SHALL 返回 **`PaginationParams` Pydantic `BaseModel`**（字段 `limit: int`、`offset: int`），**禁止**返回 `tuple[int, int]`。Router 通过属性访问 `params.limit` / `params.offset` 传入 Service，**禁止** `limit, offset = pagination` 元组解构。
 
