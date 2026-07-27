@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.infra.pagination.schemas import Paginated
+
 
 # ── Cart ───────────────────────────────────────────────────────
 
@@ -230,10 +232,7 @@ class ShipmentCreate(BaseModel):
     note: str | None = Field(default=None, max_length=512)
 
 
-class PaginatedOrders(BaseModel):
+class PaginatedOrders(Paginated[OrderResponse]):
     """分页订单列表。"""
 
-    items: list[OrderResponse]
-    total: int
-    limit: int
-    offset: int
+    model_config = ConfigDict(title="PaginatedOrders")

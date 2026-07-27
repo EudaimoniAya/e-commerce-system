@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ordering.models import Order, OrderItem
@@ -27,16 +27,14 @@ class OrderRepository:
         self,
         buyer_user_id: uuid.UUID,
         *,
-        limit: int = 20,
-        offset: int = 0,
+        limit: int,
+        offset: int,
     ) -> tuple[list[Order], int]:
         """返回买家订单分页列表及总数。"""
         uid = str(buyer_user_id)
-        count_stmt = (
-            select(Order).where(Order.buyer_user_id == uid)
-        )
+        count_stmt = select(func.count()).select_from(Order).where(Order.buyer_user_id == uid)
         total_result = await self._session.execute(count_stmt)
-        total = len(total_result.scalars().all())
+        total = total_result.scalar_one()
 
         stmt = (
             select(Order)
@@ -53,16 +51,14 @@ class OrderRepository:
         self,
         shop_id: uuid.UUID,
         *,
-        limit: int = 20,
-        offset: int = 0,
+        limit: int,
+        offset: int,
     ) -> tuple[list[Order], int]:
         """返回店铺订单分页列表及总数。"""
         sid = str(shop_id)
-        count_stmt = (
-            select(Order).where(Order.shop_id == sid)
-        )
+        count_stmt = select(func.count()).select_from(Order).where(Order.shop_id == sid)
         total_result = await self._session.execute(count_stmt)
-        total = len(total_result.scalars().all())
+        total = total_result.scalar_one()
 
         stmt = (
             select(Order)

@@ -2,11 +2,13 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.catalog.deps import get_shop_service
 from app.catalog.service import ShopService
 from app.infra.auth import get_current_user_id
+from app.infra.pagination.deps import get_pagination_params
+from app.infra.pagination.schemas import PaginationParams
 from app.ordering.deps import (
     get_order_by_id,
     get_order_for_buyer,
@@ -26,9 +28,6 @@ from app.ordering.schemas import (
 from app.ordering.service import OrderService
 
 router = APIRouter()
-
-_DEFAULT_LIMIT = 20
-_MAX_LIMIT = 100
 
 
 def _to_response(order: Order) -> OrderResponse:
@@ -72,14 +71,6 @@ def _parse_items_from_seller_create(
     return uuid.UUID(data.buyer_user_id), [
         (item.product_id, item.qty) for item in data.items
     ]
-
-
-def _clamp_pagination(
-    limit: int = Query(default=_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT),
-    offset: int = Query(default=0, ge=0),
-) -> tuple[int, int]:
-    """限制分页参数范围。"""
-    return limit, offset
 
 
 # ── 创建订单 ─────────────────────────────────────────────
@@ -134,18 +125,11 @@ async def create_order_by_seller(
 async def list_my_orders(
     user_id: uuid.UUID = Depends(get_current_user_id),
     service: OrderService = Depends(get_order_service),
-    pagination: tuple[int, int] = Depends(_clamp_pagination),
+    params: PaginationParams = Depends(get_pagination_params),
 ) -> PaginatedOrders:
     """买家分页查看自己的订单。"""
-    limit, offset = pagination
-    orders, total = await service.list_buyer_orders(
-        user_id, limit=limit, offset=offset,
-    )
-    return PaginatedOrders(
-        items=[_to_response(o) for o in orders],
-        total=total,
-        limit=limit,
-        offset=offset,
+    return await service.list_buyer_orders(
+        user_id, limit=params.limit, offset=params.offset,
     )
 
 
@@ -263,19 +247,12 @@ async def list_shop_orders(
     user_id: uuid.UUID = Depends(get_current_user_id),
     catalog_service: ShopService = Depends(get_shop_service),
     service: OrderService = Depends(get_order_service),
-    pagination: tuple[int, int] = Depends(_clamp_pagination),
+    params: PaginationParams = Depends(get_pagination_params),
 ) -> PaginatedOrders:
     """店主分页查看本店所有订单。"""
     shop = await catalog_service.get_my_shop(user_id)
-    limit, offset = pagination
-    orders, total = await service.list_shop_orders(
-        uuid.UUID(shop.id), limit=limit, offset=offset,
-    )
-    return PaginatedOrders(
-        items=[_to_response(o) for o in orders],
-        total=total,
-        limit=limit,
-        offset=offset,
+    return await service.list_shop_orders(
+        uuid.UUID(shop.id), limit=params.limit, offset=params.offset,
     )
 
 

@@ -12,6 +12,7 @@ from app.catalog.service import ShopService
 from app.infra.config import get_settings
 from app.ordering.models import Order, OrderItem
 from app.ordering.repository import OrderItemRepository, OrderRepository
+from app.ordering.schemas import OrderResponse, PaginatedOrders
 from app.user.service import UserService
 
 _NOT_FOUND_MSG = "Order not found"
@@ -31,6 +32,33 @@ def _to_items_list(
 ) -> list[dict]:
     """将路由层解析后的 (product_id, qty) 转为统一格式。"""
     return [{"product_id": pid, "qty": qty} for pid, qty in items]
+
+
+def _to_order_response(order: Order) -> OrderResponse:
+    """ORM Order → OrderResponse（含 items）。"""
+    return OrderResponse(
+        id=str(order.id),
+        buyer_user_id=str(order.buyer_user_id),
+        shop_id=str(order.shop_id),
+        initiated_by=order.initiated_by,  # type: ignore[arg-type]
+        status=order.status,  # type: ignore[arg-type]
+        cancel_reason=order.cancel_reason,
+        checkout_batch_id=str(order.checkout_batch_id) if order.checkout_batch_id else None,
+        total_amount=str(order.total_amount),
+        expires_at=order.expires_at,
+        items=[
+            {
+                "id": str(i.id),
+                "product_id": str(i.product_id),
+                "product_name": i.product_name,
+                "unit_price": str(i.unit_price),
+                "qty": i.qty,
+            }
+            for i in getattr(order, "items", [])
+        ],
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+    )
 
 
 class OrderService:
@@ -402,15 +430,17 @@ class OrderService:
         *,
         limit: int = 20,
         offset: int = 0,
-    ) -> tuple[list[Order], int]:
+    ) -> PaginatedOrders:
         """买家订单列表。"""
         orders, total = await self._order_repo.list_by_buyer(
             buyer_user_id, limit=limit, offset=offset,
         )
+        items: list[OrderResponse] = []
         for order in orders:
             await self.expire_if_needed(order)
             order.items = await self._item_repo.list_by_order_id(order.id)
-        return orders, total
+            items.append(_to_order_response(order))
+        return PaginatedOrders(items=items, total=total, limit=limit, offset=offset)
 
     async def list_shop_orders(
         self,
@@ -418,15 +448,17 @@ class OrderService:
         *,
         limit: int = 20,
         offset: int = 0,
-    ) -> tuple[list[Order], int]:
+    ) -> PaginatedOrders:
         """店铺订单列表（店主查看本店订单）。"""
         orders, total = await self._order_repo.list_by_shop(
             shop_id, limit=limit, offset=offset,
         )
+        items: list[OrderResponse] = []
         for order in orders:
             await self.expire_if_needed(order)
             order.items = await self._item_repo.list_by_order_id(order.id)
-        return orders, total
+            items.append(_to_order_response(order))
+        return PaginatedOrders(items=items, total=total, limit=limit, offset=offset)
 
     async def get_order_or_404(
         self, order_id: uuid.UUID,
