@@ -27,9 +27,9 @@
 
 ## 5. 文档与工程纪律
 
-- [ ] 5.1 新增 `docs/decision/infra分页与列表数据流.md`（重构前后四端点对比、层职责、半统一状态、N+1 为既有债、follow-up）
-- [ ] 5.2 更新 `docs/architecture.md`：infra 分页已实现（简短 + 链接 ADR）
-- [ ] 5.3 新增 `.cursor/rules/pagination-discipline.mdc`（层职责；PaginationParams 非 tuple；禁止 apply 时改动 ordering 非列表 `_to_response`）
+- [x] 5.1 新增 `docs/decision/infra分页与列表数据流.md`（重构前后四端点对比、层职责、半统一状态、N+1 为既有债、follow-up）
+- [x] 5.2 更新 `docs/architecture.md`：infra 分页已实现（简短 + 链接 ADR）
+- [x] 5.3 新增 `.cursor/rules/pagination-discipline.mdc`（层职责；PaginationParams 非 tuple；禁止 apply 时改动 ordering 非列表 `_to_response`）
 
 ## Follow-up（本 change 不实现）
 

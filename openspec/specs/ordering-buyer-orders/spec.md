@@ -219,7 +219,7 @@ ordering 域买家发起订单垂直切片：同店多行下单、库存预留/�
 
 ### Requirement: List and get orders
 
-系统 SHALL 提供 `GET /orders`（买家本人分页列表）、`GET /orders/{id}`（买家本人或本店店主；否则 **404**）、`GET /shops/me/orders`（店主本店分页列表）。`GET /orders/{id}`、`GET /orders` 与 `GET /shops/me/orders` SHALL 对涉及的 `awaiting_payment` 订单触发懒释放检查。分页参数 SHALL 与 catalog 列表惯例一致（`limit`/`offset`）。
+系统 SHALL 提供 `GET /orders`（买家本人分页列表）、`GET /orders/{id}`（买家本人或本店店主；否则 **404**）、`GET /shops/me/orders`（店主本店分页列表）。`GET /orders/{id}`、`GET /orders` 与 `GET /shops/me/orders` SHALL 对涉及的 `awaiting_payment` 订单触发懒释放检查。两个列表端点的分页 Query 与响应 envelope SHALL 符合 **infra-pagination** 契约（域内 alias 为 `PaginatedOrders`）。
 
 #### Scenario: 买家列表仅含自己的订单
 

@@ -1,0 +1,66 @@
+description: Infra 分页层职责与列表数据流纪律；PaginationParams 非 tuple；ordering 半统一保留
+globs: app/**/*.py
+alwaysApply: false
+---
+
+# Infra 分页纪律
+
+分页有两类数据：**控制参数**（`limit`/`offset`，全程 int）与 **业务载荷**（Repository 为 ORM 列表，API 为 `Paginated[TResponse]`）。统一的是 DTO 转换与响应外壳的层位置，不是 int 的类型。
+
+## 层职责（列表路径）
+
+```
+Router  → Depends(get_pagination_params) → service(limit, offset) → 透传 Paginated[TResponse]
+Service → repo → _to_xxx_response → Paginated[TResponse](items, total, limit, offset)
+Repo    → (list[ORM], total)；func.count()；limit/offset 必传无默认值
+```
+
+## PaginationParams 非 tuple
+
+`PaginationParams` 是 Pydantic `BaseModel`，**禁止** `limit, offset = params` 元组解构。Router 须以 `params.limit` / `params.offset` 属性访问。
+
+允许的写法：
+```python
+# ✓ Router
+params: PaginationParams = Depends(get_pagination_params)
+await service.list_products(limit=params.limit, offset=params.offset)
+
+# ✓ Service
+async def list_products(self, *, limit: int, offset: int) -> PaginatedProducts:
+```
+
+## 禁止二次 clamp
+
+入参已由 `Annotated[..., Query(ge=1, le=MAX_PAGE_LIMIT)]` 校验，Service 不得再次 clamp 或 `min/max`。
+
+## 禁止在列表端点手动组装 Paginated
+
+Router 透传 Service 返回的 `Paginated[TResponse]`，不得在 Router 内 `Paginated(items=[...])` 或调用 `_to_response`。
+
+## Repository count 纪律
+
+使用 `select(func.count()).select_from(...)` 做 SQL 级计数，禁止 `len(全量 ORM 实例)`。
+
+```python
+# ✓
+total = await session.scalar(
+    select(func.count()).select_from(Order).where(...)
+)
+
+# ✗
+total = len((await session.execute(select(Order).where(...))).scalars().all())
+```
+
+## Ordering 半统一状态
+
+| 路径 | ORM→DTO 位置 |
+|------|-------------|
+| **列表** `GET /orders`、`GET /shops/me/orders` | **Service**（`_to_order_response`） |
+| **非列表** create/get/pay/cancel/ship/batch-pay | **Router** `_to_response` |
+
+**禁止**在实现或 refactor 时改动 ordering 非列表 router handler 的 `_to_response` 调用方式（follow-up：`ordering-dto-in-service`）。
+
+## Follow-up（非本规则范围）
+
+- `catalog-list-batch-categories` — 列表类目 N+1
+- `ordering-list-batch-items` — 列表订单行 N+1

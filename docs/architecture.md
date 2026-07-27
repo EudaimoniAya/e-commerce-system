@@ -74,7 +74,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 | 模块 | 职责 |
 |------|------|
-| `infra/` | 配置、数据库 Session、**Redis 客户端**、JWT、健康/readiness 探针、**结构化日志**、**统一 error JSON**、分页（后期） |
+| `infra/` | 配置、数据库 Session、**Redis 客户端**、JWT、健康/readiness 探针、**结构化日志**、**统一 error JSON**、**分页（已实现）**|
 | `events/`（后期） | Outbox、领域事件，驱动 MySQL → pgvector ACL 同步 |
 | `shared/`（可选） | 无业务含义的公共类型，保持极简 |
 
@@ -127,6 +127,7 @@ e-commerce-system/
 │   │   ├── errors/               # 全局 exception handlers、统一 error JSON
 │   │   ├── health/               # 存活探针 GET /health
 │   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL + Redis 检查）
+│   │   ├── pagination/           # 分页基础设施（PaginationParams、get_pagination_params、Paginated[TResponse]）
 │   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
 │   ├── user/                     # 用户域（router → service → repository → model）
 │   │   ├── router.py             # POST /auth/register|login，GET /users/me
@@ -218,7 +219,8 @@ app/
 │   ├── errors/                   # 已实现（统一 error JSON、全局 handlers）
 │   ├── config.py                 # 已实现（含 jwt_*、app_env）
 │   ├── database.py               # 已实现
-│   └── auth.py                   # 已实现
+│   ├── auth.py                   # 已实现
+│   └── pagination/               # 已实现（PaginationParams、get_pagination_params、Paginated[TResponse]）
 ├── user/                         # 已实现（认证垂直切片）
 │   ├── router.py
 │   ├── service.py
@@ -353,3 +355,4 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 - [异常处理 ServerErrorMiddleware 与测试陷阱（排错）](./troubleshooting/异常处理-ServerErrorMiddleware与测试陷阱.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](./troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)
+- [Infra 分页与列表数据流（ADR）](./decision/infra分页与列表数据流.md)
