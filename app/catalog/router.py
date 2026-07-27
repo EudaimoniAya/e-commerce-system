@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 
 from app.catalog.deps import get_current_shop, get_shop_service
 from app.catalog.models import Shop
@@ -19,6 +19,8 @@ from app.catalog.schemas import (
 )
 from app.catalog.service import ShopService
 from app.infra.auth import get_current_user_id
+from app.infra.pagination.deps import get_pagination_params
+from app.infra.pagination.schemas import PaginationParams
 from app.user.deps import require_admin
 
 router = APIRouter()
@@ -50,15 +52,14 @@ async def create_category(
 @router.get("/products", response_model=PaginatedProducts, tags=["products"])
 async def list_public_products(
     category_id: uuid.UUID | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    params: PaginationParams = Depends(get_pagination_params),
     service: ShopService = Depends(get_shop_service),
 ) -> PaginatedProducts:
     """公开分页返回已上架且店铺 active 的商品。"""
     return await service.list_public_products(
         category_id=category_id,
-        limit=limit,
-        offset=offset,
+        limit=params.limit,
+        offset=params.offset,
     )
 
 
@@ -127,13 +128,12 @@ async def read_my_shop(
     tags=["products"],
 )
 async def list_my_products(
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    params: PaginationParams = Depends(get_pagination_params),
     shop: Shop = Depends(get_current_shop),
     service: ShopService = Depends(get_shop_service),
 ) -> PaginatedProducts:
     """店主分页返回本店全部商品（含未上架）。"""
-    return await service.list_my_products(shop, limit=limit, offset=offset)
+    return await service.list_my_products(shop, limit=params.limit, offset=params.offset)
 
 
 @router.patch("/shops/me", response_model=ShopResponse, tags=["shops"])

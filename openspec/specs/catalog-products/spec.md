@@ -123,7 +123,7 @@ catalog 域类目与商品垂直切片：平台统一类目树（admin 创建）
 
 ### Requirement: Merchant product list
 
-系统 SHALL 提供 `GET /shops/me/products`，需认证且用户拥有店铺；返回本店**全部**商品（含未上架）；支持 `limit`（默认 20，最大 100）与 `offset`（默认 0）；响应 `{ items, total, limit, offset }`。
+系统 SHALL 提供 `GET /shops/me/products`，需认证且用户拥有店铺；返回本店**全部**商品（含未上架）；分页 Query 与响应 envelope SHALL 符合 **infra-pagination** 契约（`limit` 默认 20、最大 100；`offset` 默认 0；响应 `Paginated[ProductResponse]`，域内 alias 为 `PaginatedProducts`）。
 
 #### Scenario: 返回本店商品列表
 
@@ -138,7 +138,7 @@ catalog 域类目与商品垂直切片：平台统一类目树（admin 创建）
 
 ### Requirement: Public product list and detail
 
-系统 SHALL 提供公开 `GET /products` 与 `GET /products/{id}`；仅展示 `is_published=true` 且所属店铺 `status=active` 的商品；`GET /products` SHALL 支持可选 `category_id` 筛选及 `limit`/`offset` 分页。
+系统 SHALL 提供公开 `GET /products` 与 `GET /products/{id}`；仅展示 `is_published=true` 且所属店铺 `status=active` 的商品；`GET /products` SHALL 支持可选 `category_id` 筛选；分页 Query 与响应 envelope SHALL 符合 **infra-pagination** 契约。
 
 #### Scenario: 公开列表仅上架且店铺 active
 

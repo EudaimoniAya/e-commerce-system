@@ -31,8 +31,6 @@ _CATEGORY_DUPLICATE_MSG = "Category name already exists under this parent"
 _CATEGORY_NOT_FOUND_MSG = "One or more categories not found"
 _CATEGORY_PARENT_NOT_FOUND_MSG = "Parent category not found"
 _FORBIDDEN_PRODUCT_MSG = "Not allowed to modify this product"
-_DEFAULT_PAGE_LIMIT = 20
-_MAX_PAGE_LIMIT = 100
 
 
 def _to_shop_response(shop: Shop) -> ShopResponse:
@@ -83,13 +81,6 @@ def _to_product_response(
         created_at=product.created_at,
         updated_at=product.updated_at,
     )
-
-
-def _clamp_pagination(limit: int, offset: int) -> tuple[int, int]:
-    """规范化分页参数。"""
-    safe_limit = min(max(limit, 1), _MAX_PAGE_LIMIT)
-    safe_offset = max(offset, 0)
-    return safe_limit, safe_offset
 
 
 def _parse_category_ids(category_ids: list[str]) -> list[uuid.UUID]:
@@ -257,15 +248,14 @@ class ShopService:
         self,
         shop: Shop,
         *,
-        limit: int = _DEFAULT_PAGE_LIMIT,
+        limit: int = 20,
         offset: int = 0,
     ) -> PaginatedProducts:
         """分页返回店主店铺全部商品。"""
-        safe_limit, safe_offset = _clamp_pagination(limit, offset)
         products, total = await self._product_repository.list_by_shop(
             uuid.UUID(str(shop.id)),
-            limit=safe_limit,
-            offset=safe_offset,
+            limit=limit,
+            offset=offset,
         )
         items: list[ProductResponse] = []
         for product in products:
@@ -276,23 +266,22 @@ class ShopService:
         return PaginatedProducts(
             items=items,
             total=total,
-            limit=safe_limit,
-            offset=safe_offset,
+            limit=limit,
+            offset=offset,
         )
 
     async def list_public_products(
         self,
         *,
         category_id: uuid.UUID | None = None,
-        limit: int = _DEFAULT_PAGE_LIMIT,
+        limit: int = 20,
         offset: int = 0,
     ) -> PaginatedProducts:
         """分页返回公开可见商品。"""
-        safe_limit, safe_offset = _clamp_pagination(limit, offset)
         products, total = await self._product_repository.list_public(
             category_id=category_id,
-            limit=safe_limit,
-            offset=safe_offset,
+            limit=limit,
+            offset=offset,
         )
         items: list[ProductResponse] = []
         for product in products:
@@ -303,8 +292,8 @@ class ShopService:
         return PaginatedProducts(
             items=items,
             total=total,
-            limit=safe_limit,
-            offset=safe_offset,
+            limit=limit,
+            offset=offset,
         )
 
     async def get_public_product(self, product_id: uuid.UUID) -> ProductResponse:

@@ -7,6 +7,8 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.infra.pagination.schemas import Paginated
+
 
 class ShopCreate(BaseModel):
     """开店请求体。"""
@@ -167,10 +169,7 @@ class PurchasableProduct(BaseModel):
     owner_user_id: str
 
 
-class PaginatedProducts(BaseModel):
+class PaginatedProducts(Paginated[ProductResponse]):
     """分页商品列表。"""
 
-    items: list[ProductResponse]
-    total: int
-    limit: int
-    offset: int
+    model_config = ConfigDict(title="PaginatedProducts")
