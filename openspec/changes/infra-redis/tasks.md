@@ -2,10 +2,10 @@
 
 > 本 Task 仅交付 devbox Redis 与启动脚本；**不**修改业务域；**不**将 `redis:up` 挂入 `task dev`。
 
-- [ ] 1.1 `devbox.json` / `devbox.lock` 增加 `redis@8.0.x`（pin patch）；`.gitignore` 补充 `redis-data/`（若使用项目内数据目录）
-- [ ] 1.2 新增 `scripts/devbox_redis_up.sh`、`scripts/devbox_redis_down.sh`（启动 → `redis-cli ping` 轮询 → 摘要；down 停 devbox service）
-- [ ] 1.3 `Taskfile.yml` 增加 `redis:up`、`redis:down`；**不**修改 `dev` 的 `deps`
-- [ ] 1.4 手动验证：`devbox run -- task redis:up` 返回 PONG；`devbox run -- task redis:down` 可停止
+- [x] 1.1 `devbox.json` / `devbox.lock` 增加 `redis@8.0.x`（pin patch）；`.gitignore` 补充 `redis-data/`（若使用项目内数据目录）
+- [x] 1.2 新增 `scripts/devbox_redis_up.sh`、`scripts/devbox_redis_down.sh`（启动 → `redis-cli ping` 轮询 → 摘要；down 停 devbox service）
+- [x] 1.3 `Taskfile.yml` 增加 `redis:up`、`redis:down`；**不**修改 `dev` 的 `deps`
+- [x] 1.4 手动验证：`devbox run -- task redis:up` 返回 PONG；`devbox run -- task redis:down` 可停止
 
 ## 2. 配置、Redis 客户端与 readiness（TDD）
 

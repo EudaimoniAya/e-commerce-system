@@ -146,6 +146,55 @@
         }
       }
     },
+    "redis@8.0.3": {
+      "last_modified": "2025-10-01T12:36:30Z",
+      "plugin_version": "0.0.2",
+      "resolved": "github:NixOS/nixpkgs/ee4cd98afba682ca27242f2d7fdbd8583f6ef51a#redis",
+      "source": "devbox-search",
+      "version": "8.0.3",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/1iz7qg1p59dxmw5sd1pl4w1w14vdf5fc-redis-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/1iz7qg1p59dxmw5sd1pl4w1w14vdf5fc-redis-8.0.3"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0bw8054glgb95b7gi3kda7wn5cw7733g-redis-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/0bw8054glgb95b7gi3kda7wn5cw7733g-redis-8.0.3"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5z1ky955xrd4awfbzw1rpav7dgm4ak1g-redis-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/5z1ky955xrd4awfbzw1rpav7dgm4ak1g-redis-8.0.3"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/65z533hy1gmk8kdnrha0z61xa1gi76qw-redis-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/65z533hy1gmk8kdnrha0z61xa1gi76qw-redis-8.0.3"
+        }
+      }
+    },
     "uv@latest": {
       "last_modified": "2026-07-04T17:57:37Z",
       "resolved": "github:NixOS/nixpkgs/19a8a1e6d8b7315b6fd84e5a51977ce6f69d5a5b#uv",

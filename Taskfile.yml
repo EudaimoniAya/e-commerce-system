@@ -56,6 +56,16 @@ tasks:
     cmds:
       - uv run alembic revision --autogenerate -m '{{default "migration" .CLI_ARGS}}'
 
+  redis:up:
+    desc: 启动 devbox Redis 8.0 并轮询就绪
+    cmds:
+      - bash scripts/devbox_redis_up.sh
+
+  redis:down:
+    desc: 停止 devbox Redis 服务
+    cmds:
+      - bash scripts/devbox_redis_down.sh
+
   dev:
     desc: 启动开发服务器（uvicorn --reload）
     deps:
