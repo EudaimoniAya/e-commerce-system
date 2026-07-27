@@ -1,10 +1,9 @@
-"""infra Redis integration 测试。
+"""infra Redis integration 测试。"""
 
-TDD 红阶段：``app/infra/redis.py`` 尚未创建——预期 import 失败。
-"""
+import asyncio
 
 import pytest
-from httpx import AsyncClient
+from redis.asyncio import Redis
 
 
 # ── Settings 必填 REDIS_URL ──────────────────────────────────────────────────
@@ -36,7 +35,6 @@ def test_redis_url_appears_in_settings() -> None:
     from app.infra.config import get_settings
 
     settings = get_settings()
-    # redis_url 是必填字段；load 成功即证明存在
     assert settings.redis_url
     assert settings.redis_url.endswith("/1")
 
@@ -46,7 +44,7 @@ def test_redis_url_appears_in_settings() -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_redis_client_ping(redis_client) -> None:  # type: ignore[no-untyped-def]
+async def test_redis_client_ping(redis_client: Redis) -> None:
     """redis_client fixture PING 应返回 True。"""
     result = await redis_client.ping()
     assert result is True
@@ -55,13 +53,12 @@ async def test_redis_client_ping(redis_client) -> None:  # type: ignore[no-untyp
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_redis_set_get_ttl(
-    redis_client, flush_test_redis_db  # type: ignore[no-untyped-def]  # noqa: F811
+    redis_client: Redis,
+    flush_test_redis_db: None,
 ) -> None:
     """SET 后 GET 应返回原值，TTL 到期后 key 应过期。"""
     await redis_client.set("test:key", "hello", ex=2)
     assert await redis_client.get("test:key") == b"hello"  # type: ignore[union-attr]
-
-    import asyncio
 
     await asyncio.sleep(3)
     assert await redis_client.get("test:key") is None

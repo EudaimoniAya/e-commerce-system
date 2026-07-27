@@ -17,8 +17,9 @@ on:
 env:
   # CI 使用 TCP 连接 mysql service container（与本地 devbox unix socket 不同）
   DATABASE_URL: mysql+asyncmy://root@127.0.0.1:3306/ecommerce_test?charset=utf8mb4
+  REDIS_URL: redis://127.0.0.1:6379/1
   JWT_SECRET_KEY: ci-test-secret-key-at-least-32-bytes!!
-  # 加载 .env.test（CI env 值覆盖文件中的 DATABASE_URL 和 JWT_SECRET_KEY）
+  # 加载 .env.test（CI env 值覆盖文件中的 DATABASE_URL、REDIS_URL 和 JWT_SECRET_KEY）
   APP_ENV_FILE: .env.test
 
 jobs:
@@ -34,6 +35,15 @@ jobs:
           - 3306:3306
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:8.0
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5

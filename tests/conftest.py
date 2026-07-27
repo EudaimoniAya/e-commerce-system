@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from tests.support.helper.auth import (
@@ -282,13 +283,19 @@ def redis_url() -> str:
     return get_settings().redis_url
 
 
+@pytest.fixture(scope="session")
+def _redis_url(redis_url: str) -> str:
+    """确保 Settings 已加载 test Redis URL（供 redis_client 依赖）。"""
+    return redis_url
+
+
 @pytest.fixture
-async def redis_client(redis_url: str):  # type: ignore[no-untyped-def]
+async def redis_client(_redis_url: str) -> AsyncIterator[Redis]:
     """Async Redis client，经 infra get_redis() 获取（连接池复用）。
 
     写 key 的用例请同时依赖 ``flush_test_redis_db`` 以隔离残留。
     """
-    from app.infra.redis import get_redis  # noqa: E402  # 红阶段：redis.py 尚未创建
+    from app.infra.redis import get_redis
 
     client = get_redis()
     yield client
@@ -296,7 +303,7 @@ async def redis_client(redis_url: str):  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture
-async def flush_test_redis_db(redis_client) -> None:  # type: ignore[no-untyped-def]
+async def flush_test_redis_db(redis_client: Redis) -> None:
     """对当前逻辑库执行 FLUSHDB，确保 test 用例之间 key 无残留。
 
     禁止 FLUSHALL：它清空所有 db（含 dev /0），无视逻辑库隔离。
