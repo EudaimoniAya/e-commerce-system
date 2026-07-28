@@ -29,7 +29,7 @@ alwaysApply: false
 
 ### 判定信号（满足其一即可视为 CI Task）
 
-- 本地：`task migrate`、`task ci` / `task test`、`curl` 烟雾、DoD 本地全绿
+- 本地：`task migrate`、`task ci` / `task test`、`task test:*`、DoD 本地全绿
 - 远程：`.github/workflows/ci.yml`、`JWT_SECRET_KEY` 等 CI env、`git push`、`GitHub Actions`、`workflow_dispatch`、`gh workflow run`、`gh run watch`
 - 文案：`本地验证`、`远程 CI`、`确认 CI 全绿`、`push 并确认`
 
@@ -37,13 +37,13 @@ alwaysApply: false
 
 **第一次：本地验证 + CI 配置**
 
-1. 完成 Task（改 ci.yml、跑 migrate + task ci、必要时 curl）。
+1. 完成 Task（改 ci.yml、跑 migrate + task ci、必要时域测试）。
 2. **commit + push**。
 
 ```text
 ci(<change-name>): Task <编号> <简短标题>：
  * <本地 migrate + task ci 结果>；
- * <curl 或关键验证>；
+ * <关键验证（域 test 或 integration 覆盖）>；
  * ci.yml <具体 env 变更>；更新 tasks.md。
 ```
 

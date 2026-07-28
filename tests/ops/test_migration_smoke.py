@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 
+import allure
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -14,6 +15,9 @@ _ROLLBACK_MARKER_NOTE = "rollback-zero-side-effect-marker"
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ops")
+@allure.feature("migration_smoke")
+@allure.title("upgrade head 后存在 smoke 表与 Alembic 版本记录")
 async def test_alembic_upgrade_head_creates_smoke_table(database_url: str) -> None:
     """upgrade head 后存在 _infra_migration_smoke 表与 Alembic 版本记录。"""
     env = {**os.environ, "DATABASE_URL": database_url}
@@ -49,6 +53,9 @@ async def test_alembic_upgrade_head_creates_smoke_table(database_url: str) -> No
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ops")
+@allure.feature("migration_smoke")
+@allure.title("对 smoke 表插入并查询成功")
 async def test_migration_smoke_crud(db_session: AsyncSession) -> None:
     """对 _infra_migration_smoke 插入并查询成功（事务内可见）。"""
     from app.infra.models.migration_smoke import InfraMigrationSmoke
@@ -68,6 +75,9 @@ async def test_migration_smoke_crud(db_session: AsyncSession) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ops")
+@allure.feature("migration_smoke")
+@allure.title("前序测试 rollback 后标记行不可见")
 async def test_migration_smoke_rollback_zero_side_effect(
     db_session: AsyncSession,
 ) -> None:

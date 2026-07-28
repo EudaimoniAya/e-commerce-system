@@ -177,11 +177,11 @@ e-commerce-system/
 │   ├── user/                     # SMS/密码认证、me/profile integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
 │   └── ordering/                 # 买家订单 + 购物车 integration
-├── scripts/
-│   ├── user_phone_auth_curl_smoke.sh
-│   ├── catalog_shop_curl_smoke.sh
-│   ├── ordering_buyer_curl_smoke.sh
-│   └── ordering_cart_curl_smoke.sh
+├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
+│   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
+│   ├── devbox_redis_up.sh / devbox_redis_down.sh
+│   ├── allure_open_report.sh     # Task latest:report
+│   └── check_no_test_cross_imports.sh  # Task check-test-imports；依赖 rg（ripgrep），见 test-architecture / infra-ci spec
 ├── .github/workflows/ci.yml      # DATABASE_URL + REDIS_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
@@ -347,11 +347,30 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 ### 8.3 CI/CD 分层
 
-| 阶段 | 内容 |
-|------|------|
-| 每次 push | lint + pytest |
-| 合并 main / tag | Docker 镜像构建 |
-| 大版本 tag | CD 部署到云服务器 + alembic upgrade |
+| 阶段 | 内容 | 实现 |
+|------|------|------|
+| **Validate** | lint（ruff + check-test-imports）独立 job；test 按域 5 路 matrix 并行 | `.github/workflows/ci.yml`（`feature/infra-ci-docker`） |
+| **Build** | 多阶段 Dockerfile → GHCR；`push main` / `v*` tag 触发 | `.github/workflows/docker-build.yml`；`Dockerfile` |
+| **Deploy** | CD 部署到云服务器 + alembic upgrade | 留给 `infra-cd-compose`（后续 change） |
+
+**CI job 结构**（`ci.yml`）：
+
+```text
+lint:  ruff + check-test-imports（无 services；显式 apt install ripgrep）
+test:  5 路 matrix.domain ∈ {user, catalog, ordering, infra, unit}
+       setup-matrix job 按 workflow_dispatch.domain 输入动态决定展开哪些行
+       每 job: mysql + redis services → migrate → pytest --alluredir → upload artifact
+```
+
+**Docker Build 结构**（`docker-build.yml`）：
+
+```text
+push main → build + push GHCR（tag: latest + sha-<short>）
+push v*   → build + push GHCR（tag: semver + sha-<short>）
+workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
+```
+
+> **踩坑记录**：`gh workflow run` / GitHub Actions API 只识别**默认分支**上的 workflow 文件。在 feature 分支新增 `docker-build.yml` 后，`gh workflow run "Docker Build" --ref feature/...` 返回 404 "could not find any workflows"。即使 `--ref` 指定了 feature 分支，GitHub 也只从默认分支（`dev` / `main`）的 `.github/workflows/` 目录查找。解决方案有二：(1) 合并到 dev 后手动触发 `workflow_dispatch`；(2) 开 Draft PR 到 dev，利用 PR 事件触发 CI job（但 docker-build.yml 不在 PR 触发条件中）。最终选择方案 (1)，合并后通过 GitHub Actions UI 手动 Run workflow。此行为与 GitHub 文档一致——workflow 必须先存在于默认分支上才会被 `workflow_dispatch` 事件识别。
 
 ## 9. 相关文档
 

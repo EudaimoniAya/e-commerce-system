@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+import allure
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("买家 GET /orders 仅含自己的订单。")
 async def test_buyer_list_orders_only_own(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -83,6 +87,9 @@ async def test_buyer_list_orders_only_own(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("店主 GET /shops/me/orders 仅含本店订单。")
 async def test_shop_owner_list_me_orders(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -138,6 +145,9 @@ async def test_shop_owner_list_me_orders(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("既非买家也非本店店主 GET /orders/{id} 返回 404。")
 async def test_get_order_unrelated_user_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -175,6 +185,9 @@ async def test_get_order_unrelated_user_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("未认证访问列表与详情返回 401。")
 async def test_list_and_get_orders_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:
@@ -193,6 +206,9 @@ async def test_list_and_get_orders_unauthenticated_returns_401(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("过期后 GET /orders/{id} 触发懒释放：cancelled/expired 且库存还原。")
 async def test_get_order_triggers_lazy_release_after_expiry(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -235,6 +251,9 @@ async def test_get_order_triggers_lazy_release_after_expiry(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("过期后 GET /orders 列表触发懒释放：响应体 status=cancelled、reason=expired。")
 async def test_buyer_list_triggers_lazy_release_after_expiry(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -282,6 +301,9 @@ async def test_buyer_list_triggers_lazy_release_after_expiry(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("过期后 GET /shops/me/orders 列表触发懒释放：响应体 status=cancelled、reason=expired。")
 async def test_shop_owner_list_triggers_lazy_release_after_expiry(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -332,6 +354,9 @@ async def test_shop_owner_list_triggers_lazy_release_after_expiry(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("卖家建单后，指定买家在 GET /orders 中可见该订单。")
 async def test_seller_order_visible_to_buyer_in_list(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -379,6 +404,9 @@ async def test_seller_order_visible_to_buyer_in_list(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("买家建单后，GET /orders 响应行含 initiated_by=buyer。")
 async def test_buyer_order_initiated_by_buyer_in_list(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -419,6 +447,9 @@ async def test_buyer_order_initiated_by_buyer_in_list(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("list_orders")
+@allure.title("过期后，卖家建单在买家 GET /orders 列表触发懒释放。")
 async def test_seller_order_lazy_release_in_buyer_list(
     integration_client: AsyncClient,
     db_session: AsyncSession,

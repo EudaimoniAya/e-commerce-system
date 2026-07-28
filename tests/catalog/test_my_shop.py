@@ -1,5 +1,6 @@
 """catalog 域 GET/PATCH /shops/me integration 测试（TDD 红阶段）。"""
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 
@@ -12,6 +13,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("已认证店主查询 /shops/me 返回 200 与完整店铺对象")
 async def test_get_my_shop_returns_200_when_owner_has_shop(
     integration_client: AsyncClient, shop_owner: ShopOwnerContext
 ) -> None:
@@ -29,6 +33,9 @@ async def test_get_my_shop_returns_200_when_owner_has_shop(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("已认证但尚无店铺的用户查询 /shops/me 返回 404")
 async def test_get_my_shop_returns_404_when_no_shop(
     integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
@@ -45,6 +52,9 @@ async def test_get_my_shop_returns_404_when_no_shop(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("未携带 Bearer token 查询 /shops/me 返回 401")
 async def test_get_my_shop_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:
@@ -56,6 +66,9 @@ async def test_get_my_shop_unauthenticated_returns_401(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("店主 PATCH /shops/me 更新字段成功返回 200")
 async def test_patch_my_shop_returns_200(
     integration_client: AsyncClient, shop_owner: ShopOwnerContext
 ) -> None:
@@ -76,6 +89,9 @@ async def test_patch_my_shop_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("店主 PATCH /shops/me 设置 status 为 closed 返回 200")
 async def test_patch_my_shop_status_closed_returns_200(
     integration_client: AsyncClient, shop_owner: ShopOwnerContext
 ) -> None:
@@ -93,6 +109,9 @@ async def test_patch_my_shop_status_closed_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("已认证但尚无店铺的用户 PATCH /shops/me 返回 404")
 async def test_patch_my_shop_returns_404_when_no_shop(
     integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
@@ -111,6 +130,9 @@ async def test_patch_my_shop_returns_404_when_no_shop(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("店主 PATCH 店名与其他店铺冲突时返回 422")
 async def test_patch_my_shop_name_conflict_returns_422(
     integration_client: AsyncClient,
 ) -> None:
@@ -138,6 +160,9 @@ async def test_patch_my_shop_name_conflict_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_shop")
+@allure.title("未携带 Bearer token PATCH /shops/me 返回 401")
 async def test_patch_my_shop_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:

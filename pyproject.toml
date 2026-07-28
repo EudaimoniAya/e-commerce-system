@@ -24,6 +24,7 @@ dev = [
     "ruff",
     "pytest-asyncio",
     "mypy>=2.3.0",
+    "allure-pytest",
 ]
 
 [build-system]

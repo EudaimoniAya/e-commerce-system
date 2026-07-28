@@ -9,6 +9,8 @@ AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OT
 
 本地工具链由 devbox 提供：Python 3.13、uv、go-task、MySQL 8.0、**Redis 8.0**。
 
+> **`task check-test-imports` 依赖 `rg`（ripgrep）**：脚本 `scripts/check_no_test_cross_imports.sh` 使用 ripgrep 扫描 test 互 import。Implement `infra-ci-docker` §7 后，`devbox.json` 将包含 `ripgrep`；此前本地可 `sudo apt install ripgrep`。CI lint job 亦须在跑该 Task 前显式安装 ripgrep（不得假设 runner 预装）。
+
 > **重要**：所有 `task` 命令（含 `db:*`、`redis:*`）须在 `devbox shell` 内执行（或使用 `devbox run -- task …`）。
 
 ## 快速开始
@@ -232,21 +234,7 @@ curl -X POST http://127.0.0.1:8000/cart/checkout \
   -d '{"cart_item_ids":["<cart_item_id>"]}'
 ```
 
-一键烟雾测试：
-
-```bash
-# 手机号认证：send → register → login → PATCH /users/me
-bash scripts/user_phone_auth_curl_smoke.sh
-
-# 店铺：SMS 注册 → 开店 → me → patch closed → 公开 GET
-bash scripts/catalog_shop_curl_smoke.sh
-
-# 订单：下单 → pay → shipments → confirm-receipt；短 TTL 懒释放
-bash scripts/ordering_buyer_curl_smoke.sh
-
-# 购物车：加购 → list → checkout → batch-pay
-bash scripts/ordering_cart_curl_smoke.sh
-```
+> 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci`（或 `task test:user` / `test:catalog` / `test:ordering`）中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
 
 验证 MySQL 双库（可选）：
 
@@ -263,9 +251,17 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 |------|------|
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
-| `task test` | 运行 pytest（自动 `APP_ENV_FILE=.env.test`） |
-| `task ci` | 本地 CI：`ruff` + test-import 检查 + `test`（**不**自动 `db:up` / `redis:up`） |
+| `task test` | 运行全部 pytest（自动 `APP_ENV_FILE=.env.test`） |
+| `task test:user` | 仅 user 域测试（`tests/user/` + `tests/unit/user/`） |
+| `task test:catalog` | 仅 catalog 域测试（`tests/catalog/` + `tests/unit/catalog/`） |
+| `task test:ordering` | 仅 ordering 域测试（`tests/ordering/`） |
+| `task test:infra` | 仅 infra + ops 测试（`tests/infra/` + `tests/ops/`） |
+| `task test:unit` | 仅纯单元测试（`tests/unit/`） |
+| `task ci` | 本地 CI：`ruff` + test-import 检查（**依赖 `rg`/ripgrep**）+ `test`（**不**自动 `db:up` / `redis:up`） |
+| `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
+| `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up`） |
+| `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |
 
 ### 数据库（本地 devbox）
 
@@ -287,6 +283,31 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task redis:down` | 停止 devbox Redis 服务 |
 
 实现脚本：`scripts/devbox_redis_{up,down}.sh`。
+
+### Allure 测试报告（本地）
+
+Allure CLI 需本地安装（非 devbox 提供）。macOS：`brew install allure`；Linux：
+
+```bash
+# Ubuntu/Debian
+sudo apt-add-repository ppa:qameta/allure
+sudo apt update
+sudo apt install allure
+
+# 或手动下载：https://github.com/allure-framework/allure2/releases
+```
+
+生成并查看报告：
+
+```bash
+# 运行测试并生成 Allure 报告（自动 db:up + redis:up）
+task test:reports
+
+# 在浏览器中打开报告
+task latest:report
+```
+
+`reports/` 目录已加入 `.gitignore`，不会提交到仓库。CI 每 matrix job 上传 `allure-results` artifact（14 天保留），供本地下载后 `allure generate` 查看。
 
 ### `db:up` 预期输出
 
@@ -373,20 +394,72 @@ feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入�
 
 Workflow：`.github/workflows/ci.yml`
 
+### 结构
+
+```text
+lint:  ruff + check-test-imports（无 services，显式 apt install ripgrep）
+test:  5 路 domain matrix 并行：
+       user | catalog | ordering | infra | unit
+       每 job 独立 mysql + redis services → migrate → pytest --alluredir → upload artifact
+```
+
+| 域名 | pytest 路径 |
+|------|------------|
+| `user` | `tests/user tests/unit/user` |
+| `catalog` | `tests/catalog tests/unit/catalog` |
+| `ordering` | `tests/ordering` |
+| `infra` | `tests/infra tests/ops` |
+| `unit` | `tests/unit` |
+
+### 触发
+
 | 事件 | 分支 / 方式 |
 |------|-------------|
 | `pull_request` | `dev`, `main` |
 | `push` | `dev`, `main` |
-| `workflow_dispatch` | 任意分支手动触发（feature 开发验证用） |
-
-CI job 顺序：mysql + **redis** service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`（workflow `env` 含 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`、`SMS_OTP_FIXED_CODE=123456`）。
+| `workflow_dispatch` | 任意分支手动触发，可选 `domain`（all/user/catalog/ordering/infra/unit） |
 
 ```bash
-# feature 分支手动触发远程 CI（CLI）
-gh workflow run CI --ref <your-feature-branch>
+# CLI 手动触发远程 CI
+gh workflow run CI --ref <branch> -f domain=user
 ```
 
-GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/github-actions-pinning.mdc`）。
+### Allure 报告
+
+- CI 每 matrix job 上传 `allure-results-<domain>` artifact（保留 14 天）
+- 本地 `task test:reports` 生成 HTML；`task latest:report` 浏览器查看
+- `reports/` 目录已 `.gitignore`
+
+GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/github-actions-pinning.mdc`）。lint job 中 `check-test-imports` 依赖 `rg`（ripgrep），CI 在 job 内 `apt-get install ripgrep`。
+
+## Docker 镜像
+
+```bash
+# 本地构建（验证 Dockerfile 语法）
+docker build -t e-commerce-system .
+
+# 远程构建（gh CLI，合入 main 后自动触发或 workflow_dispatch 手动）
+gh workflow run "Docker Build" --ref main
+```
+
+| 触发 | Tag |
+|------|-----|
+| `push main` | `latest`、`sha-<short>` |
+| `push v*` tag | semver（`v1.0.0`、`v1.0`、`v1`）、`sha-<short>` |
+
+Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
+
+镜像仅含 FastAPI app + 生产依赖（不含 MySQL/Redis/tests）。运行时需环境变量注入 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`。
+
+> **踩坑记录**：`gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。feature 分支新增 `docker-build.yml` 后 `gh workflow run "Docker Build" --ref feature/...` 返回 404。workflow 必须先存在于默认分支才会被 `workflow_dispatch` 事件识别，这是 GitHub Actions 的设计约束。
+
+## 版本策略
+
+| Tag | 含义 |
+|-----|------|
+| `v1.0.0` | 电商底座 MVP 首次 release（本 change 合入 main 后） |
+| `v1.x.0` | 底座完善（engagement、infra-cd-compose 等） |
+| `v2.0.0` | AI 平台阶段 |
 
 ## Definition of Done（DoD）
 

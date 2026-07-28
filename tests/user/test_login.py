@@ -6,6 +6,7 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md MODIFIED Requirement）：
 - 用户已禁用 → 403
 """
 
+import allure
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,9 @@ from tests.support.builders import build_login_request
 from tests.support.db.user import seed_inactive_user
 
 
+@allure.epic("user")
+@allure.feature("login")
+@allure.title("正确手机号 + 密码且 active 时登录返回 200 与 token。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_success_returns_200_and_token(
@@ -39,6 +43,9 @@ async def test_login_success_returns_200_and_token(
     assert user.phone == registered.phone
 
 
+@allure.epic("user")
+@allure.feature("login")
+@allure.title("密码错误返回 422（不暴露是否存在）。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_wrong_password_returns_422(
@@ -59,6 +66,9 @@ async def test_login_wrong_password_returns_422(
     assert body["error"]["code"] == "INVALID_CREDENTIALS"
 
 
+@allure.epic("user")
+@allure.feature("login")
+@allure.title("手机号不存在返回 422（与密码错误响应一致）。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_nonexistent_phone_returns_422(
@@ -76,6 +86,9 @@ async def test_login_nonexistent_phone_returns_422(
     assert body["error"]["code"] == "INVALID_CREDENTIALS"
 
 
+@allure.epic("user")
+@allure.feature("login")
+@allure.title("is_active=false 用户凭据正确时返回 403。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_inactive_user_returns_403(

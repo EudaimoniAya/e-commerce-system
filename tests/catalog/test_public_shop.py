@@ -2,6 +2,7 @@
 
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 
@@ -12,6 +13,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_shop")
+@allure.title("活跃店铺公开 GET 返回 200 与 status active")
 async def test_get_public_shop_active_returns_200(
     integration_client: AsyncClient, shop_owner: ShopOwnerContext
 ) -> None:
@@ -28,6 +32,9 @@ async def test_get_public_shop_active_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_shop")
+@allure.title("已关闭店铺公开 GET 仍返回 200 与 status closed")
 async def test_get_public_shop_closed_returns_200(
     integration_client: AsyncClient, shop_owner: ShopOwnerContext
 ) -> None:
@@ -51,6 +58,9 @@ async def test_get_public_shop_closed_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_shop")
+@allure.title("不存在的 shop_id 公开 GET 返回 404")
 async def test_get_public_shop_not_found_returns_404(
     integration_client: AsyncClient,
 ) -> None:

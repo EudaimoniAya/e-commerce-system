@@ -10,6 +10,7 @@ BDD 场景覆盖（对应 specs/ordering-seller-orders/spec.md Requirement 3）�
 import uuid
 from unittest.mock import AsyncMock
 
+import allure
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,9 @@ def _user_service(repo: UserRepository) -> UserService:
     return UserService(repo, SmsOtpService(AsyncMock()))
 
 
+@allure.epic("user")
+@allure.feature("user_summary")
+@allure.title("存在且 active 的用户返回 UserSummary（含 id + nickname，不含 email）。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_user_summary_active_user_returns_summary(
@@ -47,6 +51,9 @@ async def test_get_user_summary_active_user_returns_summary(
     # UserSummary 按设计不含 email
 
 
+@allure.epic("user")
+@allure.feature("user_summary")
+@allure.title("不存在的 user_id 返回 404。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_user_summary_not_found_returns_404(
@@ -61,6 +68,9 @@ async def test_get_user_summary_not_found_returns_404(
     assert exc_info.value.status_code == 404
 
 
+@allure.epic("user")
+@allure.feature("user_summary")
+@allure.title("is_active=false 的用户返回 422。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_user_summary_disabled_user_returns_422(

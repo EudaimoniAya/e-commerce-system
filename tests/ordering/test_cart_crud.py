@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+import allure
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,9 @@ from tests.support.utils import bearer_headers, decode_jwt_sub
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("认证用户加购可购商品成功，返回 201。")
 async def test_add_cart_item_returns_201(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -51,6 +55,9 @@ async def test_add_cart_item_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("加购不存在的商品返回 422。")
 async def test_add_cart_item_product_not_found_returns_422(
     integration_client: AsyncClient,
     authenticated_user: AuthContext,
@@ -69,6 +76,9 @@ async def test_add_cart_item_product_not_found_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("重复加购同一商品累加 qty，不报错。")
 async def test_add_cart_item_duplicate_product_accumulates_qty(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -112,6 +122,9 @@ async def test_add_cart_item_duplicate_product_accumulates_qty(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("认证用户修改本人 cart item 数量成功，返回 200。")
 async def test_patch_cart_item_updates_qty_returns_200(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -145,6 +158,9 @@ async def test_patch_cart_item_updates_qty_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("PATCH 不存在的 cart_item id 返回 404。")
 async def test_patch_cart_item_not_found_returns_404(
     integration_client: AsyncClient,
     authenticated_user: AuthContext,
@@ -163,6 +179,9 @@ async def test_patch_cart_item_not_found_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("PATCH 他人 cart item 返回 404（不暴露存在性）。")
 async def test_patch_other_user_cart_item_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -197,6 +216,9 @@ async def test_patch_other_user_cart_item_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("认证用户删除本人 cart item 成功，返回 204。")
 async def test_delete_cart_item_returns_204(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -226,6 +248,9 @@ async def test_delete_cart_item_returns_204(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("DELETE 不存在的 cart_item id 返回 404。")
 async def test_delete_cart_item_not_found_returns_404(
     integration_client: AsyncClient,
     authenticated_user: AuthContext,
@@ -243,6 +268,9 @@ async def test_delete_cart_item_not_found_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("DELETE 他人 cart item 返回 404（不暴露存在性）。")
 async def test_delete_other_user_cart_item_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -276,6 +304,9 @@ async def test_delete_other_user_cart_item_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_crud")
+@allure.title("未认证访问 cart 端点均返回 401。")
 async def test_cart_crud_unauthenticated_returns_401(
     integration_client: AsyncClient,
     db_session: AsyncSession,

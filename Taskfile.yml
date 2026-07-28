@@ -24,6 +24,57 @@ tasks:
       # pytest 无测试收集时返回 5；包装为 0，真实失败仍向上传递
       - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
 
+  test:user:
+    desc: 运行 user 域测试（含 unit/user）
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/user','tests/unit/user']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:catalog:
+    desc: 运行 catalog 域测试（含 unit/catalog）
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/catalog','tests/unit/catalog']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:ordering:
+    desc: 运行 ordering 域测试
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/ordering']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:infra:
+    desc: 运行 infra + ops 测试
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/infra','tests/ops']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:unit:
+    desc: 运行纯单元测试
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/unit']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:reports:
+    desc: 运行 pytest 并生成 Allure 报告
+    deps:
+      - db:up
+      - redis:up
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','--alluredir=reports/allure-results']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+      - allure generate -o reports/allure-report --clean reports/allure-results
+
+  latest:report:
+    desc: 在浏览器中打开最近生成的 Allure 报告
+    cmds:
+      - bash scripts/allure_open_report.sh
+
   ci:
     desc: 本地 CI（ruff + test-import 检查 + test）
     cmds:

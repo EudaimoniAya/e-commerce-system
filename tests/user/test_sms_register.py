@@ -12,6 +12,7 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md）：
 import re
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient
 
@@ -21,6 +22,9 @@ from tests.support.builders import build_sms_register_request
 _DEFAULT_NICKNAME_PATTERN = re.compile(r"^用户_\d{14,17}$")
 
 
+@allure.epic("user")
+@allure.feature("sms_register")
+@allure.title("新用户合法 OTP + password 注册成功，返回 201 与 token。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_register_success_returns_201_and_token(
@@ -42,6 +46,9 @@ async def test_register_success_returns_201_and_token(
     assert user.nickname
 
 
+@allure.epic("user")
+@allure.feature("sms_register")
+@allure.title("手机号已注册时返回 422。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_register_phone_already_exists_returns_422(
@@ -55,6 +62,9 @@ async def test_register_phone_already_exists_returns_422(
     assert second.status_code == 422
 
 
+@allure.epic("user")
+@allure.feature("sms_register")
+@allure.title("缺少 password 返回 422。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_register_without_password_returns_422(
@@ -68,6 +78,9 @@ async def test_register_without_password_returns_422(
     assert response.status_code == 422
 
 
+@allure.epic("user")
+@allure.feature("sms_register")
+@allure.title("OTP 错误返回 422。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_register_wrong_otp_returns_422(
@@ -85,6 +98,9 @@ async def test_register_wrong_otp_returns_422(
     assert "Invalid or expired verification code" in str(err)
 
 
+@allure.epic("user")
+@allure.feature("sms_register")
+@allure.title("未提供 nickname 时使用默认昵称。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_register_default_nickname_when_omitted(
@@ -97,6 +113,9 @@ async def test_register_default_nickname_when_omitted(
     assert _DEFAULT_NICKNAME_PATTERN.match(result.body.user.nickname)
 
 
+@allure.epic("user")
+@allure.feature("sms_register")
+@allure.title("OTP 验证失败超上限返回 429。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_register_exceed_fail_limit_returns_429(

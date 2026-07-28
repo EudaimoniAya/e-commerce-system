@@ -6,6 +6,7 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md MODIFIED Requirement）：
 - token 无效 → 401
 """
 
+import allure
 import pytest
 from httpx import AsyncClient
 
@@ -15,6 +16,9 @@ from tests.support.contexts import AuthContext
 from tests.support.utils import bearer_headers
 
 
+@allure.epic("user")
+@allure.feature("me")
+@allure.title("有效 Bearer token 返回当前用户资料（含 phone）。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_me_returns_200_with_valid_token(
@@ -30,6 +34,9 @@ async def test_me_returns_200_with_valid_token(
     assert body.phone == authenticated_user.phone
 
 
+@allure.epic("user")
+@allure.feature("me")
+@allure.title("未携带 Authorization 返回 401。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_me_without_token_returns_401(integration_client: AsyncClient) -> None:
@@ -38,6 +45,9 @@ async def test_me_without_token_returns_401(integration_client: AsyncClient) -> 
     assert response.status_code == 401
 
 
+@allure.epic("user")
+@allure.feature("me")
+@allure.title("无效 Bearer token 返回 401。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_me_with_invalid_token_returns_401(

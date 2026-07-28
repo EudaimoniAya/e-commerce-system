@@ -29,7 +29,7 @@ Case 文件 SHALL NOT import 其他 test 模块（`from tests.<domain>.test_* im
 
 #### Scenario: no cross-test-module imports
 
-- **WHEN** 对 `tests/` 运行 grep 检查 `from tests\.(catalog|user|infra|health|ops)\.test_`
+- **WHEN** 对 `tests/` 运行 `rg`（`task check-test-imports`）检查 `from tests\.(catalog|user|infra|health|ops)\.test_`
 - **THEN** SHALL 无匹配
 
 ### Requirement: Assert-First and visible Act
@@ -120,12 +120,36 @@ Health、readiness、migration smoke 探针 SHALL 位于 `tests/ops/`。纯 JWT/
 
 ### Requirement: Enforcement tooling
 
-项目 SHALL 对 `tests/` 启用 ruff ANN 规则。CI SHALL 包含 grep 检查禁止 test 模块互 import。
+项目 SHALL 对 `tests/` 启用 ruff ANN 规则。CI SHALL 包含 **ripgrep（`rg`）** 检查禁止 test 模块互 import（`task check-test-imports` → `scripts/check_no_test_cross_imports.sh`）。
+
+执行 `check-test-imports` 的环境 **SHALL** 提供 `rg`：**CI lint job** 须在运行该 Task 前显式安装 ripgrep；**本地 devbox** 须在 `devbox.json` `packages` 中包含 `ripgrep`（见 `infra-ci-docker` change `tasks.md` §7.1a、`infra-ci` spec）。**SHALL NOT** 假设 GitHub runner 或裸 WSL 已预装 `rg`。
 
 #### Scenario: ci rejects cross test import
 
 - **WHEN** 某 test 文件新增 `from tests.catalog.test_create_product import ...`
-- **THEN** CI grep step SHALL 失败
+- **THEN** `task check-test-imports`（`rg` 扫描）SHALL 以非零退出码失败
+
+#### Scenario: check-test-imports 因缺少 rg 失败视为环境未就绪
+
+- **WHEN** 运行 `task check-test-imports` 且 shell 报 `Command 'rg' not found`
+- **THEN** SHALL 视为工具链未配置（安装 ripgrep 或启用 devbox 包），而非测试代码通过
+
+### Requirement: No redundant curl smoke scripts in scripts/
+
+项目 **SHALL NOT** 在 `scripts/` 下新增与 pytest integration 重复的 `*_curl_smoke.sh` 或等价 bash HTTP 编排脚本。业务 API 主流程与回归 SHALL 由 `tests/{domain}/` integration Case + `tests/support/helper/` 覆盖，并经 `task ci` / 域测试任务在 CI 与本地执行。
+
+README MAY 保留零散的 curl 示例供手动调试，但 **SHALL NOT** 维护「一键烟雾」类 shell 脚本作为第二套自动化测试。
+
+#### Scenario: apply 本地验证不依赖 curl 烟雾脚本
+
+- **WHEN** OpenSpec change 的 tasks 描述本地验证或 DoD
+- **THEN** SHALL 以 `devbox run -- task migrate` + `devbox run -- task ci`（或域 `task test:*`）为验收标准
+- **AND** SHALL NOT 要求新增或运行 `scripts/*_curl_smoke.sh`
+
+#### Scenario: scripts 目录无 curl 烟雾脚本
+
+- **WHEN** 列出 `scripts/` 目录
+- **THEN** SHALL NOT 存在 `*_curl_smoke.sh` 文件
 
 ### Requirement: Bearer header projection without stored copies
 

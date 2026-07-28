@@ -1,6 +1,7 @@
 """ordering 域 POST /orders/{id}/cancel integration 测试（TDD 红阶段）。"""
 
 import pytest
+import allure
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cancel_order")
+@allure.title("买家取消 awaiting_payment 订单：200、buyer_cancelled、库存加回。")
 async def test_buyer_cancel_awaiting_payment_releases_stock(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -62,6 +66,9 @@ async def test_buyer_cancel_awaiting_payment_releases_stock(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cancel_order")
+@allure.title("卖家取消 confirmed 订单：200、seller_cancelled、库存加回。")
 async def test_seller_cancel_confirmed_releases_stock(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -99,6 +106,9 @@ async def test_seller_cancel_confirmed_releases_stock(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cancel_order")
+@allure.title("completed 订单禁止取消：409 且库存不变。")
 async def test_cancel_completed_returns_409_without_stock_change(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -151,6 +161,9 @@ async def test_cancel_completed_returns_409_without_stock_change(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cancel_order")
+@allure.title("未认证取消返回 401。")
 async def test_cancel_order_unauthenticated_returns_401(
     integration_client: AsyncClient,
     db_session: AsyncSession,

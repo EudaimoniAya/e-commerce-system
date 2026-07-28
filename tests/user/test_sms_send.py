@@ -6,6 +6,7 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md）：
 - 日发送次数超限返回 429
 """
 
+import allure
 import pytest
 from httpx import AsyncClient
 
@@ -13,6 +14,9 @@ from tests.support.helper.auth import send_sms_otp
 from tests.support.builders import build_sms_send_request
 
 
+@allure.epic("user")
+@allure.feature("sms_send")
+@allure.title("合法手机号发送 OTP 返回 200。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_send_valid_phone_returns_200(integration_client: AsyncClient) -> None:
@@ -21,6 +25,9 @@ async def test_send_valid_phone_returns_200(integration_client: AsyncClient) -> 
     assert result.status_code == 200
 
 
+@allure.epic("user")
+@allure.feature("sms_send")
+@allure.title("格式非法手机号返回 422（无法规范化为 11 位）。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_send_invalid_phone_returns_422(integration_client: AsyncClient) -> None:
@@ -32,6 +39,9 @@ async def test_send_invalid_phone_returns_422(integration_client: AsyncClient) -
     assert response.status_code == 422
 
 
+@allure.epic("user")
+@allure.feature("sms_send")
+@allure.title("日发送次数超限返回 429。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_send_daily_limit_exceeded_returns_429(

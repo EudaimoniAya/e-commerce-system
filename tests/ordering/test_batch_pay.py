@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+import allure
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,9 @@ from tests.support.utils import bearer_headers, decode_jwt_sub
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("batch-pay 多个 awaiting_payment 订单成功，全部 → confirmed。")
 async def test_batch_pay_multi_order_returns_200(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -64,6 +68,9 @@ async def test_batch_pay_multi_order_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("空 order_ids 返回 422。")
 async def test_batch_pay_empty_order_ids_returns_422(
     integration_client: AsyncClient,
     authenticated_user: AuthContext,
@@ -79,6 +86,9 @@ async def test_batch_pay_empty_order_ids_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("batch-pay 可混合不同 batch 子单与立即购买单，未选单不受影响。")
 async def test_batch_pay_cross_batch_and_immediate(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -151,6 +161,9 @@ async def test_batch_pay_cross_batch_and_immediate(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("跨 batch 子集支付：每 batch 各付 1 单，未付单仍 awaiting_payment。")
 async def test_batch_pay_subset(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -220,6 +233,9 @@ async def test_batch_pay_subset(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("部分订单过期时 batch-pay 全失败（409），零确认。")
 async def test_batch_pay_partial_expired_returns_409_zero_confirmed(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -265,6 +281,9 @@ async def test_batch_pay_partial_expired_returns_409_zero_confirmed(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("含非 awaiting_payment 订单时 batch-pay 返回 409。")
 async def test_batch_pay_illegal_state_returns_409(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -315,6 +334,9 @@ async def test_batch_pay_illegal_state_returns_409(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("含他人订单时 batch-pay 返回 404（不暴露存在性）。")
 async def test_batch_pay_other_user_order_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -354,6 +376,9 @@ async def test_batch_pay_other_user_order_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("batch_pay")
+@allure.title("未认证 batch-pay 返回 401。")
 async def test_batch_pay_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:

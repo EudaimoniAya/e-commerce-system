@@ -61,6 +61,10 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+reports/
+
+# 本地临时工具（如手动下载的 Allure CLI），勿提交
+.tools/
 
 # =========================
 # 类型检查与 Lint

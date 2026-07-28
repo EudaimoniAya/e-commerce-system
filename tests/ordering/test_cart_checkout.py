@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+import allure
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,9 @@ from tests.support.utils import bearer_headers, decode_jwt_sub
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_checkout")
+@allure.title("跨店 checkout 成功：每店创建 1 个子订单，同属一个 checkout_batch。")
 async def test_checkout_cross_shop_returns_201(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -94,6 +98,9 @@ async def test_checkout_cross_shop_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_checkout")
+@allure.title("部分结算：仅指定 cart_item_ids 被 checkout，其余保留。")
 async def test_checkout_partial_keeps_unselected_cart_items(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -146,6 +153,9 @@ async def test_checkout_partial_keeps_unselected_cart_items(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_checkout")
+@allure.title("空 cart_item_ids 返回 422，不创建 batch 或 orders。")
 async def test_checkout_empty_cart_item_ids_returns_422(
     integration_client: AsyncClient,
     authenticated_user: AuthContext,
@@ -161,6 +171,9 @@ async def test_checkout_empty_cart_item_ids_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_checkout")
+@allure.title("库存不足 checkout 失败返回 422，cart 不变。")
 async def test_checkout_insufficient_stock_returns_422_cart_unchanged(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -209,6 +222,9 @@ async def test_checkout_insufficient_stock_returns_422_cart_unchanged(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_checkout")
+@allure.title("checkout 锁价：order_items.unit_price 为 checkout 时刻快照。")
 async def test_checkout_price_snapshot(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -243,6 +259,9 @@ async def test_checkout_price_snapshot(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_checkout")
+@allure.title("店主 checkout 本店商品返回 403，不创建 batch 或 orders。")
 async def test_checkout_self_purchase_returns_403(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -272,6 +291,9 @@ async def test_checkout_self_purchase_returns_403(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_checkout")
+@allure.title("未认证 checkout 返回 401。")
 async def test_checkout_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:

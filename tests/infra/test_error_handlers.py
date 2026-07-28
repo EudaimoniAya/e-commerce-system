@@ -3,6 +3,7 @@
 本文件仅编写测试用例；exception handlers 与 register 函数在 Task 2.2 实现。
 """
 
+import allure
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -84,6 +85,9 @@ class TestErrorResponseEnvelope:
     """spec: Unified error response envelope — 顶层键 error，非 detail。"""
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("校验失败时响应体顶层为 error，不存在 detail")
     async def test_422_has_error_not_detail(
         self,
         client_with_handlers: AsyncClient,
@@ -99,6 +103,9 @@ class TestErrorResponseEnvelope:
         assert "detail" not in body, "不应使用 FastAPI 默认 detail 键"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("error 对象包含 code、message、request_id 三个字段")
     async def test_error_object_has_code_message_request_id(
         self,
         client_with_handlers: AsyncClient,
@@ -114,6 +121,9 @@ class TestErrorResponseEnvelope:
         assert error["request_id"] != ""
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("200 成功响应不应包含 error 对象")
     async def test_2xx_response_does_not_have_error(
         self,
         client_with_handlers: AsyncClient,
@@ -132,6 +142,9 @@ class TestValidationErrorHandler:
     """spec: RequestValidationError handler — 422，code=VALIDATION_ERROR。"""
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("请求体校验失败 → code=VALIDATION_ERROR")
     async def test_validation_error_code_is_validation_error(
         self,
         client_with_handlers: AsyncClient,
@@ -145,6 +158,9 @@ class TestValidationErrorHandler:
         assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("校验错误 message 为 Pydantic errors() 数组")
     async def test_validation_error_message_is_array(
         self,
         client_with_handlers: AsyncClient,
@@ -169,6 +185,9 @@ class TestHTTPExceptionCodeResolution:
     """spec: HTTPException handler with mixed code resolution。"""
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("字符串 detail → code 按 status 映射泛化码")
     async def test_string_detail_maps_status_to_generic_code(
         self,
         client_with_handlers: AsyncClient,
@@ -181,6 +200,9 @@ class TestHTTPExceptionCodeResolution:
         assert body["error"]["message"] == "Something went wrong"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("dict detail 含 code → 使用语义 code")
     async def test_dict_detail_uses_semantic_code(
         self,
         client_with_handlers: AsyncClient,
@@ -193,6 +215,9 @@ class TestHTTPExceptionCodeResolution:
         assert body["error"]["message"] == "Invalid phone or password"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("404 → code=NOT_FOUND")
     async def test_404_maps_to_not_found(
         self,
         client_with_handlers: AsyncClient,
@@ -204,6 +229,9 @@ class TestHTTPExceptionCodeResolution:
         assert body["error"]["code"] == "NOT_FOUND"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("401 → code=UNAUTHORIZED")
     async def test_401_maps_to_unauthorized(
         self,
         client_with_handlers: AsyncClient,
@@ -215,6 +243,9 @@ class TestHTTPExceptionCodeResolution:
         assert body["error"]["code"] == "UNAUTHORIZED"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("403 → code=FORBIDDEN")
     async def test_403_maps_to_forbidden(
         self,
         client_with_handlers: AsyncClient,
@@ -225,6 +256,9 @@ class TestHTTPExceptionCodeResolution:
         assert body["error"]["code"] == "FORBIDDEN"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("409 → code=CONFLICT")
     async def test_409_maps_to_conflict(
         self,
         client_with_handlers: AsyncClient,
@@ -235,6 +269,9 @@ class TestHTTPExceptionCodeResolution:
         assert body["error"]["code"] == "CONFLICT"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("非标准 4xx → code=HTTP_418")
     async def test_unknown_4xx_uses_http_prefix_code(
         self,
         client_with_handlers: AsyncClient,
@@ -252,6 +289,9 @@ class TestUnhandledExceptionHandler:
     """spec: Unhandled exception handler — 500，code=INTERNAL_ERROR，不暴露 traceback。"""
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("未捕获异常 → 500，code=INTERNAL_ERROR")
     async def test_500_code_is_internal_error(
         self,
         client_with_handlers: AsyncClient,
@@ -262,6 +302,9 @@ class TestUnhandledExceptionHandler:
         assert response.json()["error"]["code"] == "INTERNAL_ERROR"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("500 message 为泛化文案，不暴露 traceback")
     async def test_500_message_is_generic(
         self,
         client_with_handlers: AsyncClient,
@@ -276,6 +319,9 @@ class TestUnhandledExceptionHandler:
         assert len(message) > 0
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("500 响应仍包含 request_id 字段")
     async def test_500_has_request_id(
         self,
         client_with_handlers: AsyncClient,
@@ -293,6 +339,9 @@ class TestErrorRequestId:
     """spec: Error responses include request_id aligned with middleware。"""
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("error.request_id 与响应头 X-Request-ID 一致")
     async def test_error_request_id_matches_response_header(
         self,
         client_with_handlers: AsyncClient,
@@ -308,6 +357,9 @@ class TestErrorRequestId:
         ), f"body request_id ({body_id}) 应与 header ({header_id}) 一致"
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("422 校验错误也包含 request_id")
     async def test_validation_error_has_request_id(
         self,
         client_with_handlers: AsyncClient,
@@ -329,6 +381,9 @@ class TestHTTPStatusPreserved:
     """HTTPException handler 保留业务层设置的 HTTP status。"""
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("error_handlers")
+    @allure.title("HTTPException 的 status_code 原样保留")
     async def test_status_code_preserved(
         self,
         client_with_handlers: AsyncClient,

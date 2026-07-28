@@ -4,7 +4,8 @@
     "uv@latest",
     "go-task@latest",
     "mysql80@latest",
-    "redis@8.0.3"
+    "redis@8.0.3",
+    "ripgrep@latest"
   ],
   "env": {
     "UV_PROJECT_ENVIRONMENT": ".venv",

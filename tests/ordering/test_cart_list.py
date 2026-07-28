@@ -1,6 +1,7 @@
 """ordering 域 GET /cart integration 测试（TDD 红阶段）。"""
 
 import pytest
+import allure
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,9 @@ from tests.support.utils import bearer_headers, decode_jwt_sub
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_list")
+@allure.title("空购物车返回 shops:[] 与 invalid_items:[]。")
 async def test_empty_cart_returns_shops_and_invalid_items_empty(
     integration_client: AsyncClient,
     authenticated_user: AuthContext,
@@ -30,6 +34,9 @@ async def test_empty_cart_returns_shops_and_invalid_items_empty(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_list")
+@allure.title("多店 cart 行按 shop_id 分组展示。")
 async def test_cart_list_grouped_by_shop(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -95,6 +102,9 @@ async def test_cart_list_grouped_by_shop(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_list")
+@allure.title("未上架商品进入 invalid_items，不自动删除。")
 async def test_cart_list_invalid_items_unpublished_product(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -135,6 +145,9 @@ async def test_cart_list_invalid_items_unpublished_product(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_list")
+@allure.title("关店商品进入 invalid_items，reason 为 shop_closed。")
 async def test_cart_list_invalid_items_closed_shop(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -185,6 +198,9 @@ async def test_cart_list_invalid_items_closed_shop(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_list")
+@allure.title("cart 列表展示 catalog 实时价（非快照）。")
 async def test_cart_list_real_time_price(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -234,6 +250,9 @@ async def test_cart_list_real_time_price(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_list")
+@allure.title("失效行仅在列表展示，不自动从 cart_items 表删除。")
 async def test_cart_list_no_auto_delete_invalid(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -275,6 +294,9 @@ async def test_cart_list_no_auto_delete_invalid(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("cart_list")
+@allure.title("未认证访问 GET /cart 返回 401。")
 async def test_cart_list_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:
