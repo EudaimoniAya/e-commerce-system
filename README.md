@@ -379,7 +379,7 @@ Workflow：`.github/workflows/ci.yml`
 | `push` | `dev`, `main` |
 | `workflow_dispatch` | 任意分支手动触发（feature 开发验证用） |
 
-CI job 顺序：mysql + **redis** service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`（workflow `env` 含 `DATABASE_URL`、`REDIS_URL` 与 `JWT_SECRET_KEY`）。
+CI job 顺序：mysql + **redis** service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`（workflow `env` 含 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`、`SMS_OTP_FIXED_CODE=123456`）。
 
 ```bash
 # feature 分支手动触发远程 CI（CLI）

@@ -19,6 +19,9 @@ env:
   DATABASE_URL: mysql+asyncmy://root@127.0.0.1:3306/ecommerce_test?charset=utf8mb4
   REDIS_URL: redis://127.0.0.1:6379/1
   JWT_SECRET_KEY: ci-test-secret-key-at-least-32-bytes!!
+  APP_ENV: test
+  # integration 测试 helper 默认 OTP "123456"，须与服务端固定码一致（.env.test 不入库）
+  SMS_OTP_FIXED_CODE: "123456"
   # 加载 .env.test（CI env 值覆盖文件中的 DATABASE_URL、REDIS_URL 和 JWT_SECRET_KEY）
   APP_ENV_FILE: .env.test
 
