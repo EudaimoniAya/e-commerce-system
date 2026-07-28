@@ -46,9 +46,9 @@
 
 ## 8. Docker 镜像
 
-- [ ] 8.1 编写多阶段 `Dockerfile` + `.dockerignore`（仅 app + 生产依赖）
-- [ ] 8.2 新增 `.github/workflows/docker-build.yml`：触发 main push + `v*` tag；build + push GHCR；`/health` 烟雾
-- [ ] 8.3 workflow `permissions: packages: write`；镜像 tag：`latest`、semver、`sha-*`
+- [x] 8.1 编写多阶段 `Dockerfile` + `.dockerignore`（仅 app + 生产依赖）
+- [x] 8.2 新增 `.github/workflows/docker-build.yml`：触发 main push + `v*` tag；build + push GHCR；`/health` 烟雾
+- [x] 8.3 workflow `permissions: packages: write`；镜像 tag：`latest`、semver、`sha-*`
 
 ## 9. DoD：本地验证与 CI
 
