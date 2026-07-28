@@ -10,7 +10,7 @@
 
 - [x] 2.1 扩展 `tests/support/builders.py`：`unique_phone`、`build_sms_send_request`、`build_sms_register_request`、`build_sms_login_request`、`build_login_request`
 - [x] 2.2 扩展 `tests/support/results.py` 与 `tests/support/contexts.py`：
-  - 新增 `SmsSendResult`、`**SmsRegisterResult`**、`**SmsLoginResult**`（OTP 登录，区别于密码 `LoginResult`）
+  - 新增 `SmsSendResult`、`**SmsRegisterResult`**、`**SmsLoginResult`**（OTP 登录，区别于密码 `LoginResult`）
   - `**LoginResult**`：`identifier`（手机号 + 密码）
   - `**AuthContext` / `ShopOwnerContext**`：含 `**phone**`
 - [x] 2.3 重写 `tests/support/helper/auth.py`：`send_sms_otp`、`register_user_via_otp` → `/auth/sms/register`、`login_user_via_otp` → `/auth/sms/login`
@@ -25,7 +25,7 @@
 
 - [x] 3.1 更新 `app/user/models.py`（`phone`、`email` nullable、`password_hash` nullable）；新增 migration `008_user_phone`
 - [x] 3.2 migration 回填 admin seed `phone='13800000000'`
-- [x] 3.3 更新 `tests/support/db/user.py`：`seed_active_user` / `seed_inactive_user` 支持可选 `**phone**`
+- [x] 3.3 更新 `tests/support/db/user.py`：`seed_active_user` / `seed_inactive_user` 支持可选 `**phone`**
 
 ## 4. SMS OTP 服务（绿 · 基础设施）
 
@@ -51,7 +51,7 @@
 
 ## 8. 文档与 DoD
 
-- [ ] 8.1 确认 DoD；可执行 `/opsx:archive`
+- [x] 8.1 确认 DoD；可执行 `/opsx:archive`
 
 > **Apply 约定**：§1.3 → §2（红）→ §3–§5（绿）；DB/Redis 使用 `devbox run --`。
 
