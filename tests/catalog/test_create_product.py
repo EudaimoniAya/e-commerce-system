@@ -2,6 +2,7 @@
 
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 
@@ -15,6 +16,9 @@ from tests.support.results import CategoryResult
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("create_product")
+@allure.title("店主在 active 店铺下创建商品成功，返回 201 与 ProductResponse")
 async def test_create_product_success_returns_201(
     integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
@@ -59,6 +63,9 @@ async def test_create_product_success_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("create_product")
+@allure.title("店铺 status 为 closed 时 POST /products 返回 422")
 async def test_create_product_closed_shop_returns_422(
     integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,
@@ -102,6 +109,9 @@ async def test_create_product_closed_shop_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("create_product")
+@allure.title("已认证但无店铺的用户 POST /products 返回 404")
 async def test_create_product_no_shop_returns_404(
     integration_client: AsyncClient,
     admin_auth_headers: AdminAuthContext,

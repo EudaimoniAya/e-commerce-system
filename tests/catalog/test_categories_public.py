@@ -2,6 +2,7 @@
 
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy import text
@@ -14,6 +15,9 @@ from tests.support.builders import unique_category_name
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("categories_public")
+@allure.title("GET /categories 无需认证，返回扁平类目列表")
 async def test_list_categories_returns_flat_list(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -51,6 +55,9 @@ async def test_list_categories_returns_flat_list(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("categories_public")
+@allure.title("尚无类目记录时 GET /categories 返回 200 与空数组")
 async def test_list_categories_empty_returns_200_and_empty_array(
     integration_client: AsyncClient, database_url: str
 ) -> None:

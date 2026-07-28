@@ -2,6 +2,7 @@
 
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 
@@ -14,6 +15,9 @@ from tests.support.results import CategoryResult
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("admin_categories")
+@allure.title("管理员创建根类目成功，返回 201 与完整类目资料")
 async def test_create_root_category_success_returns_201(
     integration_client: AsyncClient, admin_auth_headers: AdminAuthContext
 ) -> None:
@@ -36,6 +40,9 @@ async def test_create_root_category_success_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("admin_categories")
+@allure.title("管理员在父类目下创建子类目成功，返回 201")
 async def test_create_child_category_success_returns_201(
     integration_client: AsyncClient, admin_auth_headers: AdminAuthContext
 ) -> None:
@@ -67,6 +74,9 @@ async def test_create_child_category_success_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("admin_categories")
+@allure.title("同一 parent_id 下类目名重复返回 422")
 async def test_create_category_duplicate_sibling_name_returns_422(
     integration_client: AsyncClient, admin_auth_headers: AdminAuthContext
 ) -> None:
@@ -95,6 +105,9 @@ async def test_create_category_duplicate_sibling_name_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("admin_categories")
+@allure.title("非管理员创建类目返回 403")
 async def test_create_category_non_admin_returns_403(
     integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
@@ -112,6 +125,9 @@ async def test_create_category_non_admin_returns_403(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("admin_categories")
+@allure.title("未携带 Bearer token 创建类目返回 401")
 async def test_create_category_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:

@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 
 import pytest
+import allure
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order")
+@allure.title("同店多行可购商品下单成功，返回 201 并扣减库存。")
 async def test_create_order_multi_item_same_shop_returns_201(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -75,6 +79,9 @@ async def test_create_order_multi_item_same_shop_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order")
+@allure.title("跨店商品合单返回 422，且不建单、不扣库存。")
 async def test_create_order_cross_shop_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -120,6 +127,9 @@ async def test_create_order_cross_shop_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order")
+@allure.title("任一行 qty 超过可售库存返回 422，整单不建、库存不变。")
 async def test_create_order_insufficient_stock_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -148,6 +158,9 @@ async def test_create_order_insufficient_stock_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order")
+@allure.title("未上架商品不可下单，返回 422。")
 async def test_create_order_unpublished_product_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -175,6 +188,9 @@ async def test_create_order_unpublished_product_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order")
+@allure.title("店铺非 active（closed）时下单返回 422。")
 async def test_create_order_closed_shop_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -210,6 +226,9 @@ async def test_create_order_closed_shop_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order")
+@allure.title("店主购买本店商品返回 403。")
 async def test_create_order_owner_self_purchase_returns_403(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -235,6 +254,9 @@ async def test_create_order_owner_self_purchase_returns_403(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order")
+@allure.title("未认证下单返回 401。")
 async def test_create_order_unauthenticated_returns_401(
     integration_client: AsyncClient,
     db_session: AsyncSession,

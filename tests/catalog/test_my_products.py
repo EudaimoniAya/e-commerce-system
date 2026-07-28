@@ -1,5 +1,6 @@
 """catalog 域 GET /shops/me/products integration 测试（TDD 红阶段）。"""
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_products")
+@allure.title("店主 GET /shops/me/products 返回 200，含未上架商品")
 async def test_get_my_products_returns_200_with_all_products(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -72,6 +76,9 @@ async def test_get_my_products_returns_200_with_all_products(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_products")
+@allure.title("已认证但无店铺的用户 GET /shops/me/products 返回 404")
 async def test_get_my_products_returns_404_when_no_shop(
     integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
@@ -89,6 +96,9 @@ async def test_get_my_products_returns_404_when_no_shop(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("my_products")
+@allure.title("GET /shops/me/products 支持 limit 与 offset 分页")
 async def test_get_my_products_supports_pagination(
     integration_client: AsyncClient,
     db_session: AsyncSession,

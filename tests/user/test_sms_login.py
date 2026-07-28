@@ -10,6 +10,7 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md）：
 
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,9 @@ from tests.support.db.user import seed_inactive_user
 from tests.support.builders import unique_phone
 
 
+@allure.epic("user")
+@allure.feature("sms_login")
+@allure.title("已有用户 OTP 登录成功返回 200 与 token。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_success_returns_200_and_token(
@@ -42,6 +46,9 @@ async def test_login_success_returns_200_and_token(
     uuid.UUID(user.id)
 
 
+@allure.epic("user")
+@allure.feature("sms_login")
+@allure.title("不存在手机号返回 422（与 OTP 错误同文案，防枚举）。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_nonexistent_phone_returns_422(
@@ -57,6 +64,9 @@ async def test_login_nonexistent_phone_returns_422(
     assert "Invalid or expired verification code" in str(err)
 
 
+@allure.epic("user")
+@allure.feature("sms_login")
+@allure.title("OTP 错误返回 422。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_wrong_otp_returns_422(
@@ -75,6 +85,9 @@ async def test_login_wrong_otp_returns_422(
     assert "Invalid or expired verification code" in str(err)
 
 
+@allure.epic("user")
+@allure.feature("sms_login")
+@allure.title("is_active=false 用户 OTP 登录返回 403。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_disabled_user_returns_403(
@@ -96,6 +109,9 @@ async def test_login_disabled_user_returns_403(
     assert result.body is None
 
 
+@allure.epic("user")
+@allure.feature("sms_login")
+@allure.title("OTP 验证失败超上限返回 429。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_login_exceed_fail_limit_returns_429(

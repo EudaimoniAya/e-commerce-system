@@ -2,6 +2,7 @@
 
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 
@@ -15,6 +16,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("create_shop")
+@allure.title("已认证用户提交有效店名开店成功，返回 201 与完整店铺资料")
 async def test_create_shop_success_returns_201(
     integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
@@ -41,6 +45,9 @@ async def test_create_shop_success_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("create_shop")
+@allure.title("同一用户重复开店返回 422")
 async def test_create_shop_duplicate_returns_422(
     integration_client: AsyncClient, shop_owner: ShopOwnerContext
 ) -> None:
@@ -59,6 +66,9 @@ async def test_create_shop_duplicate_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("create_shop")
+@allure.title("店名已被其他店铺使用时返回 422")
 async def test_create_shop_name_conflict_returns_422(
     integration_client: AsyncClient,
 ) -> None:
@@ -88,6 +98,9 @@ async def test_create_shop_name_conflict_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("create_shop")
+@allure.title("未携带 Bearer token 开店返回 401")
 async def test_create_shop_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:

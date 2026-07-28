@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
+import allure
 import pytest
 from pydantic import ValidationError
 
@@ -37,6 +38,9 @@ def _valid_product_create_kwargs(**overrides: object) -> dict[str, Any]:
         ),
     ],
 )
+@allure.epic("catalog")
+@allure.feature("catalog_schema")
+@allure.title("ProductCreate 对非法 category 规则抛出 ValidationError")
 def test_product_create_rejects_invalid_category_rules(kwargs: dict[str, Any]) -> None:
     """ProductCreate 对非法 category 规则抛出 ValidationError。"""
     with pytest.raises(ValidationError):

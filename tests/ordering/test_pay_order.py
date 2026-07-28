@@ -1,6 +1,7 @@
 """ordering 域 POST /orders/{id}/pay integration 测试（TDD 红阶段）。"""
 
 import pytest
+import allure
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("pay_order")
+@allure.title("支付桩将 awaiting_payment 订单置为 confirmed，且不再扣库存。")
 async def test_pay_order_stub_confirms_awaiting_payment(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -65,6 +69,9 @@ async def test_pay_order_stub_confirms_awaiting_payment(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("pay_order")
+@allure.title("非买家支付返回 403。")
 async def test_pay_order_non_buyer_returns_403(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -103,6 +110,9 @@ async def test_pay_order_non_buyer_returns_403(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("pay_order")
+@allure.title("对已 confirmed 订单重复 pay 返回 409。")
 async def test_pay_order_duplicate_returns_409(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -146,6 +156,9 @@ async def test_pay_order_duplicate_returns_409(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("pay_order")
+@allure.title("未认证支付返回 401。")
 async def test_pay_order_unauthenticated_returns_401(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -175,6 +188,9 @@ async def test_pay_order_unauthenticated_returns_401(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("pay_order")
+@allure.title("过期后 pay 返回 409，订单 cancelled/expired，库存还原。")
 async def test_pay_order_after_expiry_returns_409_and_restores_stock(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -224,6 +240,9 @@ async def test_pay_order_after_expiry_returns_409_and_restores_stock(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("pay_order")
+@allure.title("指定买家支付卖家发起的订单 → confirmed。")
 async def test_pay_order_seller_initiated_by_buyer_returns_200(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -264,6 +283,9 @@ async def test_pay_order_seller_initiated_by_buyer_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("pay_order")
+@allure.title("店主（非买家）支付卖家发起的订单 → 403。")
 async def test_pay_order_seller_initiated_by_shop_owner_returns_403(
     integration_client: AsyncClient,
     db_session: AsyncSession,

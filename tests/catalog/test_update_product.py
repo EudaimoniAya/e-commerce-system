@@ -1,5 +1,6 @@
 """catalog 域 PATCH /products/{id} integration 测试（TDD 红阶段）。"""
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("update_product")
+@allure.title("店主 PATCH 本店商品合法字段成功，返回 200 与 ProductResponse")
 async def test_patch_product_success_returns_200(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -55,6 +59,9 @@ async def test_patch_product_success_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("update_product")
+@allure.title("店主 PATCH 其他店铺商品返回 403")
 async def test_patch_product_other_shop_returns_403(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -94,6 +101,9 @@ async def test_patch_product_other_shop_returns_403(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("update_product")
+@allure.title("店铺 closed 时 PATCH 本店商品返回 422")
 async def test_patch_product_closed_shop_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -140,6 +150,9 @@ async def test_patch_product_closed_shop_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("update_product")
+@allure.title("店主 PATCH 本店商品 stock 为 0 成功返回 200")
 async def test_patch_product_stock_zero_returns_200(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -179,6 +192,9 @@ async def test_patch_product_stock_zero_returns_200(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("update_product")
+@allure.title("店主通过 PATCH is_published=false 下架商品，公开 GET 返回 404")
 async def test_patch_product_delist_sets_is_published_false(
     integration_client: AsyncClient,
     db_session: AsyncSession,

@@ -2,6 +2,7 @@
 
 import uuid
 
+import allure
 import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_products")
+@allure.title("GET /products 仅返回已上架且店铺 active 的商品")
 async def test_get_public_products_returns_only_published_active(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -65,6 +69,9 @@ async def test_get_public_products_returns_only_published_active(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_products")
+@allure.title("GET /products?category_id= 仅返回关联该类目的已上架商品")
 async def test_get_public_products_filters_by_category_id(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -122,6 +129,9 @@ async def test_get_public_products_filters_by_category_id(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_products")
+@allure.title("已上架且店铺 active 时 GET /products/{id} 返回 200")
 async def test_get_public_product_detail_returns_200_when_published(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -157,6 +167,9 @@ async def test_get_public_product_detail_returns_200_when_published(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_products")
+@allure.title("未上架商品 GET /products/{id} 返回 404")
 async def test_get_public_product_detail_returns_404_when_unpublished(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -191,6 +204,9 @@ async def test_get_public_product_detail_returns_404_when_unpublished(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("public_products")
+@allure.title("所属店铺 closed 时 GET /products/{id} 返回 404")
 async def test_get_public_product_detail_returns_404_when_shop_closed(
     integration_client: AsyncClient,
     db_session: AsyncSession,

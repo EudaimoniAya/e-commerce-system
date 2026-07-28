@@ -1,6 +1,7 @@
 """ordering 域 shipments / confirm-receipt integration 测试（TDD 红阶段）。"""
 
 import pytest
+import allure
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,9 @@ from tests.support.utils import bearer_headers
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("shipments_and_receipt")
+@allure.title("本店店主对 confirmed 订单发货成功，返回 201 且 status=shipped。")
 async def test_create_shipment_by_shop_owner_returns_201(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -55,6 +59,9 @@ async def test_create_shipment_by_shop_owner_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("shipments_and_receipt")
+@allure.title("非本店店主发货返回 403。")
 async def test_create_shipment_non_owner_returns_403(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -89,6 +96,9 @@ async def test_create_shipment_non_owner_returns_403(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("shipments_and_receipt")
+@allure.title("对非 confirmed（awaiting_payment）订单发货返回 409。")
 async def test_create_shipment_not_confirmed_returns_409(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -124,6 +134,9 @@ async def test_create_shipment_not_confirmed_returns_409(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("shipments_and_receipt")
+@allure.title("未认证发货返回 401。")
 async def test_create_shipment_unauthenticated_returns_401(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -152,6 +165,9 @@ async def test_create_shipment_unauthenticated_returns_401(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("shipments_and_receipt")
+@allure.title("买家对 shipped 订单确认收货，返回 200 且 status=completed。")
 async def test_confirm_receipt_returns_200_completed(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -192,6 +208,9 @@ async def test_confirm_receipt_returns_200_completed(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("shipments_and_receipt")
+@allure.title("未认证确认收货返回 401。")
 async def test_confirm_receipt_unauthenticated_returns_401(
     integration_client: AsyncClient,
     db_session: AsyncSession,

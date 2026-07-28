@@ -2,6 +2,7 @@
 
 import asyncio
 
+import allure
 import pytest
 from redis.asyncio import Redis
 
@@ -44,6 +45,9 @@ def test_redis_url_appears_in_settings() -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("infra")
+@allure.feature("redis")
+@allure.title("redis_client fixture PING 返回 True")
 async def test_redis_client_ping(redis_client: Redis) -> None:
     """redis_client fixture PING 应返回 True。"""
     result = await redis_client.ping()
@@ -52,6 +56,9 @@ async def test_redis_client_ping(redis_client: Redis) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("infra")
+@allure.feature("redis")
+@allure.title("SET 后 GET 返回原值，TTL 到期 key 过期")
 async def test_redis_set_get_ttl(
     redis_client: Redis,
     flush_test_redis_db: None,

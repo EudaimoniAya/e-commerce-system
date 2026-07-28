@@ -14,6 +14,7 @@ BDD 场景覆盖（对应 specs/ordering-seller-orders/spec.md）：
 import uuid
 
 import pytest
+import allure
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +31,9 @@ from tests.support.helper.auth import register_user_via_otp
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("店主为本店已上架且库存充足的商品为另一有效用户建单成功，返回 201 + initiated_by=seller。")
 async def test_create_order_by_seller_returns_201(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -71,6 +75,9 @@ async def test_create_order_by_seller_returns_201(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("指定买家在 users 表中不存在返回 404。")
 async def test_create_order_by_seller_buyer_not_found_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -99,6 +106,9 @@ async def test_create_order_by_seller_buyer_not_found_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("指定买家 is_active=false 返回 422。")
 async def test_create_order_by_seller_disabled_buyer_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -130,6 +140,9 @@ async def test_create_order_by_seller_disabled_buyer_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("卖家指定本人为买家返回 403。")
 async def test_create_order_by_seller_self_purchase_returns_403(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -159,6 +172,9 @@ async def test_create_order_by_seller_self_purchase_returns_403(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("提交的商品不属于本店返回 422，即使所有商品同属另一单一店铺。")
 async def test_create_order_by_seller_cross_shop_product_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -208,6 +224,9 @@ async def test_create_order_by_seller_cross_shop_product_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("店铺 closed 时建单返回 422。")
 async def test_create_order_by_seller_closed_shop_returns_422(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -248,6 +267,9 @@ async def test_create_order_by_seller_closed_shop_returns_422(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("未认证请求返回 401。")
 async def test_create_order_by_seller_unauthenticated_returns_401(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -275,6 +297,9 @@ async def test_create_order_by_seller_unauthenticated_returns_401(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("create_order_by_seller")
+@allure.title("已认证但尚未开店的用户请求卖家建单返回 404。")
 async def test_create_order_by_seller_no_shop_returns_404(
     integration_client: AsyncClient,
     authenticated_user: AuthContext,

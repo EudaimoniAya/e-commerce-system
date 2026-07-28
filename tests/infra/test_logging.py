@@ -8,6 +8,7 @@ import logging
 import uuid
 from unittest.mock import MagicMock, patch
 
+import allure
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -186,6 +187,9 @@ class TestRequestIdMiddleware:
     # ── 无客户端 ID → 服务端生成 ──
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("logging")
+    @allure.title("无 X-Request-ID 时服务端生成 UUID4")
     async def test_no_client_id_generates_request_id(
         self, app_with_middleware: FastAPI,
     ) -> None:
@@ -206,6 +210,9 @@ class TestRequestIdMiddleware:
     # ── 客户端透传合法 ID ──
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("logging")
+    @allure.title("客户端携带合法 X-Request-ID 时透传")
     async def test_client_provided_id_passed_through(
         self, app_with_middleware: FastAPI,
     ) -> None:
@@ -225,6 +232,9 @@ class TestRequestIdMiddleware:
     # ── 响应头始终包含 X-Request-ID ──
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("logging")
+    @allure.title("任意请求的响应头都包含 X-Request-ID")
     async def test_response_always_has_request_id_header(
         self, app_with_middleware: FastAPI,
     ) -> None:

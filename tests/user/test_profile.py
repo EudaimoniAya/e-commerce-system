@@ -8,6 +8,7 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md ADDED Requirement）：
     email 冲突 422 场景需依赖其他用户具有目标 email，在 service 层测试更合适。
 """
 
+import allure
 import pytest
 from httpx import AsyncClient
 
@@ -16,6 +17,9 @@ from tests.support.contexts import AuthContext
 from tests.support.utils import bearer_headers
 
 
+@allure.epic("user")
+@allure.feature("profile")
+@allure.title("更新 email 与 nickname 返回 200。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_profile_success_returns_200(
@@ -38,6 +42,9 @@ async def test_patch_profile_success_returns_200(
     assert updated["nickname"] == "新昵称"
 
 
+@allure.epic("user")
+@allure.feature("profile")
+@allure.title("未认证请求 PATCH /users/me 返回 401。")
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_profile_unauthenticated_returns_401(

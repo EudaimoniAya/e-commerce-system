@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import allure
 import pytest
 from pydantic import BaseModel, ConfigDict
 
@@ -179,6 +180,9 @@ class TestPaginationDependencyQueryValidation:
         return app
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("合法 Query limit=20&offset=0 返回 200")
     async def test_valid_query_returns_200(self) -> None:
         """合法 Query limit=20&offset=0 SHALL 返回 200。"""
         from httpx import ASGITransport, AsyncClient
@@ -190,6 +194,9 @@ class TestPaginationDependencyQueryValidation:
         assert resp.json() == {"limit": 20, "offset": 0}
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("无 Query 时使用默认 limit=20/offset=0")
     async def test_default_values_applied(self) -> None:
         """无 Query 时 SHALL 使用默认 limit=20 / offset=0。"""
         from httpx import ASGITransport, AsyncClient
@@ -201,6 +208,9 @@ class TestPaginationDependencyQueryValidation:
         assert resp.json() == {"limit": 20, "offset": 0}
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("limit=101 超过最大值返回 422")
     async def test_limit_exceeds_max_returns_422(self) -> None:
         """limit=101 > MAX_PAGE_LIMIT(100) SHALL 返回 422。"""
         from httpx import ASGITransport, AsyncClient
@@ -211,6 +221,9 @@ class TestPaginationDependencyQueryValidation:
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("limit=0 小于最小值返回 422")
     async def test_limit_below_min_returns_422(self) -> None:
         """limit=0 < 1 SHALL 返回 422。"""
         from httpx import ASGITransport, AsyncClient
@@ -221,6 +234,9 @@ class TestPaginationDependencyQueryValidation:
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("offset=-1 负数返回 422")
     async def test_offset_negative_returns_422(self) -> None:
         """offset=-1 < 0 SHALL 返回 422。"""
         from httpx import ASGITransport, AsyncClient
@@ -231,6 +247,9 @@ class TestPaginationDependencyQueryValidation:
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("limit=1 返回 200")
     async def test_boundary_limit_1_returns_200(self) -> None:
         """limit=1（最小值）应返回 200。"""
         from httpx import ASGITransport, AsyncClient
@@ -242,6 +261,9 @@ class TestPaginationDependencyQueryValidation:
         assert resp.json() == {"limit": 1, "offset": 0}
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("limit=100 返回 200")
     async def test_boundary_limit_100_returns_200(self) -> None:
         """limit=100（最大值）应返回 200。"""
         from httpx import ASGITransport, AsyncClient
@@ -253,6 +275,9 @@ class TestPaginationDependencyQueryValidation:
         assert resp.json() == {"limit": 100, "offset": 0}
 
     @pytest.mark.asyncio
+    @allure.epic("infra")
+    @allure.feature("pagination")
+    @allure.title("大 offset 正常返回 200")
     async def test_large_offset_returns_200(self) -> None:
         """大 offset 应正常返回 200。"""
         from httpx import ASGITransport, AsyncClient

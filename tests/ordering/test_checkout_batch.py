@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+import allure
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +20,9 @@ from tests.support.utils import bearer_headers, decode_jwt_sub
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("checkout_batch")
+@allure.title("买家查看本人 checkout_batch：含 shops、totals、derived status。")
 async def test_get_checkout_batch_returns_hierarchy_and_totals(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -68,6 +72,9 @@ async def test_get_checkout_batch_returns_hierarchy_and_totals(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("checkout_batch")
+@allure.title("非本人查看 checkout_batch 返回 404。")
 async def test_get_checkout_batch_other_user_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -108,6 +115,9 @@ async def test_get_checkout_batch_other_user_returns_404(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("checkout_batch")
+@allure.title("batch 含 cancelled 子单时 remaining_total 仅计 awaiting_payment 子单。")
 async def test_get_checkout_batch_with_cancelled_order(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -180,6 +190,9 @@ async def test_get_checkout_batch_with_cancelled_order(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("checkout_batch")
+@allure.title("GET batch 时对过期 awaiting_payment 子单触发懒释放。")
 async def test_get_checkout_batch_lazy_release(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -231,6 +244,9 @@ async def test_get_checkout_batch_lazy_release(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@allure.epic("ordering")
+@allure.feature("checkout_batch")
+@allure.title("未认证访问 GET /orders/checkout-batches/{id} 返回 401。")
 async def test_get_checkout_batch_unauthenticated_returns_401(
     integration_client: AsyncClient,
 ) -> None:

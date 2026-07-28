@@ -17,20 +17,20 @@
 
 ## 3. Allure 装饰器 — user 域
 
-- [ ] 3.1 `tests/user/` 全部 Case 添加 `@allure.epic("user")`、`@allure.feature(...)`、`@allure.title(...)`（从 docstring/测试名 cv）
+- [x] 3.1 `tests/user/` 全部 Case 添加 `@allure.epic("user")`、`@allure.feature(...)`、`@allure.title(...)`（从 docstring/测试名 cv）
 
 ## 4. Allure 装饰器 — catalog 域
 
-- [ ] 4.1 `tests/catalog/` 全部 Case 添加 Allure 装饰器（epic=`catalog`）
+- [x] 4.1 `tests/catalog/` 全部 Case 添加 Allure 装饰器（epic=`catalog`）
 
 ## 5. Allure 装饰器 — ordering 域
 
-- [ ] 5.1 `tests/ordering/` 全部 Case 添加 Allure 装饰器（epic=`ordering`）
+- [x] 5.1 `tests/ordering/` 全部 Case 添加 Allure 装饰器（epic=`ordering`）
 
 ## 6. Allure 装饰器 — infra / ops / unit
 
-- [ ] 6.1 `tests/infra/`、`tests/ops/` 添加装饰器（epic=`infra` 或 `ops`）
-- [ ] 6.2 `tests/unit/` 添加装饰器（epic=`unit`）
+- [x] 6.1 `tests/infra/`、`tests/ops/` 添加装饰器（epic=`infra` 或 `ops`）
+- [x] 6.2 `tests/unit/` 添加装饰器（epic=`unit`）
 
 ## 7. CI workflow 重构
 
