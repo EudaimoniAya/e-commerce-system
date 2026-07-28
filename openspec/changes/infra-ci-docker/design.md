@@ -37,7 +37,7 @@
 
 ```text
 jobs:
-  lint:     ruff + check-test-imports（无 services）
+  lint:     ruff + check-test-imports（无 services；**须先安装 ripgrep**，见 §7.1a）
   test:     matrix.domain ∈ {user, catalog, ordering, infra, unit}
             needs: []  # 与 lint 并行
             services: mysql + redis → migrate → pytest --alluredir
@@ -45,6 +45,8 @@ jobs:
 ```
 
 **理由**：域失败定位清晰；lint 不等待 DB；与 DevOps Validate 分层一致。
+
+**`check-test-imports` 与 `rg`**：`scripts/check_no_test_cross_imports.sh` 依赖 **ripgrep**（`rg`），非 POSIX `grep`。Implement §7 时须在 **CI lint job** 显式 `apt install ripgrep`，并在 **`devbox.json`** 增加 `ripgrep` 包，避免本地 / CI 出现 `Command 'rg' not found`（详见 `infra-ci` spec、`tasks.md` §7.1a）。
 
 **备选**：保留单 job + 仅 workflow_dispatch 筛选（反馈慢，否决）。
 

@@ -181,7 +181,7 @@ e-commerce-system/
 │   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
 │   ├── devbox_redis_up.sh / devbox_redis_down.sh
 │   ├── allure_open_report.sh     # Task latest:report
-│   └── check_no_test_cross_imports.sh
+│   └── check_no_test_cross_imports.sh  # Task check-test-imports；依赖 rg（ripgrep），见 test-architecture / infra-ci spec
 ├── .github/workflows/ci.yml      # DATABASE_URL + REDIS_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```

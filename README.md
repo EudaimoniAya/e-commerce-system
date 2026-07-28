@@ -9,6 +9,8 @@ AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OT
 
 本地工具链由 devbox 提供：Python 3.13、uv、go-task、MySQL 8.0、**Redis 8.0**。
 
+> **`task check-test-imports` 依赖 `rg`（ripgrep）**：脚本 `scripts/check_no_test_cross_imports.sh` 使用 ripgrep 扫描 test 互 import。Implement `infra-ci-docker` §7 后，`devbox.json` 将包含 `ripgrep`；此前本地可 `sudo apt install ripgrep`。CI lint job 亦须在跑该 Task 前显式安装 ripgrep（不得假设 runner 预装）。
+
 > **重要**：所有 `task` 命令（含 `db:*`、`redis:*`）须在 `devbox shell` 内执行（或使用 `devbox run -- task …`）。
 
 ## 快速开始
@@ -255,7 +257,8 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task test:ordering` | 仅 ordering 域测试（`tests/ordering/`） |
 | `task test:infra` | 仅 infra + ops 测试（`tests/infra/` + `tests/ops/`） |
 | `task test:unit` | 仅纯单元测试（`tests/unit/`） |
-| `task ci` | 本地 CI：`ruff` + test-import 检查 + `test`（**不**自动 `db:up` / `redis:up`） |
+| `task ci` | 本地 CI：`ruff` + test-import 检查（**依赖 `rg`/ripgrep**）+ `test`（**不**自动 `db:up` / `redis:up`） |
+| `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
 | `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up`） |
 | `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |

@@ -21,6 +21,25 @@ GitHub Actions workflow SHALL 提供独立 `lint` job，执行 `task ruff` 与 `
 - **WHEN** CI workflow 在 pull_request 或 push 到 dev/main 时触发
 - **THEN** `lint` job 与 `test` matrix job SHALL 可并行启动（无 `needs: lint` 阻塞 test，或 lint 失败时 workflow 整体失败由 GitHub 汇总）
 
+### Requirement: ripgrep for check-test-imports
+
+`task check-test-imports`（`scripts/check_no_test_cross_imports.sh`）SHALL 使用 **`rg`（ripgrep）** 在 `tests/**/*.py` 中检查禁止的 test 模块互 import 模式。凡执行该 Task 的环境 **SHALL** 提供可执行的 `rg` 命令：
+
+- **CI lint job**：SHALL 在运行 `task check-test-imports` **之前**显式安装 ripgrep（如 `apt-get install ripgrep`），**SHALL NOT** 仅依赖 runner 镜像可能预装的 `rg`
+- **本地 devbox**：SHALL 在 `devbox.json` `packages` 中包含 `ripgrep`（或文档规定的等价 devbox 包），使 `devbox run -- task check-test-imports` 成功
+
+#### Scenario: lint job 安装 ripgrep 后执行 check-test-imports
+
+- **WHEN** CI `lint` job 运行且尚未安装 `rg`
+- **THEN** job SHALL 先安装 ripgrep
+- **AND** 随后 `task check-test-imports` SHALL 退出码 0（无违规 import 时）
+
+#### Scenario: devbox 内 check-test-imports 可找到 rg
+
+- **WHEN** 开发者在 devbox 环境中执行 `devbox run -- task check-test-imports`
+- **THEN** `command -v rg` SHALL 成功
+- **AND** 脚本 SHALL NOT 因 `Command 'rg' not found` 失败
+
 ### Requirement: CI test domain matrix
 
 GitHub Actions SHALL 提供 `test` job，使用 `strategy.matrix.domain` 并行运行 pytest，域取值 SHALL 为 `user`、`catalog`、`ordering`、`infra`、`unit`。每个 matrix job SHALL 声明 mysql + redis services、创建 `ecommerce_test`、执行 `alembic upgrade head`、设置与现 CI 一致的 env（含 `SMS_OTP_FIXED_CODE`）。

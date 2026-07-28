@@ -29,7 +29,7 @@ Case 文件 SHALL NOT import 其他 test 模块（`from tests.<domain>.test_* im
 
 #### Scenario: no cross-test-module imports
 
-- **WHEN** 对 `tests/` 运行 grep 检查 `from tests\.(catalog|user|infra|health|ops)\.test_`
+- **WHEN** 对 `tests/` 运行 `rg`（`task check-test-imports`）检查 `from tests\.(catalog|user|infra|health|ops)\.test_`
 - **THEN** SHALL 无匹配
 
 ### Requirement: Assert-First and visible Act
@@ -120,12 +120,19 @@ Health、readiness、migration smoke 探针 SHALL 位于 `tests/ops/`。纯 JWT/
 
 ### Requirement: Enforcement tooling
 
-项目 SHALL 对 `tests/` 启用 ruff ANN 规则。CI SHALL 包含 grep 检查禁止 test 模块互 import。
+项目 SHALL 对 `tests/` 启用 ruff ANN 规则。CI SHALL 包含 **ripgrep（`rg`）** 检查禁止 test 模块互 import（`task check-test-imports` → `scripts/check_no_test_cross_imports.sh`）。
+
+执行 `check-test-imports` 的环境 **SHALL** 提供 `rg`：**CI lint job** 须在运行该 Task 前显式安装 ripgrep；**本地 devbox** 须在 `devbox.json` `packages` 中包含 `ripgrep`（见 `infra-ci-docker` change `tasks.md` §7.1a、`infra-ci` spec）。**SHALL NOT** 假设 GitHub runner 或裸 WSL 已预装 `rg`。
 
 #### Scenario: ci rejects cross test import
 
 - **WHEN** 某 test 文件新增 `from tests.catalog.test_create_product import ...`
-- **THEN** CI grep step SHALL 失败
+- **THEN** `task check-test-imports`（`rg` 扫描）SHALL 以非零退出码失败
+
+#### Scenario: check-test-imports 因缺少 rg 失败视为环境未就绪
+
+- **WHEN** 运行 `task check-test-imports` 且 shell 报 `Command 'rg' not found`
+- **THEN** SHALL 视为工具链未配置（安装 ripgrep 或启用 devbox 包），而非测试代码通过
 
 ### Requirement: No redundant curl smoke scripts in scripts/
 
