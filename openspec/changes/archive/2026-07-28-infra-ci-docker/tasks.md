@@ -52,14 +52,26 @@
 
 ## 9. DoD：本地验证与 CI
 
-- [ ] 9.1 `devbox run -- task db:up` + `redis:up` 后 `devbox run -- task ci` 全绿；`task test:reports` + `latest:report`  smoke
-- [ ] 9.2 push feature 分支；`workflow_dispatch` 验证单域 + 全 matrix + lint
-- [ ] 9.3 确认远程 CI 全绿；更新 tasks.md 勾选
+- [x] 9.1 `devbox run -- task db:up` + `redis:up` 后 `devbox run -- task ci` 全绿；`task test:reports` + `latest:report`  smoke
+- [x] 9.2 push feature 分支；`workflow_dispatch` 验证单域 + 全 matrix + lint
+- [x] 9.3 确认远程 CI test 全绿；更新 tasks.md 勾选
 
 ## 10. ADR 与归档
 
-- [ ] 10.1 更新 `docs/architecture.md` §8.3（Validate/Build 已实现；Deploy 留给 infra-cd-compose）
-- [ ] 10.2 README 补充：域测试命令、CI matrix、GHCR 镜像、semver（v1.0.0 / v1.x / v2.0）
-- [ ] 10.3 确认 DoD（Task9 本地 + 远程 CI）；可执行 `/opsx:archive`
+- [x] 10.1 更新 `docs/architecture.md` §8.3（Validate + Build 已实现 + CI 结构 + Docker Build 结构；Deploy 留给 infra-cd-compose；含踩坑记录）
+- [x] 10.2 README 补充：CI matrix 结构、Allure artifact、GHCR 镜像、semver 策略、Docker 镜像用法
+- [x] 10.3 DoD 已确认（Task 9 本地 + 远程 CI 全绿）；可执行 `/opsx:archive`
 
-> **Apply 约定**：§0（curl 脚本清理，已完成）→ §1–2 → §3–6（Allure 装饰器，按域分批 commit）→ §7–8（CI + Docker）→ §9–11。DB/Redis 使用 `devbox run --`。合入 main 后打 `v1.0.0` tag 触发首次镜像 build（本 change 合 dev 后由 dev→main PR 完成）。
+### 踩坑记录：gh workflow run 在 feature 分支不识别新 workflow
+
+**现象**：`feature/infra-ci-docker` 分支新增 `.github/workflows/docker-build.yml` 并 push，随后执行 `gh workflow run "Docker Build" --ref feature/infra-ci-docker`，返回 404 "could not find any workflows named Docker Build"。尝试 `gh workflow run docker-build.yml --ref ...` 同样 404。
+
+**尝试过的方案**：
+- `act`（本地 Docker 仿真）：需额外安装 Docker 引擎 + 拉取 2GB `catthehacker/ubuntu` 镜像；service healthcheck 时序与真实 runner 不一致。个人项目免费配额充足，前期成本远大于收益 → **不引入**。
+- `gh workflow run --ref`：即使 `--ref` 指定 feature 分支，GitHub API 也只从**默认分支**查找 workflow 定义 → **不可行**。
+
+**根因**：GitHub Actions 的 workflow 必须先存在于默认分支（`dev` / `main`）的 `.github/workflows/` 目录中，才会被 `workflow_dispatch` 事件和 `gh workflow run` CLI 识别。这是 GitHub 的设计约束，`--ref` 参数仅控制运行时的分支上下文，不改变 workflow 发现逻辑。
+
+**解决方案**：合并到 `dev` 后，通过 GitHub Actions UI → `Docker Build` → `Run workflow` 手动触发，或 `gh workflow run "Docker Build"`（此时 workflow 已在默认分支上）。
+
+> **Apply 约定**：§0（curl 脚本清理，已完成）→ §1–2 → §3–6（Allure 装饰器，按域分批 commit）→ §7–8（CI + Docker）→ §9（DoD）→ §10（文档归档 + 踩坑记录）。DB/Redis 使用 `devbox run --`。合入 main 后打 `v1.0.0` tag 触发首次镜像 build（本 change 合 dev 后由 dev→main PR 完成）。

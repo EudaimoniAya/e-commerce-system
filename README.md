@@ -394,20 +394,72 @@ feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入�
 
 Workflow：`.github/workflows/ci.yml`
 
+### 结构
+
+```text
+lint:  ruff + check-test-imports（无 services，显式 apt install ripgrep）
+test:  5 路 domain matrix 并行：
+       user | catalog | ordering | infra | unit
+       每 job 独立 mysql + redis services → migrate → pytest --alluredir → upload artifact
+```
+
+| 域名 | pytest 路径 |
+|------|------------|
+| `user` | `tests/user tests/unit/user` |
+| `catalog` | `tests/catalog tests/unit/catalog` |
+| `ordering` | `tests/ordering` |
+| `infra` | `tests/infra tests/ops` |
+| `unit` | `tests/unit` |
+
+### 触发
+
 | 事件 | 分支 / 方式 |
 |------|-------------|
 | `pull_request` | `dev`, `main` |
 | `push` | `dev`, `main` |
-| `workflow_dispatch` | 任意分支手动触发（feature 开发验证用） |
-
-CI job 顺序：mysql + **redis** service 就绪 → 建 `ecommerce_test` → `alembic upgrade head` → `task ci`（workflow `env` 含 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`、`SMS_OTP_FIXED_CODE=123456`）。
+| `workflow_dispatch` | 任意分支手动触发，可选 `domain`（all/user/catalog/ordering/infra/unit） |
 
 ```bash
-# feature 分支手动触发远程 CI（CLI）
-gh workflow run CI --ref <your-feature-branch>
+# CLI 手动触发远程 CI
+gh workflow run CI --ref <branch> -f domain=user
 ```
 
-GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/github-actions-pinning.mdc`）。
+### Allure 报告
+
+- CI 每 matrix job 上传 `allure-results-<domain>` artifact（保留 14 天）
+- 本地 `task test:reports` 生成 HTML；`task latest:report` 浏览器查看
+- `reports/` 目录已 `.gitignore`
+
+GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/github-actions-pinning.mdc`）。lint job 中 `check-test-imports` 依赖 `rg`（ripgrep），CI 在 job 内 `apt-get install ripgrep`。
+
+## Docker 镜像
+
+```bash
+# 本地构建（验证 Dockerfile 语法）
+docker build -t e-commerce-system .
+
+# 远程构建（gh CLI，合入 main 后自动触发或 workflow_dispatch 手动）
+gh workflow run "Docker Build" --ref main
+```
+
+| 触发 | Tag |
+|------|-----|
+| `push main` | `latest`、`sha-<short>` |
+| `push v*` tag | semver（`v1.0.0`、`v1.0`、`v1`）、`sha-<short>` |
+
+Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
+
+镜像仅含 FastAPI app + 生产依赖（不含 MySQL/Redis/tests）。运行时需环境变量注入 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`。
+
+> **踩坑记录**：`gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。feature 分支新增 `docker-build.yml` 后 `gh workflow run "Docker Build" --ref feature/...` 返回 404。workflow 必须先存在于默认分支才会被 `workflow_dispatch` 事件识别，这是 GitHub Actions 的设计约束。
+
+## 版本策略
+
+| Tag | 含义 |
+|-----|------|
+| `v1.0.0` | 电商底座 MVP 首次 release（本 change 合入 main 后） |
+| `v1.x.0` | 底座完善（engagement、infra-cd-compose 等） |
+| `v2.0.0` | AI 平台阶段 |
 
 ## Definition of Done（DoD）
 
