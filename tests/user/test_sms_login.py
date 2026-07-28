@@ -5,6 +5,7 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md）：
 - 用户不存在返回 422（与 OTP 错误同文案）
 - OTP 错误或过期返回 422
 - 用户已禁用返回 403
+- OTP 验证失败次数超限返回 429
 """
 
 import uuid
@@ -84,9 +85,32 @@ async def test_login_disabled_user_returns_403(
     phone = unique_phone()
     password = "password123"
     await seed_inactive_user(
-        db_session, email=f"{phone}@example.com", password=password,
+        db_session,
+        email=f"{phone}@example.com",
+        password=password,
+        phone=phone,
     )
 
     result = await login_user_via_otp(integration_client, phone=phone)
     assert result.status_code == 403
     assert result.body is None
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_login_exceed_fail_limit_returns_429(
+    integration_client: AsyncClient,
+) -> None:
+    """OTP 验证失败超上限返回 429。"""
+    phone = "13800138002"
+    for _ in range(5):
+        body = build_sms_login_request(phone=phone, code="000000")
+        await integration_client.post(
+            "/auth/sms/login", json=body.model_dump(mode="json"),
+        )
+
+    final = build_sms_login_request(phone=phone, code="000000")
+    response = await integration_client.post(
+        "/auth/sms/login", json=final.model_dump(mode="json"),
+    )
+    assert response.status_code == 429

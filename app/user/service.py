@@ -7,18 +7,24 @@ from fastapi import HTTPException, status
 from pwdlib import PasswordHash
 
 from app.infra.auth import create_access_token
+from app.user.phone import normalize_phone
 from app.user.repository import UserRepository
 from app.user.schemas import (
     LoginRequest,
+    SmsLoginRequest,
+    SmsRegisterRequest,
+    SmsSendRequest,
     TokenResponse,
+    UserProfileUpdateRequest,
     UserResponse,
     UserSummary,
 )
+from app.user.sms_service import SmsOtpService
 
 _hasher = PasswordHash.recommended()
 
-# 登录失败统一文案，不区分手机号是否存在
 _INVALID_CREDENTIALS_MSG = "Invalid phone or password"
+_INVALID_OTP_MSG = "Invalid or expired verification code"
 
 
 def _default_nickname() -> str:
@@ -28,15 +34,10 @@ def _default_nickname() -> str:
 
 
 def _to_user_response(user) -> UserResponse:
-    """ORM 用户转对外 DTO。
-
-    .. note::
-        迁移过渡期间旧 email 式 ORM 行（尚无 phone 列）可能触发 IntegrityError；
-        §3（migration 008）后 ``user.phone`` 一定存在且非空。
-    """
+    """ORM 用户转对外 DTO。"""
     return UserResponse(
         id=str(user.id),
-        phone=getattr(user, "phone", ""),
+        phone=user.phone or "",
         email=user.email,
         nickname=user.nickname,
         created_at=user.created_at,
@@ -54,13 +55,90 @@ def _build_token_response(user) -> TokenResponse:
     )
 
 
+def _normalize_or_422(raw: str) -> str:
+    """规范化手机号，非法时 422。"""
+    phone = normalize_phone(raw)
+    if phone is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Invalid phone number",
+        )
+    return phone
+
+
 class UserService:
     """用户注册与登录服务。"""
 
-    def __init__(self, repository: UserRepository) -> None:
+    def __init__(
+        self,
+        repository: UserRepository,
+        sms: SmsOtpService,
+    ) -> None:
         self._repository = repository
+        self._sms = sms
 
-    # register 已随 email 注册路径移除；SMS register/login 见 §5.2
+    async def send_sms(self, data: SmsSendRequest) -> None:
+        """发送 SMS OTP（不区分用户是否存在）。"""
+        phone = _normalize_or_422(data.phone)
+        await self._sms.send_otp(phone)
+
+    async def _verify_otp_or_raise(self, phone: str, code: str) -> None:
+        """校验 OTP；失败时累计 verify_fail 并 422。"""
+        await self._sms.ensure_verify_allowed(phone)
+        if not await self._sms.consume_otp(phone, code):
+            await self._sms.record_verify_failure(phone)
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_INVALID_OTP_MSG,
+            )
+
+    async def register_via_sms(self, data: SmsRegisterRequest) -> TokenResponse:
+        """SMS OTP 注册新用户。"""
+        phone = _normalize_or_422(data.phone)
+        await self._verify_otp_or_raise(phone, data.code)
+
+        existing = await self._repository.get_by_phone(phone)
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Phone already registered",
+            )
+
+        nickname = data.nickname.strip() if data.nickname else ""
+        if not nickname:
+            nickname = _default_nickname()
+
+        password_hash = _hasher.hash(data.password)
+        user = await self._repository.create(
+            user_id=uuid.uuid4(),
+            phone=phone,
+            password_hash=password_hash,
+            nickname=nickname,
+        )
+        await self._sms.clear_verify_fail(phone)
+        return _build_token_response(user)
+
+    async def login_via_sms(self, data: SmsLoginRequest) -> TokenResponse:
+        """SMS OTP 登录已有用户。"""
+        phone = _normalize_or_422(data.phone)
+        await self._verify_otp_or_raise(phone, data.code)
+
+        user = await self._repository.get_by_phone(phone)
+        if user is None:
+            await self._sms.record_verify_failure(phone)
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_INVALID_OTP_MSG,
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is disabled",
+            )
+
+        await self._sms.clear_verify_fail(phone)
+        return _build_token_response(user)
 
     async def get_user_summary(self, user_id: uuid.UUID | str) -> UserSummary:
         """查询用户摘要（跨域只读）。"""
@@ -79,12 +157,19 @@ class UserService:
 
     async def login(self, data: LoginRequest) -> TokenResponse:
         """通过手机号 + 密码校验凭据并返回 access token。"""
-        # 迁移过渡：8 位 UUID 字符串长度 < 11，可区分 email（含 @）与 phone 查法
-        user = await self._repository.get_by_phone(data.identifier)
-        if user is None or not _hasher.verify(data.password, user.password_hash):
+        phone = _normalize_or_422(data.identifier)
+        user = await self._repository.get_by_phone(phone)
+        if (
+            user is None
+            or user.password_hash is None
+            or not _hasher.verify(data.password, user.password_hash)
+        ):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_INVALID_CREDENTIALS_MSG,
+                detail={
+                    "code": "INVALID_CREDENTIALS",
+                    "message": _INVALID_CREDENTIALS_MSG,
+                },
             )
 
         if not user.is_active:
@@ -94,3 +179,29 @@ class UserService:
             )
 
         return _build_token_response(user)
+
+    async def update_profile(
+        self,
+        user_id: uuid.UUID,
+        data: UserProfileUpdateRequest,
+    ) -> UserResponse:
+        """更新当前用户资料（email / nickname），校验 email 唯一性。"""
+        user = await self._repository.get_by_id(user_id)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        if data.email is not None:
+            existing = await self._repository.get_by_email(data.email)
+            if existing is not None and str(existing.id) != str(user.id):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="Email already used",
+                )
+
+        # 仅更新客户端显式传入的字段（None = 清空）
+        update_kwargs = data.model_dump(exclude_unset=True)
+        updated = await self._repository.update_profile(user, **update_kwargs)
+        return _to_user_response(updated)

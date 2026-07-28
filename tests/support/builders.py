@@ -19,9 +19,10 @@ def unique_email(prefix: str = "user") -> str:
 def unique_phone(prefix: str = "138") -> str:
     """生成唯一测试手机号（11 位大陆手机号），避免 integration 测试互相冲突。
 
-    使用 138xxxx 号段，保留后 8 位随机。
+    使用 138xxxx 号段，后 8 位为纯数字随机（不用 uuid hex，避免 a-f 字母）。
     """
-    return f"{prefix}{uuid.uuid4().hex[:8]}"
+    suffix = f"{uuid.uuid4().int % 10**8:08d}"
+    return f"{prefix}{suffix}"
 
 
 def unique_shop_name(prefix: str = "shop") -> str:

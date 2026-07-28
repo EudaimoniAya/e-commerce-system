@@ -5,7 +5,6 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md）：
 - 手机号已注册返回 422
 - 注册缺少 password 或长度不合规返回 422
 - OTP 错误或过期返回 422
-- 注册成功后复位验证失败计数
 - 未提供昵称时使用默认昵称
 - 注册验证失败次数超限返回 429
 """
@@ -64,7 +63,7 @@ async def test_register_without_password_returns_422(
     """缺少 password 返回 422。"""
     response = await integration_client.post(
         "/auth/sms/register",
-        json=build_sms_register_request(password=None).model_dump(mode="json"),
+        json={"phone": "13800138000", "code": "123456"},
     )
     assert response.status_code == 422
 

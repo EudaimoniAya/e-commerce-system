@@ -174,6 +174,7 @@ async def client() -> AsyncIterator[AsyncClient]:
 @pytest.fixture
 async def integration_client(
     db_session: AsyncSession,
+    flush_test_redis_db: None,
 ) -> AsyncIterator[AsyncClient]:
     """httpx AsyncClient，依赖 ``db_session`` 提供 ``get_db`` override。
 

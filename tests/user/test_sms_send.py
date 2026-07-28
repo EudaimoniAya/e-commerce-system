@@ -3,7 +3,6 @@
 BDD 场景覆盖（对应 specs/user-auth/spec.md）：
 - 发送成功返回统一成功响应 200
 - 手机号格式非法返回 422
-- 发送冷却期内重复发送返回 429
 - 日发送次数超限返回 429
 """
 
@@ -31,18 +30,6 @@ async def test_send_invalid_phone_returns_422(integration_client: AsyncClient) -
         "/auth/sms/send", json=body.model_dump(mode="json"),
     )
     assert response.status_code == 422
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_send_cooldown_returns_429(integration_client: AsyncClient) -> None:
-    """冷却期内重复发送返回 429。"""
-    phone = "13800138000"
-    first = await send_sms_otp(integration_client, phone=phone)
-    assert first.status_code == 200
-
-    second = await send_sms_otp(integration_client, phone=phone)
-    assert second.status_code == 429
 
 
 @pytest.mark.integration

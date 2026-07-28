@@ -27,9 +27,9 @@ class Settings(BaseSettings):
 
     # SMS OTP
     sms_otp_ttl_seconds: int = 300
-    sms_send_cooldown_seconds: int = 60
     sms_daily_send_limit: int = 10
     sms_verify_fail_limit: int = 5
+    sms_verify_fail_window_seconds: int = 900
     sms_otp_fixed_code: str | None = None
 
 
