@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Task 5.1：店铺 API curl 烟雾测试（注册 → 开店 → me → patch closed → 公开 GET）
+# Task 7.1：手机号认证 API curl 烟雾（send → register → password login → PATCH /users/me）
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,6 +10,7 @@ bash scripts/devbox_mysql_up.sh >/dev/null 2>&1
 bash scripts/devbox_redis_up.sh >/dev/null 2>&1
 uv run alembic upgrade head >/dev/null
 
+# 固定 OTP 便于本地烟雾（与 .env.test 中 SMS_OTP_FIXED_CODE 对齐）
 export SMS_OTP_FIXED_CODE="${SMS_OTP_FIXED_CODE:-123456}"
 export REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"
 
@@ -31,36 +32,31 @@ done
 PHONE=$(python3 -c "import random; print(f'138{random.randint(0, 99999999):08d}')")
 PASSWORD="password123"
 OTP="${SMS_OTP_FIXED_CODE}"
-SHOP_NAME="curl-shop-$(date +%s)"
 
-echo "=== sms send + register ==="
+echo "=== sms send ==="
 curl -sS -w "\nHTTP:%{http_code}\n" -X POST http://127.0.0.1:8000/auth/sms/send \
   -H "Content-Type: application/json" \
   -d "{\"phone\":\"${PHONE}\"}"
 
+echo "=== sms register ==="
 REG=$(curl -sS -X POST http://127.0.0.1:8000/auth/sms/register \
   -H "Content-Type: application/json" \
   -d "{\"phone\":\"${PHONE}\",\"code\":\"${OTP}\",\"password\":\"${PASSWORD}\"}")
 echo "${REG}"
 TOKEN=$(printf '%s' "${REG}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
 
-echo "=== create shop ==="
-CREATE=$(curl -sS -w "\nHTTP:%{http_code}" -X POST http://127.0.0.1:8000/shops \
+echo "=== password login ==="
+LOGIN=$(curl -sS -w "\nHTTP:%{http_code}" -X POST http://127.0.0.1:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"identifier\":\"${PHONE}\",\"password\":\"${PASSWORD}\"}")
+echo "${LOGIN}"
+
+echo "=== patch profile ==="
+curl -sS -w "\nHTTP:%{http_code}\n" -X PATCH http://127.0.0.1:8000/users/me \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${TOKEN}" \
-  -d "{\"name\":\"${SHOP_NAME}\",\"description\":\"curl smoke\"}")
-echo "${CREATE}"
-SHOP_ID=$(printf '%s' "${CREATE}" | python3 -c 'import json,sys; body=sys.stdin.read().rsplit("HTTP:",1)[0]; print(json.loads(body)["id"])')
+  -d '{"email":"curl-smoke@example.com","nickname":"curl-smoke-user"}'
 
-echo "=== get my shop ==="
-curl -sS -w "\nHTTP:%{http_code}\n" http://127.0.0.1:8000/shops/me \
+echo "=== get me ==="
+curl -sS -w "\nHTTP:%{http_code}\n" http://127.0.0.1:8000/users/me \
   -H "Authorization: Bearer ${TOKEN}"
-
-echo "=== patch closed ==="
-curl -sS -w "\nHTTP:%{http_code}\n" -X PATCH http://127.0.0.1:8000/shops/me \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -d '{"status":"closed"}'
-
-echo "=== public get ==="
-curl -sS -w "\nHTTP:%{http_code}\n" "http://127.0.0.1:8000/shops/${SHOP_ID}"

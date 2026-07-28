@@ -25,7 +25,7 @@ from tests.support.helper.catalog import register_and_open_shop
 from tests.support.helper.ordering import arrange_purchasable_product, create_order_by_seller
 from tests.support.utils import bearer_headers
 from tests.support.db.user import seed_inactive_user
-from tests.support.helper.auth import register_authenticated
+from tests.support.helper.auth import register_user_via_otp
 
 
 @pytest.mark.integration
@@ -37,7 +37,7 @@ async def test_create_order_by_seller_returns_201(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主为本店已上架且库存充足的商品为另一有效用户建单成功，返回 201 + initiated_by=seller。"""
-    buyer = await register_authenticated(integration_client)
+    buyer = await register_user_via_otp(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
 
@@ -215,7 +215,7 @@ async def test_create_order_by_seller_closed_shop_returns_422(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店铺 closed 时建单返回 422。"""
-    buyer = await register_authenticated(integration_client)
+    buyer = await register_user_via_otp(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
 

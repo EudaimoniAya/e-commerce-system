@@ -54,7 +54,7 @@ def app_with_handlers() -> FastAPI:
             status_code=422,
             detail={
                 "code": "INVALID_CREDENTIALS",
-                "message": "Invalid email or password",
+                "message": "Invalid phone or password",
             },
         )
 
@@ -190,7 +190,7 @@ class TestHTTPExceptionCodeResolution:
         body = response.json()
         assert response.status_code == 422
         assert body["error"]["code"] == "INVALID_CREDENTIALS"
-        assert body["error"]["message"] == "Invalid email or password"
+        assert body["error"]["message"] == "Invalid phone or password"
 
     @pytest.mark.asyncio
     async def test_404_maps_to_not_found(

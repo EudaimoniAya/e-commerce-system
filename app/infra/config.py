@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # 订单预留库存超时（秒）：超出时限后懒释放 → cancelled + expired
     order_reservation_ttl_seconds: int = 86400
 
+    # SMS OTP
+    sms_otp_ttl_seconds: int = 300
+    sms_daily_send_limit: int = 10
+    sms_verify_fail_limit: int = 5
+    sms_verify_fail_window_seconds: int = 900
+    sms_otp_fixed_code: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

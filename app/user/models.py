@@ -19,8 +19,15 @@ class User(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    email: Mapped[str] = mapped_column(String(255), unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(
+        String(20), unique=True, nullable=True
+    )
+    email: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
+    password_hash: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
     nickname: Mapped[str] = mapped_column(String(64))
     is_active: Mapped[bool] = mapped_column(
         Boolean,

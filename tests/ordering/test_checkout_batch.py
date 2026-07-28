@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.contexts import AuthContext, ShopOwnerContext
 from tests.support.db.ordering import backdate_order_expires_at, seed_cart_item
-from tests.support.helper.auth import register_user
+from tests.support.helper.auth import register_user_via_otp
 from tests.support.helper.ordering import (
     arrange_purchasable_product,
     checkout_cart,
@@ -95,7 +95,7 @@ async def test_get_checkout_batch_other_user_returns_404(
     batch_id = checkout.body["checkout_batch_id"]
 
     # 另一个用户尝试查看
-    other_reg = await register_user(integration_client)
+    other_reg = await register_user_via_otp(integration_client)
     assert other_reg.status_code == 201 and other_reg.body is not None
 
     result = await get_checkout_batch(

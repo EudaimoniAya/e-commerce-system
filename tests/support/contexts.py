@@ -9,11 +9,13 @@ class AuthContext:
 
     Attributes:
         access_token: JWT access token。
-        email: 注册邮箱。
+        phone: 注册手机号。
+        email: 可选邮箱（profile 字段，可能为 ``None``）。
     """
 
     access_token: str
-    email: str
+    phone: str
+    email: str | None = None
 
 
 @dataclass(frozen=True)
@@ -34,9 +36,11 @@ class ShopOwnerContext:
     Attributes:
         access_token: JWT access token（店主身份的 access token）。
         shop_id: 店铺 ID。
-        email: 注册邮箱。
+        phone: 注册手机号。
+        email: 可选邮箱（profile 字段，可能为 ``None``）。
     """
 
     access_token: str
     shop_id: str
-    email: str
+    phone: str
+    email: str | None = None

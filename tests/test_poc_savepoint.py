@@ -15,7 +15,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from tests.support.helper.auth import login_admin, register_user
+from tests.support.helper.auth import login_admin, register_user_via_otp
 from tests.support.helper.catalog import create_shop
 
 pytestmark = pytest.mark.integration
@@ -36,13 +36,13 @@ class TestSavepointPOC:
         - 若 SAVEPOINT 失效（数据真提交）→ COUNT > 0 → 断言失败
         - 若 SAVEPOINT 生效 → COUNT == 0 → 断言通过
         """
-        fixed_email = "poc-savepoint@example.com"
+        fixed_phone = "13900000001"
         fixed_shop = "POC Savepoint Shop"
 
         # Act: 注册 + 开店（走 SAVEPOINT session）
-        registered = await register_user(
+        registered = await register_user_via_otp(
             integration_client,
-            email=fixed_email,
+            phone=fixed_phone,
         )
         assert registered.status_code == 201
         assert registered.body is not None
@@ -61,12 +61,12 @@ class TestSavepointPOC:
             async with engine.connect() as conn:
                 # users 表
                 result = await conn.execute(
-                    text("SELECT COUNT(*) FROM users WHERE email = :email"),
-                    {"email": fixed_email},
+                    text("SELECT COUNT(*) FROM users WHERE phone = :phone"),
+                    {"phone": fixed_phone},
                 )
                 user_count = result.scalar()
                 assert user_count == 0, (
-                    f"SAVEPOINT 失效：users 表查到 {fixed_email}"
+                    f"SAVEPOINT 失效：users 表查到 phone={fixed_phone}"
                     f"（count={user_count}，数据泄漏到事务外）"
                 )
 

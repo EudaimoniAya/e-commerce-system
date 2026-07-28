@@ -52,16 +52,16 @@ infra 横切统一 API 错误响应契约：所有 4xx/5xx 返回 `{"error": {"c
 
 #### Scenario: 字符串 detail 映射泛化 code
 
-- **WHEN** service 抛出 `HTTPException(status_code=422, detail="Invalid email or password")`
+- **WHEN** service 抛出 `HTTPException(status_code=422, detail="Invalid phone or password")`
 - **THEN** 响应状态码 SHALL 为 422
 - **AND** `error.code` SHALL 为 `UNPROCESSABLE_ENTITY`
-- **AND** `error.message` SHALL 为 `"Invalid email or password"`
+- **AND** `error.message` SHALL 为 `"Invalid phone or password"`
 
 #### Scenario: dict detail 使用语义 code
 
-- **WHEN** service 抛出 `HTTPException(status_code=422, detail={"code": "INVALID_CREDENTIALS", "message": "Invalid email or password"})`
+- **WHEN** service 抛出 `HTTPException(status_code=422, detail={"code": "INVALID_CREDENTIALS", "message": "Invalid phone or password"})`
 - **THEN** `error.code` SHALL 为 `INVALID_CREDENTIALS`
-- **AND** `error.message` SHALL 为 `"Invalid email or password"`
+- **AND** `error.message` SHALL 为 `"Invalid phone or password"`
 
 #### Scenario: 404 业务错误
 

@@ -5,19 +5,49 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-class RegisterRequest(BaseModel):
-    """注册请求体。"""
+# ── 请求 DTO ────────────────────────────────────────────────────
 
-    email: EmailStr
+
+class SmsSendRequest(BaseModel):
+    """``POST /auth/sms/send`` 请求体。"""
+
+    phone: str
+
+
+class SmsRegisterRequest(BaseModel):
+    """``POST /auth/sms/register`` 请求体（新用户：手机 + 验证码 + 密码）。"""
+
+    phone: str
+    code: str = Field(min_length=6, max_length=6)
     password: str = Field(min_length=8, max_length=32)
     nickname: str | None = None
 
 
-class LoginRequest(BaseModel):
-    """登录请求体。"""
+class SmsLoginRequest(BaseModel):
+    """``POST /auth/sms/login`` 请求体（已有用户 OTP 登录，不含 password）。"""
 
-    email: EmailStr
+    phone: str
+    code: str = Field(min_length=6, max_length=6)
+
+
+class LoginRequest(BaseModel):
+    """``POST /auth/login`` 请求体（手机号 + 密码）。
+
+    旧版 email 登录已移除；``identifier`` 当前仅接受规范化后的大陆手机号。
+    """
+
+    identifier: str
     password: str = Field(min_length=8, max_length=32)
+
+
+class UserProfileUpdateRequest(BaseModel):
+    """``PATCH /users/me`` 请求体（资料字段更新）。"""
+
+    email: EmailStr | None = None
+    nickname: str | None = None
+
+
+# ── 响应 DTO ────────────────────────────────────────────────────
 
 
 class UserResponse(BaseModel):
@@ -26,7 +56,8 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    email: str
+    phone: str
+    email: str | None = None
     nickname: str
     created_at: datetime
 

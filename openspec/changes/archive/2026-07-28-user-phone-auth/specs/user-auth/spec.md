@@ -1,10 +1,4 @@
-# user-auth
-
-## Purpose
-
-用户域认证垂直切片：手机号 + SMS OTP 注册/登录、密码登录、JWT access token、`GET/PATCH /users/me` 与 `users` 表（含 `phone` 业务标识与 `is_admin`）；为 catalog/ordering 等后续域提供 `user_id` 与鉴权依赖。
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: SMS OTP send endpoint
 
@@ -148,6 +142,8 @@ user 域 SHALL 保持 `user.id`（UUID）为全系统身份锚点；SHALL NOT �
 - **WHEN** ordering 或 catalog 域关联用户
 - **THEN** SHALL 仅存储与查询 `user.id`（UUID），SHALL NOT 存储 phone
 
+## MODIFIED Requirements
+
 ### Requirement: User login with JSON body
 
 系统 SHALL 提供 `POST /auth/login`，接受 JSON 请求体 `{ "identifier": "<手机号>", "password": "<密码>" }`；`identifier` 当前 **仅** 接受规范化后的 11 位大陆手机号（**非**任意字符串，**非**邮箱）；验证成功 SHALL 返回 access token。用户 `password_hash` 为 NULL 时 SHALL 与密码错误同等对待（422，不泄露无密码状态）。
@@ -217,16 +213,6 @@ user 域 SHALL 保持 `user.id`（UUID）为全系统身份锚点；SHALL NOT �
 - **THEN** SHALL 存在 `phone` 为 `13800000000`、`email` 为 `114514yyut@qq.com`、`is_admin` 为 true 的用户
 - **AND** 该用户 `password_hash` SHALL 为 pwdlib 哈希（非明文）
 
-### Requirement: User domain layered structure
-
-user 域 SHALL 采用 router → service → repository → model + schemas 分层；密码哈希 SHALL 在 service 层完成，repository SHALL 只接收 `password_hash`。
-
-#### Scenario: 跨域不得 import user ORM
-
-- **WHEN** 其他业务域需要用户标识
-- **THEN** SHALL 使用 `infra` 提供的 `get_current_user_id` 或 user 域公开的 schema/service
-- **AND** SHALL NOT import `app.user.models` 或 `app.user.repository`
-
 ### Requirement: User routes mounted on application
 
 系统 SHALL 在 `app/main.py` 挂载 auth 与 users 路由。
@@ -246,41 +232,10 @@ user 域 SHALL 采用 router → service → repository → model + schemas 分�
 - **WHEN** 测试客户端请求 `POST /auth/sms/verify`
 - **THEN** 响应状态码 SHALL 为 404
 
-### Requirement: Admin authorization dependency
+## REMOVED Requirements
 
-user 域 SHALL 在 `app/user/deps.py` 提供 `require_admin` FastAPI 依赖：解析 JWT 得到 `user_id` 并查库；当用户 `is_admin` 不为 true 时 SHALL 返回 **403**；无 token 或 token 无效 SHALL 返回 **401**；用户不存在 SHALL 返回 **401**。
+### Requirement: User registration with immediate token
 
-#### Scenario: 管理员通过鉴权
+**Reason**: 注册路径改为 `POST /auth/sms/send` → `POST /auth/sms/register`（手机号 + OTP + 密码）；不再支持邮箱 + 密码直接注册。
 
-- **WHEN** 已认证且 `is_admin=true` 的用户请求依赖 `require_admin` 的端点
-- **THEN** 依赖 SHALL 返回该用户 ID（或继续处理请求）
-
-#### Scenario: 非管理员返回 403
-
-- **WHEN** 已认证但 `is_admin=false` 的用户请求依赖 `require_admin` 的端点
-- **THEN** 响应状态码 SHALL 为 403
-
-#### Scenario: 未认证返回 401
-
-- **WHEN** 客户端未携带有效 Bearer token 请求依赖 `require_admin` 的端点
-- **THEN** 响应状态码 SHALL 为 401
-
-### Requirement: User summary for cross-domain read
-
-user 域 SHALL 提供跨域只读 DTO `UserSummary`，字段 SHALL 为 `id`（UUID 字符串）与 `nickname`；SHALL NOT 包含 `email` 或 `password_hash`。`UserService` SHALL 提供 `get_user_summary(user_id)`：用户存在且 `is_active=true` 时返回 `UserSummary`；用户不存在时 SHALL 抛出 **404**；`is_active=false` 时 SHALL 抛出 **422**。
-
-#### Scenario: 有效用户返回摘要
-
-- **WHEN** ordering 或其他域调用 `get_user_summary` 且用户存在且 `is_active=true`
-- **THEN** SHALL 返回 `UserSummary` 含 `id` 与 `nickname`
-- **AND** SHALL NOT 包含 email
-
-#### Scenario: 用户不存在返回 404
-
-- **WHEN** 调用 `get_user_summary` 且 `user_id` 不存在
-- **THEN** SHALL 抛出 HTTP 404
-
-#### Scenario: 用户禁用返回 422
-
-- **WHEN** 调用 `get_user_summary` 且用户 `is_active=false`
-- **THEN** SHALL 抛出 HTTP 422
+**Migration**: 客户端按用户意图选择 register 或 login Tab，分别调用 `/auth/sms/register` 或 `/auth/sms/login`；集成测试 helper 使用 `register_user_via_otp` / `login_user_via_otp`。
