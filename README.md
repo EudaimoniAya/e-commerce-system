@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前已交付 **user 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `007`（购物车与 checkout batch）；本地与 CI integration 测试 **192 项**。
+AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `008`（users.phone）；本地与 CI integration 测试 **252 项**。
 
 ## 前置条件
 
@@ -57,23 +57,41 @@ curl http://127.0.0.1:8000/health/ready
 
 > 若未 `task redis:up`，`/health/ready` 返回 503（`redis: unavailable`）；`/health` 仍 200。
 
-认证 API（须已 `task migrate` 且 `.env` 含 `JWT_SECRET_KEY`）：
+认证 API（须已 `task migrate`、`task redis:up`，且 `.env` 含 `JWT_SECRET_KEY` 与 `REDIS_URL`；本地烟雾可设 `SMS_OTP_FIXED_CODE=123456`）：
 
 ```bash
-# 注册（201，返回 access_token 与 user）
-curl -X POST http://127.0.0.1:8000/auth/register \
+# 发送 OTP（200）
+curl -X POST http://127.0.0.1:8000/auth/sms/send \
   -H 'Content-Type: application/json' \
-  -d '{"email":"demo@example.com","password":"password123"}'
+  -d '{"phone":"13800138000"}'
 
-# 登录（200）
+# SMS 注册（201，返回 access_token 与 user）
+curl -X POST http://127.0.0.1:8000/auth/sms/register \
+  -H 'Content-Type: application/json' \
+  -d '{"phone":"13800138000","code":"123456","password":"password123"}'
+
+# SMS OTP 登录（200）
+curl -X POST http://127.0.0.1:8000/auth/sms/login \
+  -H 'Content-Type: application/json' \
+  -d '{"phone":"13800138000","code":"123456"}'
+
+# 手机号 + 密码登录（200）
 curl -X POST http://127.0.0.1:8000/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"demo@example.com","password":"password123"}'
+  -d '{"identifier":"13800138000","password":"password123"}'
 
 # 当前用户（Bearer token）
 curl http://127.0.0.1:8000/users/me \
   -H "Authorization: Bearer <access_token>"
+
+# 更新资料（email / nickname）
+curl -X PATCH http://127.0.0.1:8000/users/me \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"email":"demo@example.com","nickname":"演示用户"}'
 ```
+
+> 旧端点 `POST /auth/register`（email+password）与 `POST /auth/sms/verify` 已移除，返回 404。
 
 店铺 API（须已认证；`POST /shops` 需 Bearer token）：
 
@@ -101,10 +119,10 @@ curl http://127.0.0.1:8000/shops/<shop_id>
 类目 API（`POST /categories` 须 seed 管理员 Bearer token；`GET /categories` 公开）：
 
 ```bash
-# 管理员登录（migration 003 seed；本地 dev 库）
+# 管理员登录（migration 008 seed；本地 dev 库）
 curl -X POST http://127.0.0.1:8000/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"114514yyut@qq.com","password":"1919810810"}'
+  -d '{"identifier":"13800000000","password":"1919810810"}'
 
 # 创建类目（201；非 admin 403）
 curl -X POST http://127.0.0.1:8000/categories \
@@ -217,7 +235,10 @@ curl -X POST http://127.0.0.1:8000/cart/checkout \
 一键烟雾测试：
 
 ```bash
-# 店铺：注册 → 开店 → me → patch closed → 公开 GET
+# 手机号认证：send → register → login → PATCH /users/me
+bash scripts/user_phone_auth_curl_smoke.sh
+
+# 店铺：SMS 注册 → 开店 → me → patch closed → 公开 GET
 bash scripts/catalog_shop_curl_smoke.sh
 
 # 订单：下单 → pay → shipments → confirm-receipt；短 TTL 懒释放

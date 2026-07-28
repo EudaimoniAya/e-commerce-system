@@ -60,5 +60,10 @@ async def test_redis_set_get_ttl(
     await redis_client.set("test:key", "hello", ex=2)
     assert await redis_client.get("test:key") == b"hello"  # type: ignore[union-attr]
 
-    await asyncio.sleep(3)
-    assert await redis_client.get("test:key") is None
+    # 轮询等待过期（避免全量 CI 负载下固定 sleep 偶发未过期）
+    for _ in range(30):
+        if await redis_client.get("test:key") is None:
+            break
+        await asyncio.sleep(0.2)
+    else:
+        pytest.fail("key 在 6 秒内未过期")

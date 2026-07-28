@@ -46,8 +46,8 @@
 
 ## 7. 本地验证与 CI
 
-- [ ] 7.1 运行 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl send → register → login → PATCH /users/me
-- [ ] 7.2 更新 `README.md`、`docs/architecture.md`
+- [x] 7.1 运行 `devbox run -- task migrate` 后 `devbox run -- task ci` 全绿；curl send → register → login → PATCH /users/me
+- [x] 7.2 更新 `README.md`、`docs/architecture.md`
 
 ## 8. 文档与 DoD
 

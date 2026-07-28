@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域认证、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车** 已交付（注册/登录/JWT、开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放）；继续扩展 engagement 等 MVP 域
+- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放）；继续扩展 engagement 等 MVP 域
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -119,7 +119,7 @@ e-commerce-system/
 ├── app/
 │   ├── main.py                   # create_app() 工厂：logging → middleware → handlers → 路由
 │   ├── infra/
-│   │   ├── config.py             # DATABASE_URL、REDIS_URL、APP_ENV、jwt_*、ORDER_RESERVATION_TTL_SECONDS
+│   │   ├── config.py             # DATABASE_URL、REDIS_URL、APP_ENV、jwt_*、sms_*、ORDER_RESERVATION_TTL_SECONDS
 │   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
 │   │   ├── redis.py              # redis.asyncio 连接池、get_redis、reset_redis
 │   │   ├── auth.py               # PyJWT、OAuth2PasswordBearer、get_current_user_id
@@ -130,12 +130,14 @@ e-commerce-system/
 │   │   ├── pagination/           # 分页基础设施（PaginationParams、get_pagination_params、Paginated[TResponse]）
 │   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
 │   ├── user/                     # 用户域（router → service → repository → model）
-│   │   ├── router.py             # POST /auth/register|login，GET /users/me
-│   │   ├── service.py            # 注册/登录、pwdlib 哈希
+│   │   ├── router.py             # POST /auth/sms/*、/auth/login，GET/PATCH /users/me
+│   │   ├── service.py            # SMS 注册/登录、密码登录、资料更新
+│   │   ├── sms_service.py        # Redis OTP（send/consume/verify_fail 限流）
+│   │   ├── phone.py              # 手机号规范化
 │   │   ├── repository.py
-│   │   ├── models.py             # users 表（含 is_admin）
+│   │   ├── models.py             # users 表（phone 唯一、email 可空、含 is_admin）
 │   │   ├── schemas.py
-│   │   └── deps.py               # get_current_user、require_admin
+│   │   └── deps.py               # get_current_user、require_admin、SmsOtpService
 │   ├── catalog/                  # 商品目录域（shop + 类目/商品 + 库存预留/释放）
 │   │   ├── router.py             # categories/products/shops 路由
 │   │   ├── service.py            # 类目、商品、店铺、可购查询、reserve/release_stock
@@ -162,7 +164,8 @@ e-commerce-system/
 │       ├── 004_catalog_products.py  # categories、products、product_categories（无 seed）
 │       ├── 0ca23eb664a9_005_ordering_orders.py  # orders、order_items
 │       ├── e1674055eb99_006_ordering_initiated_by.py  # orders.initiated_by
-│       └── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
+│       ├── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
+│       └── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -171,10 +174,11 @@ e-commerce-system/
 │   │   ├── test_error_handlers.py # 统一 error JSON
 │   │   ├── test_database.py      # AsyncSession 烟雾
 │   │   └── test_redis.py         # REDIS_URL、PING、SET/GET/TTL
-│   ├── user/                     # 注册/登录/me integration
+│   ├── user/                     # SMS/密码认证、me/profile integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
-│   └── ordering/                 # 买家订单 + 购物车 integration（185 项）
+│   └── ordering/                 # 买家订单 + 购物车 integration
 ├── scripts/
+│   ├── user_phone_auth_curl_smoke.sh
 │   ├── catalog_shop_curl_smoke.sh
 │   ├── ordering_buyer_curl_smoke.sh
 │   └── ordering_cart_curl_smoke.sh
@@ -183,6 +187,8 @@ e-commerce-system/
 ```
 
 **应用入口（`create_app`）**：按序组装 `setup_logging(settings)` → `RequestIDMiddleware`（纯 ASGI，`X-Request-ID` 透传/生成）→ `register_exception_handlers(app)` → 各域 router。错误响应统一为 `{"error": {"code", "message", "request_id"}}`（详见 `infra-api-errors` spec）。日志经 loguru 输出至 stderr 与 `logs/app.log`（development/production；test 仅 stderr 且 level=WARNING）。详见 [中间件栈与异常处理架构决策（ADR-005）](./decision/中间件栈与异常处理架构决策.md)。
+
+**`users` 表（user 域）**：`id`（UUID PK，JWT `sub` 锚点）、`phone`（VARCHAR 20，UNIQUE，业务主标识）、`email`（可空，仅资料）、`password_hash`（可空，SMS 注册用户须设密码）、`nickname`、`is_active`、`is_admin`（不对外暴露）、`created_at`、`updated_at`。SMS OTP 存 Redis（`sms:otp:{phone}`、`sms:verify_fail:{phone}`、`sms:daily:{phone}:{date}`），见 `user/sms_service.py`。
 
 **`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_url`、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
 
