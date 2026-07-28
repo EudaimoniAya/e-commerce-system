@@ -86,7 +86,7 @@ async def test_login_inactive_user_returns_403(
     phone = "13800138000"
     password = "password123"
     await seed_inactive_user(
-        db_session, email=f"{phone}@example.com", password=password,
+        db_session, phone=phone, password=password,
     )
 
     result = await login_user(

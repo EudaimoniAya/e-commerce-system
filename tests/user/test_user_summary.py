@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.user.repository import UserRepository
 from app.user.service import UserService
 from app.user.sms_service import SmsOtpService
-from tests.support.builders import unique_email
+from tests.support.builders import unique_phone
 from tests.support.db.user import seed_active_user, seed_inactive_user
 
 
@@ -34,7 +34,7 @@ async def test_get_user_summary_active_user_returns_summary(
     """存在且 active 的用户返回 UserSummary（含 id + nickname，不含 email）。"""
     user_id = await seed_active_user(
         db_session,
-        email=unique_email("summary"),
+        phone=unique_phone(),
         nickname="summary-test-user",
     )
 
@@ -69,7 +69,7 @@ async def test_get_user_summary_disabled_user_returns_422(
     """is_active=false 的用户返回 422。"""
     user_id = await seed_inactive_user(
         db_session,
-        email=unique_email("disabled-summary"),
+        phone=unique_phone(),
         password="dummy-password",
     )
 

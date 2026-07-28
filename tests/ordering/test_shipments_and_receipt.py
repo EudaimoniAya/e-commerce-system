@@ -9,7 +9,7 @@ from tests.support.contexts import (
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.helper.auth import register_authenticated
+from tests.support.helper.auth import register_user_via_otp
 from tests.support.helper.ordering import (
     arrange_confirmed_order,
     arrange_purchasable_product,
@@ -73,7 +73,7 @@ async def test_create_shipment_non_owner_returns_403(
     assert paid.status_code == 200
     assert paid.body is not None
 
-    other_user = await register_authenticated(integration_client)
+    other_user = await register_user_via_otp(integration_client)
     assert other_user.status_code == 201
     assert other_user.body is not None
 

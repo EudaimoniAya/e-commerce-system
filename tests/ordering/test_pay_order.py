@@ -11,7 +11,7 @@ from tests.support.contexts import (
 )
 from tests.support.db.catalog import get_product_stock
 from tests.support.db.ordering import backdate_order_expires_at, get_order_status
-from tests.support.helper.auth import register_authenticated
+from tests.support.helper.auth import register_user_via_otp
 from tests.support.helper.ordering import (
     arrange_purchasable_product,
     create_order,
@@ -87,7 +87,7 @@ async def test_pay_order_non_buyer_returns_403(
     assert created.status_code == 201
     assert created.body is not None
 
-    other_user = await register_authenticated(integration_client)
+    other_user = await register_user_via_otp(integration_client)
     assert other_user.status_code == 201
     assert other_user.body is not None
 
@@ -231,7 +231,7 @@ async def test_pay_order_seller_initiated_by_buyer_returns_200(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """指定买家支付卖家发起的订单 → confirmed。"""
-    buyer = await register_authenticated(integration_client)
+    buyer = await register_user_via_otp(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
 
@@ -271,7 +271,7 @@ async def test_pay_order_seller_initiated_by_shop_owner_returns_403(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """店主（非买家）支付卖家发起的订单 → 403。"""
-    buyer = await register_authenticated(integration_client)
+    buyer = await register_user_via_otp(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
 

@@ -15,7 +15,7 @@ from tests.support.contexts import (
 )
 from tests.support.db.catalog import get_product_stock
 from tests.support.db.ordering import backdate_order_expires_at
-from tests.support.helper.auth import register_authenticated
+from tests.support.helper.auth import register_user_via_otp
 from tests.support.helper.catalog import register_and_open_shop
 from tests.support.helper.ordering import (
     arrange_purchasable_product,
@@ -49,7 +49,7 @@ async def test_buyer_list_orders_only_own(
     assert created.status_code == 201
     assert created.body is not None
 
-    other_user = await register_authenticated(integration_client)
+    other_user = await register_user_via_otp(integration_client)
     assert other_user.status_code == 201
     assert other_user.body is not None
 
@@ -160,7 +160,7 @@ async def test_get_order_unrelated_user_returns_404(
     assert created.status_code == 201
     assert created.body is not None
 
-    stranger = await register_authenticated(integration_client)
+    stranger = await register_user_via_otp(integration_client)
     assert stranger.status_code == 201
     assert stranger.body is not None
 
@@ -339,7 +339,7 @@ async def test_seller_order_visible_to_buyer_in_list(
     shop_owner: ShopOwnerContext,
 ) -> None:
     """卖家建单后，指定买家在 GET /orders 中可见该订单。"""
-    buyer = await register_authenticated(integration_client)
+    buyer = await register_user_via_otp(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
     buyer_user_id = buyer.body.user.id

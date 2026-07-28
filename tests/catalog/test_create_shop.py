@@ -6,12 +6,11 @@ import pytest
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ShopResponse
-from tests.support.helper.auth import auth_headers, register_user
+from tests.support.helper.auth import auth_headers, register_user_via_otp
 from tests.support.helper.catalog import register_and_open_shop
 from tests.support.builders import build_shop_create, unique_shop_name
 from tests.support.contexts import AuthContext, ShopOwnerContext
 from tests.support.utils import bearer_headers
-from tests.support.results import RegisterResult
 
 
 @pytest.mark.integration
@@ -71,7 +70,7 @@ async def test_create_shop_name_conflict_returns_422(
     assert first_shop is not None
     assert first_shop.status_code == 201
 
-    second_user: RegisterResult = await register_user(integration_client)
+    second_user = await register_user_via_otp(integration_client)
     assert second_user.status_code == 201
     assert second_user.body is not None
 

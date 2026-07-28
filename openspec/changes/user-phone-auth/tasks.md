@@ -40,9 +40,9 @@
 
 ## 6. 测试基建与全项目迁移
 
-- [ ] 6.1 更新 `tests/conftest.py` fixture（OTP register 路径、`AuthContext.phone`）
-- [ ] 6.2 迁移 catalog / ordering 等 integration 测试 helper 调用
-- [ ] 6.3 更新 `tests/infra/test_error_handlers.py`、`tests/user/test_user_summary.py`
+- [x] 6.1 更新 `tests/conftest.py` fixture（OTP register 路径、`AuthContext.phone`）
+- [x] 6.2 迁移 catalog / ordering 等 integration 测试 helper 调用
+- [x] 6.3 更新 `tests/infra/test_error_handlers.py`、`tests/user/test_user_summary.py`
 
 ## 7. 本地验证与 CI
 

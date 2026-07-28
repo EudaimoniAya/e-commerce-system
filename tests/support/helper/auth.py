@@ -140,24 +140,3 @@ async def login_admin(client: AsyncClient) -> LoginResult:
         identifier=_ADMIN_SEED_PHONE,
         password=_ADMIN_SEED_PASSWORD,
     )
-
-
-# ── 兼容包装（过渡期，待 §6.2 全量迁移后移除） ─────────────────────────
-
-
-async def register_user(
-    client: AsyncClient,
-    *,
-    phone: str | None = None,
-    password: str = _DEFAULT_TEST_PASSWORD,
-    nickname: str | None = None,
-) -> SmsRegisterResult:
-    """[Deprecated] 通过 OTP register 注册用户；新代码请改用 ``register_user_via_otp``。"""
-    return await register_user_via_otp(
-        client, phone=phone, password=password, nickname=nickname
-    )
-
-
-async def register_authenticated(client: AsyncClient) -> SmsRegisterResult:
-    """[Deprecated] 注册用户；新代码请改用 ``register_user_via_otp``。"""
-    return await register_user_via_otp(client)

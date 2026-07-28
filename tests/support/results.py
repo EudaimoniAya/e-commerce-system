@@ -186,8 +186,3 @@ class BatchPayResult:
 
     status_code: int
     body: dict | None = None
-
-
-# ── 兼容别名（过渡期，待 §6.2 全量迁移后移除） ─────────────────────
-RegisterResult = SmsRegisterResult
-SmsVerifyResult = SmsRegisterResult  # 旧名，指向 register 结果
