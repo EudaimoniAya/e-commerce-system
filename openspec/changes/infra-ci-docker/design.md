@@ -27,6 +27,7 @@
 - K8s、GitOps、cosign、CodeQL、Dependabot
 - PR 默认 build 镜像；镜像内 MySQL/Redis
 - 新增 pytest domain marker（与路径筛选重复）
+- `scripts/*_curl_smoke.sh` 类 bash HTTP 烟雾脚本（与 integration 重复；见 §0 清理）
 
 ## Decisions
 

@@ -1,14 +1,19 @@
+## 0. 测试脚本清理
+
+- [x] 0.1 删除 `scripts/*_curl_smoke.sh`（与 pytest integration 重复；业务主流程由 `task ci` / 域测试覆盖）
+- [x] 0.2 更新 README、`docs/architecture.md`、`test-architecture` spec 与 cursor rule：禁止新增重复 curl 烟雾脚本
+
 ## 1. 依赖与基础配置
 
-- [ ] 1.1 `pyproject.toml` dev 组添加 `allure-pytest`；`uv sync`
-- [ ] 1.2 `.gitignore` 添加 `reports/`；确认不跟踪 Allure 输出
-- [ ] 1.3 Taskfile 新增域测试任务：`test:user`、`test:catalog`、`test:ordering`、`test:infra`、`test:unit`（路径与 design matrix 一致）
+- [x] 1.1 `pyproject.toml` dev 组添加 `allure-pytest`；`uv sync`
+- [x] 1.2 `.gitignore` 添加 `reports/`；确认不跟踪 Allure 输出
+- [x] 1.3 Taskfile 新增域测试任务：`test:user`、`test:catalog`、`test:ordering`、`test:infra`、`test:unit`（路径与 design matrix 一致）
 
 ## 2. Allure 本地报告命令
 
-- [ ] 2.1 Taskfile 新增 `test:reports`（deps `db:up` + `redis:up`；pytest `--alluredir=reports/allure-results`；`allure generate` → `reports/allure-report`）
-- [ ] 2.2 Taskfile 新增 `latest:report`（检查目录存在 → `allure open reports/allure-report`）
-- [ ] 2.3 README 补充 Allure CLI 安装说明、`test:reports` / `latest:report` 用法
+- [x] 2.1 Taskfile 新增 `test:reports`（deps `db:up` + `redis:up`；pytest `--alluredir=reports/allure-results`；`allure generate` → `reports/allure-report`）
+- [x] 2.2 Taskfile 新增 `latest:report`（检查目录存在 → `allure open reports/allure-report`）
+- [x] 2.3 README 补充 Allure CLI 安装说明、`test:reports` / `latest:report` 用法
 
 ## 3. Allure 装饰器 — user 域
 
@@ -56,4 +61,4 @@
 
 - [ ] 11.1 确认 DoD（本地 + 远程 CI）；可执行 `/opsx:archive`
 
-> **Apply 约定**：§1–2 → §3–6（Allure 装饰器，按域分批 commit）→ §7–8（CI + Docker）→ §9–11。DB/Redis 使用 `devbox run --`。合入 main 后打 `v1.0.0` tag 触发首次镜像 build（本 change 合 dev 后由 dev→main PR 完成）。
+> **Apply 约定**：§0（curl 脚本清理，已完成）→ §1–2 → §3–6（Allure 装饰器，按域分批 commit）→ §7–8（CI + Docker）→ §9–11。DB/Redis 使用 `devbox run --`。合入 main 后打 `v1.0.0` tag 触发首次镜像 build（本 change 合 dev 后由 dev→main PR 完成）。

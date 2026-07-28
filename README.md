@@ -232,21 +232,7 @@ curl -X POST http://127.0.0.1:8000/cart/checkout \
   -d '{"cart_item_ids":["<cart_item_id>"]}'
 ```
 
-一键烟雾测试：
-
-```bash
-# 手机号认证：send → register → login → PATCH /users/me
-bash scripts/user_phone_auth_curl_smoke.sh
-
-# 店铺：SMS 注册 → 开店 → me → patch closed → 公开 GET
-bash scripts/catalog_shop_curl_smoke.sh
-
-# 订单：下单 → pay → shipments → confirm-receipt；短 TTL 懒释放
-bash scripts/ordering_buyer_curl_smoke.sh
-
-# 购物车：加购 → list → checkout → batch-pay
-bash scripts/ordering_cart_curl_smoke.sh
-```
+> 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci`（或 `task test:user` / `test:catalog` / `test:ordering`）中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
 
 验证 MySQL 双库（可选）：
 
@@ -263,9 +249,16 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 |------|------|
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
-| `task test` | 运行 pytest（自动 `APP_ENV_FILE=.env.test`） |
+| `task test` | 运行全部 pytest（自动 `APP_ENV_FILE=.env.test`） |
+| `task test:user` | 仅 user 域测试（`tests/user/` + `tests/unit/user/`） |
+| `task test:catalog` | 仅 catalog 域测试（`tests/catalog/` + `tests/unit/catalog/`） |
+| `task test:ordering` | 仅 ordering 域测试（`tests/ordering/`） |
+| `task test:infra` | 仅 infra + ops 测试（`tests/infra/` + `tests/ops/`） |
+| `task test:unit` | 仅纯单元测试（`tests/unit/`） |
 | `task ci` | 本地 CI：`ruff` + test-import 检查 + `test`（**不**自动 `db:up` / `redis:up`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
+| `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up`） |
+| `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |
 
 ### 数据库（本地 devbox）
 
@@ -287,6 +280,31 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task redis:down` | 停止 devbox Redis 服务 |
 
 实现脚本：`scripts/devbox_redis_{up,down}.sh`。
+
+### Allure 测试报告（本地）
+
+Allure CLI 需本地安装（非 devbox 提供）。macOS：`brew install allure`；Linux：
+
+```bash
+# Ubuntu/Debian
+sudo apt-add-repository ppa:qameta/allure
+sudo apt update
+sudo apt install allure
+
+# 或手动下载：https://github.com/allure-framework/allure2/releases
+```
+
+生成并查看报告：
+
+```bash
+# 运行测试并生成 Allure 报告（自动 db:up + redis:up）
+task test:reports
+
+# 在浏览器中打开报告
+task latest:report
+```
+
+`reports/` 目录已加入 `.gitignore`，不会提交到仓库。CI 每 matrix job 上传 `allure-results` artifact（14 天保留），供本地下载后 `allure generate` 查看。
 
 ### `db:up` 预期输出
 

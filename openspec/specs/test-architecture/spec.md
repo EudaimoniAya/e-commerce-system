@@ -127,6 +127,23 @@ Health、readiness、migration smoke 探针 SHALL 位于 `tests/ops/`。纯 JWT/
 - **WHEN** 某 test 文件新增 `from tests.catalog.test_create_product import ...`
 - **THEN** CI grep step SHALL 失败
 
+### Requirement: No redundant curl smoke scripts in scripts/
+
+项目 **SHALL NOT** 在 `scripts/` 下新增与 pytest integration 重复的 `*_curl_smoke.sh` 或等价 bash HTTP 编排脚本。业务 API 主流程与回归 SHALL 由 `tests/{domain}/` integration Case + `tests/support/helper/` 覆盖，并经 `task ci` / 域测试任务在 CI 与本地执行。
+
+README MAY 保留零散的 curl 示例供手动调试，但 **SHALL NOT** 维护「一键烟雾」类 shell 脚本作为第二套自动化测试。
+
+#### Scenario: apply 本地验证不依赖 curl 烟雾脚本
+
+- **WHEN** OpenSpec change 的 tasks 描述本地验证或 DoD
+- **THEN** SHALL 以 `devbox run -- task migrate` + `devbox run -- task ci`（或域 `task test:*`）为验收标准
+- **AND** SHALL NOT 要求新增或运行 `scripts/*_curl_smoke.sh`
+
+#### Scenario: scripts 目录无 curl 烟雾脚本
+
+- **WHEN** 列出 `scripts/` 目录
+- **THEN** SHALL NOT 存在 `*_curl_smoke.sh` 文件
+
 ### Requirement: Bearer header projection without stored copies
 
 Bearer 请求头 SHALL 通过纯函数 `bearer_headers(access_token: str)` 投影。Context 与 `*Result` SHALL NOT 含存储型拷贝 `headers` 字段。

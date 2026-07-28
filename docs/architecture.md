@@ -177,11 +177,11 @@ e-commerce-system/
 │   ├── user/                     # SMS/密码认证、me/profile integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
 │   └── ordering/                 # 买家订单 + 购物车 integration
-├── scripts/
-│   ├── user_phone_auth_curl_smoke.sh
-│   ├── catalog_shop_curl_smoke.sh
-│   ├── ordering_buyer_curl_smoke.sh
-│   └── ordering_cart_curl_smoke.sh
+├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
+│   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
+│   ├── devbox_redis_up.sh / devbox_redis_down.sh
+│   ├── allure_open_report.sh     # Task latest:report
+│   └── check_no_test_cross_imports.sh
 ├── .github/workflows/ci.yml      # DATABASE_URL + REDIS_URL + JWT_SECRET_KEY；migrate + task ci
 └── ...
 ```
