@@ -8,15 +8,16 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from tests.support.helper.auth import (
-    _ADMIN_SEED_EMAIL,
+    _ADMIN_SEED_PHONE,
     _ADMIN_SEED_PASSWORD,
     auth_headers,
     login_user,
-    register_user,
+    register_user_via_otp,
 )
 from tests.support.builders import (
     unique_category_name,
     unique_email,
+    unique_phone,
     unique_shop_name,
 )
 from tests.support.helper.catalog import (
@@ -35,8 +36,10 @@ from tests.support.results import (
     CheckoutResult,
     LoginResult,
     ProductResult,
-    RegisterResult,
     ShopResult,
+    SmsLoginResult,
+    SmsRegisterResult,
+    SmsSendResult,
 )
 
 # 公开 re-export（fixture + support 符号；Case 亦可直接 from tests.support.*）
@@ -51,9 +54,11 @@ __all__ = [
     "CheckoutResult",
     "LoginResult",
     "ProductResult",
-    "RegisterResult",
     "ShopOwnerContext",
     "ShopResult",
+    "SmsLoginResult",
+    "SmsRegisterResult",
+    "SmsSendResult",
     "admin_auth_headers",
     "auth_headers",
     "authenticated_user",
@@ -65,11 +70,12 @@ __all__ = [
     "database_url",
     "db_session",
     "login_user",
-    "register_user",
+    "register_user_via_otp",
     "second_shop_owner",
     "shop_owner",
     "unique_category_name",
     "unique_email",
+    "unique_phone",
     "unique_shop_name",
 ]
 
@@ -183,7 +189,7 @@ async def integration_client(
 @pytest.fixture
 async def authenticated_user(integration_client: AsyncClient) -> AuthContext:
     """注册成功后的极薄 AuthContext（orchestrator → fail-fast → Context）。"""
-    registered = await register_user(integration_client)
+    registered = await register_user_via_otp(integration_client)
     if registered.status_code != 201 or registered.body is None:
         pytest.fail(
             f"注册 Setup 失败（status={registered.status_code}），"
@@ -191,14 +197,14 @@ async def authenticated_user(integration_client: AsyncClient) -> AuthContext:
         )
     return AuthContext(
         access_token=registered.body.access_token,
-        email=registered.email,
+        phone=registered.phone,
     )
 
 
 @pytest.fixture
 async def shop_owner(integration_client: AsyncClient) -> ShopOwnerContext:
     """注册并开店成功后的极薄 ShopOwnerContext（orchestrator → fail-fast → Context）。"""
-    registered = await register_user(integration_client)
+    registered = await register_user_via_otp(integration_client)
     if registered.status_code != 201 or registered.body is None:
         pytest.fail(
             f"注册 Setup 失败（status={registered.status_code}），"
@@ -218,7 +224,7 @@ async def shop_owner(integration_client: AsyncClient) -> ShopOwnerContext:
     return ShopOwnerContext(
         access_token=registered.body.access_token,
         shop_id=shop_result.body.id,
-        email=registered.email,
+        phone=registered.phone,
     )
 
 
@@ -228,7 +234,7 @@ async def second_shop_owner(integration_client: AsyncClient) -> ShopOwnerContext
 
     与 ``shop_owner`` 逻辑完全相同，仅身份独立。
     """
-    registered = await register_user(integration_client)
+    registered = await register_user_via_otp(integration_client)
     if registered.status_code != 201 or registered.body is None:
         pytest.fail(
             f"注册 Setup 失败（status={registered.status_code}），"
@@ -248,7 +254,7 @@ async def second_shop_owner(integration_client: AsyncClient) -> ShopOwnerContext
     return ShopOwnerContext(
         access_token=registered.body.access_token,
         shop_id=shop_result.body.id,
-        email=registered.email,
+        phone=registered.phone,
     )
 
 
@@ -257,7 +263,7 @@ async def admin_auth_headers(integration_client: AsyncClient) -> AdminAuthContex
     """seed 管理员登录后的极薄 AdminAuthContext（orchestrator → fail-fast → Context）。"""
     logged_in = await login_user(
         integration_client,
-        email=_ADMIN_SEED_EMAIL,
+        identifier=_ADMIN_SEED_PHONE,
         password=_ADMIN_SEED_PASSWORD,
     )
     if logged_in.status_code != 200 or logged_in.body is None:

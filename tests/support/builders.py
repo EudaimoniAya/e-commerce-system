@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from app.catalog.schemas import CategoryCreate, ProductCreate, ShopCreate
 from app.ordering.schemas import OrderCreate, OrderItemCreate
-from app.user.schemas import LoginRequest, RegisterRequest
+from app.user.schemas import LoginRequest, SmsLoginRequest, SmsRegisterRequest, SmsSendRequest
 
 # integration 测试默认密码（符合 8–32 位规则）
 _DEFAULT_TEST_PASSWORD = "password123"
@@ -14,6 +14,14 @@ _DEFAULT_TEST_PASSWORD = "password123"
 def unique_email(prefix: str = "user") -> str:
     """生成唯一测试邮箱，避免 integration 测试互相冲突。"""
     return f"{prefix}-{uuid.uuid4().hex[:12]}@example.com"
+
+
+def unique_phone(prefix: str = "138") -> str:
+    """生成唯一测试手机号（11 位大陆手机号），避免 integration 测试互相冲突。
+
+    使用 138xxxx 号段，保留后 8 位随机。
+    """
+    return f"{prefix}{uuid.uuid4().hex[:8]}"
 
 
 def unique_shop_name(prefix: str = "shop") -> str:
@@ -26,27 +34,49 @@ def unique_category_name(prefix: str = "cat") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
 
 
-def build_register_request(
+def build_sms_send_request(
     *,
-    email: str | None = None,
+    phone: str | None = None,
+) -> SmsSendRequest:
+    """构造合法 SmsSendRequest。"""
+    return SmsSendRequest(phone=phone or unique_phone())
+
+
+def build_sms_register_request(
+    *,
+    phone: str | None = None,
+    code: str = "123456",
     password: str = _DEFAULT_TEST_PASSWORD,
     nickname: str | None = None,
-) -> RegisterRequest:
-    """构造合法 RegisterRequest。"""
-    return RegisterRequest(
-        email=email or unique_email(),
+) -> SmsRegisterRequest:
+    """构造合法 SmsRegisterRequest。"""
+    return SmsRegisterRequest(
+        phone=phone or unique_phone(),
+        code=code,
         password=password,
         nickname=nickname,
     )
 
 
+def build_sms_login_request(
+    *,
+    phone: str | None = None,
+    code: str = "123456",
+) -> SmsLoginRequest:
+    """构造合法 SmsLoginRequest（已有用户 OTP 登录）。"""
+    return SmsLoginRequest(
+        phone=phone or unique_phone(),
+        code=code,
+    )
+
+
 def build_login_request(
     *,
-    email: str,
+    identifier: str,
     password: str = _DEFAULT_TEST_PASSWORD,
 ) -> LoginRequest:
-    """构造合法 LoginRequest。"""
-    return LoginRequest(email=email, password=password)
+    """构造合法 LoginRequest（identifier 为规范化手机号）。"""
+    return LoginRequest(identifier=identifier, password=password)
 
 
 def build_shop_create(
@@ -97,6 +127,47 @@ def build_product_create(
         category_ids=category_ids,
         primary_category_id=primary_category_id,
     )
+
+
+# ── 兼容包装（过渡期，待 §6.2 全量迁移后移除） ─────────────────────
+
+
+def build_register_request(
+    *,
+    email: str | None = None,
+    password: str = _DEFAULT_TEST_PASSWORD,
+    nickname: str | None = None,
+) -> "RegisterRequestCompat":
+    """[Deprecated] 构造兼容旧 RegisterRequest 的对象。
+
+    .. deprecated::
+        ``RegisterRequest`` 已随 email 注册路径移除。此包装返回兼容对象
+        以确保旧测试可 import 和调用，但 ``/auth/register`` 端点已移除（404）。
+    """
+    return RegisterRequestCompat(
+        email=email or unique_email(),
+        password=password,
+        nickname=nickname,
+    )
+
+
+class RegisterRequestCompat:
+    """``build_register_request`` 返回兼容对象的过渡包装。
+
+    提供 ``model_dump`` 方法供旧测试 ``.model_dump(mode="json")`` 调用。
+    """
+
+    def __init__(self, email: str, password: str, nickname: str | None) -> None:
+        self.email = email
+        self.password = password
+        self.nickname = nickname
+
+    def model_dump(self, mode: str = "python") -> dict:
+        return {
+            "email": self.email,
+            "password": self.password,
+            "nickname": self.nickname,
+        }
 
 
 def build_order_create(

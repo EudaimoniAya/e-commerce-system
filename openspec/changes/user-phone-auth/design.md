@@ -15,8 +15,8 @@
 
 **Goals:**
 
-- 手机号取代 email 成为主登录标识；注册路径为 **SMS OTP + password**（`POST /auth/sms/verify`）
-- 日常登录：**手机号 + 密码** 或 **手机号 + OTP**（换设备/异地）
+- 手机号取代 email 成为主登录标识；注册路径为 **`POST /auth/sms/register`**（SMS OTP + password）
+- 日常登录：**手机号 + 密码**（`POST /auth/login`）或 **手机号 + OTP**（`POST /auth/sms/login`）
 - Redis 存储 OTP（GETDEL 原子消费）；dev/test Mock SMS Provider
 - `users` 表：`phone` UNIQUE nullable（OAuth 预留）、`email` UNIQUE nullable（资料）、`password_hash` nullable
 - `PATCH /users/me` 更新可选 `email`、`nickname`
@@ -39,25 +39,28 @@
 
 **备选**：phone 作 DB PK（否决：全库 FK 迁移成本高）。
 
-### 2. 注册：仅 `POST /auth/sms/verify`（移除 `/auth/register`）
+### 2. 注册与 OTP 登录：拆分端点（类比 ordering 买家/卖家建单）
 
 **选择**：
 
-1. `POST /auth/sms/send` `{ phone }` — 发 OTP
-2. `POST /auth/sms/verify` — 新用户：`{ phone, code, password, nickname? }` → **201**；已有用户：`{ phone, code }` → **200**
+1. `POST /auth/sms/send` `{ phone }` — 发 OTP（共用，不泄露用户是否存在）
+2. `POST /auth/sms/register` — `{ phone, code, password, nickname? }` → **201**；phone **MUST NOT** 已存在
+3. `POST /auth/sms/login` — `{ phone, code }` → **200**；phone **MUST** 已存在
 
-新用户 verify **MUST** 含符合 8–32 位规则的 `password`；service 写入 `password_hash`。
+register **MUST** 含符合 8–32 位规则的 `password`（schema 层必填）；login 请求体 **不含** password，前端按 Tab 意图选择端点。
 
-**理由**：注册三件套（手机 + 验证码 + 密码）；与「验证码登录即注册」合一端点，靠「用户是否已存在」分支。
+**理由**：前端需在 send 之后、提交之前决定是否展示密码表单；单端点 verify 无法表达用户意图。与 `POST /orders` vs `POST /shops/me/orders` 同理——共用底层 OTP 消费，HTTP 契约分离。
 
-**备选**：独立 register 端点（否决：重复 send/verify 逻辑）。
+**实现复用**：`SmsOtpService.consume_otp(phone, code)` 共用；`UserService.register_via_sms` / `login_via_sms` 分支用户存在性。
 
-### 3. 登录双路径
+**备选**：单一 `POST /auth/sms/verify` 按用户是否存在分支（否决：前端无法提前确定 UI）。
+
+### 3. 密码登录与 OTP 登录
 
 | 路径 | API | 条件 |
 |------|-----|------|
 | 密码 | `POST /auth/login` `{ identifier, password }` | `password_hash IS NOT NULL`；identifier 为规范化 11 位手机号 |
-| OTP | send → verify `{ phone, code }` | 用户已存在；无 password 字段 |
+| OTP | send → `POST /auth/sms/login` `{ phone, code }` | 用户已存在 |
 
 **理由**：日常密码登录；换设备 OTP 无需改密。
 
@@ -97,7 +100,7 @@ HTTPException(
 
 **消费**：`GETDEL sms:otp:{phone}`（Redis 8，不用 Lua）。
 
-**验证成功复位**：`POST /auth/sms/verify` 成功（注册或 OTP 登录）后，SHALL `DEL sms:verify_fail:{phone}`，避免用户先失败后成功、却在锁定窗口内无法再次 verify。
+**验证成功复位**：`POST /auth/sms/register` 或 `POST /auth/sms/login` 成功后，SHALL `DEL sms:verify_fail:{phone}`。
 
 **参数**（Settings 或常量，可 env 覆盖）：
 
@@ -120,8 +123,8 @@ HTTPException(
 app/user/
 ├── phone.py           # normalize_phone
 ├── sms.py             # SmsOtpService（send/consume/rate limit）、SmsProvider Protocol、MockSmsProvider
-├── router.py          # /auth/sms/*, /auth/login, /users/me, PATCH /users/me
-├── service.py         # UserService（verify/register/login/update_profile）
+├── router.py          # /auth/sms/send|register|login, /auth/login, /users/me, PATCH /users/me
+├── service.py         # UserService（register_via_sms/login_via_sms/login/update_profile）
 ├── repository.py      # get_by_phone, create, update
 ├── models.py          # User ORM
 ├── schemas.py         # DTO

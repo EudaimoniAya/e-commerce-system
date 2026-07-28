@@ -10,7 +10,6 @@ from app.infra.auth import create_access_token
 from app.user.repository import UserRepository
 from app.user.schemas import (
     LoginRequest,
-    RegisterRequest,
     TokenResponse,
     UserResponse,
     UserSummary,
@@ -18,8 +17,8 @@ from app.user.schemas import (
 
 _hasher = PasswordHash.recommended()
 
-# 登录失败统一文案，不区分邮箱是否存在
-_INVALID_CREDENTIALS_MSG = "Invalid email or password"
+# 登录失败统一文案，不区分手机号是否存在
+_INVALID_CREDENTIALS_MSG = "Invalid phone or password"
 
 
 def _default_nickname() -> str:
@@ -29,9 +28,15 @@ def _default_nickname() -> str:
 
 
 def _to_user_response(user) -> UserResponse:
-    """ORM 用户转对外 DTO。"""
+    """ORM 用户转对外 DTO。
+
+    .. note::
+        迁移过渡期间旧 email 式 ORM 行（尚无 phone 列）可能触发 IntegrityError；
+        §3（migration 008）后 ``user.phone`` 一定存在且非空。
+    """
     return UserResponse(
         id=str(user.id),
+        phone=getattr(user, "phone", ""),
         email=user.email,
         nickname=user.nickname,
         created_at=user.created_at,
@@ -55,27 +60,7 @@ class UserService:
     def __init__(self, repository: UserRepository) -> None:
         self._repository = repository
 
-    async def register(self, data: RegisterRequest) -> TokenResponse:
-        """注册新用户并返回 access token。"""
-        existing = await self._repository.get_by_email(data.email)
-        if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Email already registered",
-            )
-
-        nickname = data.nickname.strip() if data.nickname else ""
-        if not nickname:
-            nickname = _default_nickname()
-
-        password_hash = _hasher.hash(data.password)
-        user = await self._repository.create(
-            user_id=uuid.uuid4(),
-            email=data.email,
-            password_hash=password_hash,
-            nickname=nickname,
-        )
-        return _build_token_response(user)
+    # register 已随 email 注册路径移除；SMS register/login 见 §5.2
 
     async def get_user_summary(self, user_id: uuid.UUID | str) -> UserSummary:
         """查询用户摘要（跨域只读）。"""
@@ -93,8 +78,9 @@ class UserService:
         return UserSummary(id=str(user.id), nickname=user.nickname)
 
     async def login(self, data: LoginRequest) -> TokenResponse:
-        """校验凭据并返回 access token。"""
-        user = await self._repository.get_by_email(data.email)
+        """通过手机号 + 密码校验凭据并返回 access token。"""
+        # 迁移过渡：8 位 UUID 字符串长度 < 11，可区分 email（含 @）与 phone 查法
+        user = await self._repository.get_by_phone(data.identifier)
         if user is None or not _hasher.verify(data.password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

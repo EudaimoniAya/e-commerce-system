@@ -28,9 +28,9 @@
 - **WHEN** 同一规范化手机号当日 send 次数已达上限（默认 10 次）
 - **THEN** 响应状态码 SHALL 为 429
 
-### Requirement: SMS OTP verify for registration and login
+### Requirement: SMS OTP register endpoint
 
-系统 SHALL 提供 `POST /auth/sms/verify`，校验 Redis OTP（SHALL 使用 **GETDEL** 原子消费）；根据用户是否已存在分支处理。
+系统 SHALL 提供 `POST /auth/sms/register`，接受 JSON 请求体 `{ "phone", "code", "password", "nickname?" }`；SHALL 校验 Redis OTP（**GETDEL** 原子消费）；该 phone **MUST NOT** 已存在；成功 SHALL 创建用户并返回 access token。
 
 #### Scenario: 新用户注册成功返回 201 与 token
 
@@ -40,10 +40,41 @@
 - **AND** 系统 SHALL 创建用户并写入 `phone` 与 `password_hash`
 - **AND** OTP key SHALL 已被删除（不可复用）
 
-#### Scenario: 新用户注册缺少 password 返回 422
+#### Scenario: 手机号已注册返回 422
 
-- **WHEN** 该 phone 尚无用户且 verify 请求未包含 `password` 或 `password` 长度不合规
+- **WHEN** 客户端向 `POST /auth/sms/register` 提交的 `phone` 已存在于 `users` 表且 OTP 正确
 - **THEN** 响应状态码 SHALL 为 422
+- **AND** 响应 SHALL 符合 `infra-api-errors` 统一 error JSON
+
+#### Scenario: 注册缺少 password 或长度不合规返回 422
+
+- **WHEN** register 请求未包含 `password` 或 `password` 长度小于 8 或大于 32
+- **THEN** 响应状态码 SHALL 为 422
+
+#### Scenario: 注册 OTP 错误或过期返回 422
+
+- **WHEN** 客户端提交的 `code` 与 Redis 中 OTP 不匹配、OTP 已过期或已被消费
+- **THEN** 响应状态码 SHALL 为 422
+- **AND** `error.message` SHALL 为 `"Invalid or expired verification code"`
+
+#### Scenario: 注册成功后复位验证失败计数
+
+- **WHEN** 客户端 register 成功
+- **THEN** Redis key `sms:verify_fail:{normalized_phone}` SHALL 被删除
+
+#### Scenario: 未提供昵称时使用默认昵称
+
+- **WHEN** register 请求未包含 `nickname` 或 `nickname` 为空
+- **THEN** 系统 SHALL 将 `nickname` 设为 `用户_<注册时毫秒级时间戳>`
+
+#### Scenario: 注册验证失败次数超限返回 429
+
+- **WHEN** 同一手机号在锁定窗口（默认 15 分钟）内 OTP 验证失败次数达到上限（默认 5 次）
+- **THEN** 响应状态码 SHALL 为 429
+
+### Requirement: SMS OTP login endpoint
+
+系统 SHALL 提供 `POST /auth/sms/login`，接受 JSON 请求体 `{ "phone", "code" }`（**不含** `password`）；SHALL 校验 Redis OTP（**GETDEL** 原子消费）；该 phone **MUST** 已存在且 `is_active=true`；成功 SHALL 返回 access token。
 
 #### Scenario: 已有用户 OTP 登录成功返回 200
 
@@ -51,31 +82,31 @@
 - **THEN** 响应状态码 SHALL 为 200
 - **AND** 响应体 SHALL 包含 token 与 `user` 对象（字段约束同注册成功）
 
-#### Scenario: verify 成功后复位验证失败计数
+#### Scenario: OTP 登录时用户不存在返回 422
 
-- **WHEN** 客户端 verify 成功（注册或 OTP 登录）
-- **THEN** Redis key `sms:verify_fail:{normalized_phone}` SHALL 被删除
+- **WHEN** 客户端向 `POST /auth/sms/login` 提交的 `phone` 不存在于 `users` 表
+- **THEN** 响应状态码 SHALL 为 422
+- **AND** `error.message` SHALL 为 `"Invalid or expired verification code"`（与 OTP 错误同文案，防枚举）
 
 #### Scenario: OTP 错误或过期返回 422
 
 - **WHEN** 客户端提交的 `code` 与 Redis 中 OTP 不匹配、OTP 已过期或已被消费
 - **THEN** 响应状态码 SHALL 为 422
-- **AND** `error.message` SHALL 为 `"Invalid or expired verification code"`（或等价固定文案）
-- **AND** SHALL NOT 区分「用户不存在」与「验证码错误」
+- **AND** `error.message` SHALL 为 `"Invalid or expired verification code"`
 
 #### Scenario: OTP 登录时用户已禁用返回 403
 
 - **WHEN** OTP 正确但对应用户 `is_active=false`
 - **THEN** 响应状态码 SHALL 为 403
 
-#### Scenario: 未提供昵称时使用默认昵称
+#### Scenario: OTP 登录成功后复位验证失败计数
 
-- **WHEN** 新用户注册 verify 未包含 `nickname` 或 `nickname` 为空
-- **THEN** 系统 SHALL 将 `nickname` 设为 `用户_<注册时毫秒级时间戳>`
+- **WHEN** 客户端 OTP login 成功
+- **THEN** Redis key `sms:verify_fail:{normalized_phone}` SHALL 被删除
 
-#### Scenario: 验证失败次数超限返回 429
+#### Scenario: OTP 登录验证失败次数超限返回 429
 
-- **WHEN** 同一手机号在锁定窗口（默认 15 分钟）内 OTP 验证失败次数达到上限（默认 5 次）
+- **WHEN** 同一手机号在锁定窗口内 OTP 验证失败次数达到上限
 - **THEN** 响应状态码 SHALL 为 429
 
 ### Requirement: Phone number normalization
@@ -160,7 +191,7 @@ user 域 SHALL 保持 `user.id`（UUID）为全系统身份锚点；SHALL NOT �
 
 ### Requirement: Users table with UUID primary key
 
-系统 SHALL 在 **user 域** 拥有 `users` 表；主键 SHALL 为 UUID v4（应用层生成）。表 SHALL 包含 `phone`（VARCHAR，UNIQUE，nullable，OAuth 预留）、`email`（VARCHAR，UNIQUE，nullable，资料字段）、`password_hash`（nullable；OTP 注册路径 MUST 写入非空哈希）。
+系统 SHALL 在 **user 域** 拥有 `users` 表；主键 SHALL 为 UUID v4（应用层生成）。表 SHALL 包含 `phone`（VARCHAR，UNIQUE，nullable，OAuth 预留）、`email`（VARCHAR，UNIQUE，nullable，资料字段）、`password_hash`（nullable；SMS register 路径 MUST 写入非空哈希）。
 
 #### Scenario: 用户记录包含必需字段
 
@@ -188,7 +219,7 @@ user 域 SHALL 保持 `user.id`（UUID）为全系统身份锚点；SHALL NOT �
 
 #### Scenario: 应用处理 auth 请求
 
-- **WHEN** 测试客户端请求 `POST /auth/sms/send`、`POST /auth/sms/verify`、`POST /auth/login`、`PATCH /users/me` 或 `GET /users/me`
+- **WHEN** 测试客户端请求 `POST /auth/sms/send`、`POST /auth/sms/register`、`POST /auth/sms/login`、`POST /auth/login`、`PATCH /users/me` 或 `GET /users/me`
 - **THEN** 请求 SHALL 由 FastAPI 应用处理（非 404）
 
 #### Scenario: 旧注册端点已移除
@@ -196,10 +227,15 @@ user 域 SHALL 保持 `user.id`（UUID）为全系统身份锚点；SHALL NOT �
 - **WHEN** 测试客户端请求 `POST /auth/register`
 - **THEN** 响应状态码 SHALL 为 404
 
+#### Scenario: 旧统一 verify 端点已移除
+
+- **WHEN** 测试客户端请求 `POST /auth/sms/verify`
+- **THEN** 响应状态码 SHALL 为 404
+
 ## REMOVED Requirements
 
 ### Requirement: User registration with immediate token
 
-**Reason**: 注册路径改为 `POST /auth/sms/verify`（手机号 + OTP + 密码）；不再支持邮箱 + 密码直接注册。
+**Reason**: 注册路径改为 `POST /auth/sms/send` → `POST /auth/sms/register`（手机号 + OTP + 密码）；不再支持邮箱 + 密码直接注册。
 
-**Migration**: 客户端改用 `POST /auth/sms/send` → `POST /auth/sms/verify`；集成测试 helper 从 `register_user(email=...)` 迁移为 OTP 注册流程。
+**Migration**: 客户端按用户意图选择 register 或 login Tab，分别调用 `/auth/sms/register` 或 `/auth/sms/login`；集成测试 helper 使用 `register_user_via_otp` / `login_user_via_otp`。

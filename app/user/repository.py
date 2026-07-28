@@ -25,6 +25,13 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_phone(self, phone: str) -> User | None:
+        """按规范化手机号查询用户。"""
+        result = await self._session.execute(
+            select(User).where(User.phone == phone)
+        )
+        return result.scalar_one_or_none()
+
     async def create(
         self,
         *,

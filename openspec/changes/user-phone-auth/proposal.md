@@ -6,10 +6,9 @@
 
 - **BREAKING**：移除 `POST /auth/register`（邮箱 + 密码注册）
 - **BREAKING**：`POST /auth/login` 改为 `identifier`（规范化 11 位手机号）+ `password`；不再支持邮箱登录
-- 新增 **`POST /auth/sms/send`**：发送短信 OTP（Redis 存储；dev/test 使用 Mock SMS Provider）
-- 新增 **`POST /auth/sms/verify`**：
-  - 新用户：手机号 + 验证码 + 密码（+ 可选 nickname）→ 注册并返回 token（**201**）
-  - 已有用户：手机号 + 验证码 → OTP 登录（**200**；换设备/异地场景）
+- 新增 **`POST /auth/sms/register`**：手机号 + 验证码 + 密码（+ 可选 nickname）→ 注册并返回 token（**201**）
+- 新增 **`POST /auth/sms/login`**：手机号 + 验证码 → 已有用户 OTP 登录（**200**；换设备/异地场景）
+- **`POST /auth/sms/send`** 与 register/login **分离**：前端按用户意图选择端点，register 展示密码表单、login 不展示
 - 保留 **`POST /auth/login`**：手机号 + 密码日常登录
 - 新增 **`PATCH /users/me`**：更新可选资料字段 `email`、`nickname`（邮箱不参与登录）
 - **`users` 表**（migration `008`）：新增 `phone`（UNIQUE，nullable，OAuth 预留）；`email` 改为 UNIQUE nullable；`password_hash` 改为 nullable
@@ -42,7 +41,7 @@
 
 - **业务域**：**user**（router、service、repository、model、schemas、deps、新增 sms/otp 模块）；**infra** 仅消费已有 `get_redis()`，不新增 infra 模块
 - **新增/修改文件**：`app/user/`（含 OTP service、phone normalize）、`alembic/versions/008_*.py`、迁移 `003` seed 补充 phone、`tests/user/`、`tests/support/helper/auth.py`、`tests/support/builders.py`、`tests/conftest.py`、各域 integration 测试 Arrange helper、`README.md`、`docs/architecture.md`
-- **API**：移除 `/auth/register`；新增 `/auth/sms/send`、`/auth/sms/verify`；修改 `/auth/login`；新增 `PATCH /users/me`；`GET /users/me` 响应含 `phone`、可选 `email`
+- **API**：移除 `/auth/register`；新增 `/auth/sms/send`、`/auth/sms/register`、`/auth/sms/login`；修改 `/auth/login`；新增 `PATCH /users/me`；`GET /users/me` 响应含 `phone`、可选 `email`
 - **依赖**：无新增 Python 依赖（Redis、pwdlib、PyJWT 已有）
 - **环境**：integration 测试依赖 Redis（`devbox run -- task redis:up`）；可选 `.env.test` 配置 `SMS_OTP_FIXED_CODE`
 - **测试**：全项目 `register_user` helper 改为 OTP 路径；`login_admin` 改为手机号 + 密码

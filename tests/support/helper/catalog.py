@@ -6,10 +6,10 @@ from decimal import Decimal
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import CategoryResponse, ProductResponse, ShopResponse
-from tests.support.helper.auth import register_user
+from tests.support.helper.auth import register_user_via_otp
 from tests.support.builders import build_category_create, build_product_create, build_shop_create
 from tests.support.utils import bearer_headers
-from tests.support.results import CategoryResult, ProductResult, RegisterResult, ShopResult
+from tests.support.results import CategoryResult, ProductResult, ShopResult, SmsRegisterResult
 
 
 def _parse_shop_body(response: Response) -> ShopResponse | None:
@@ -62,18 +62,18 @@ async def create_shop(
 async def register_and_open_shop(
     client: AsyncClient,
     *,
-    email: str | None = None,
+    phone: str | None = None,
     password: str = "password123",
     shop_name: str | None = None,
     description: str | None = None,
     logo_url: str | None = None,
-) -> tuple[RegisterResult, ShopResult | None]:
-    """注册用户并调用 POST /shops，返回 ``(RegisterResult, ShopResult)``。
+) -> tuple[SmsRegisterResult, ShopResult | None]:
+    """注册用户并调用 POST /shops，返回 ``(SmsRegisterResult, ShopResult)``。
 
-    注册失败或开店失败时 ShopResult 为 None。
+    注册走 ``POST /auth/sms/register``；失败或开店失败时 ShopResult 为 None。
     """
-    registered: RegisterResult = await register_user(
-        client, email=email, password=password
+    registered: SmsRegisterResult = await register_user_via_otp(
+        client, phone=phone, password=password
     )
 
     if registered.status_code != 201 or registered.body is None:

@@ -1,25 +1,18 @@
-"""user 域 HTTP 路由（注册、登录、当前用户）。"""
+"""user 域 HTTP 路由（登录、当前用户）。
 
-from fastapi import APIRouter, Depends, status
+.. note::
+    ``POST /auth/register`` 与 ``POST /auth/sms/verify`` 已移除（见 design.md Decision 2）。
+    SMS OTP 端点（``/auth/sms/send``、``/auth/sms/register``、``/auth/sms/login``）
+    与 ``PATCH /users/me`` 将在 §5.3 实现。
+"""
+
+from fastapi import APIRouter, Depends
 
 from app.user.deps import get_current_user, get_user_service
-from app.user.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.user.schemas import LoginRequest, TokenResponse, UserResponse
 from app.user.service import UserService
 
 router = APIRouter(tags=["auth"])
-
-
-@router.post(
-    "/auth/register",
-    response_model=TokenResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def register(
-    body: RegisterRequest,
-    service: UserService = Depends(get_user_service),
-) -> TokenResponse:
-    """注册新用户并返回 access token。"""
-    return await service.register(body)
 
 
 @router.post("/auth/login", response_model=TokenResponse)
@@ -27,7 +20,7 @@ async def login(
     body: LoginRequest,
     service: UserService = Depends(get_user_service),
 ) -> TokenResponse:
-    """JSON 登录并返回 access token。"""
+    """手机号 + 密码登录并返回 access token。"""
     return await service.login(body)
 
 

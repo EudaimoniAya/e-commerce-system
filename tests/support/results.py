@@ -15,36 +15,51 @@ from app.user.schemas import TokenResponse
 
 
 @dataclass
-class RegisterResult:
-    """``POST /auth/register`` 调用结果。
+class SmsSendResult:
+    """``POST /auth/sms/send`` 调用结果。
 
     Attributes:
         status_code: HTTP 响应状态码。
-        body: 2xx 时经 ``TokenResponse.model_validate`` 解析的响应体；非 2xx 时为 ``None``。
-        email: 本次注册请求使用的邮箱。
-        password: 本次注册请求使用的明文密码（仅测试上下文，非 API 响应字段）。
+        phone: 本次请求使用的规范化手机号。
     """
 
     status_code: int
+    phone: str
+
+
+@dataclass
+class SmsRegisterResult:
+    """``POST /auth/sms/register`` 调用结果。"""
+
+    status_code: int
     body: TokenResponse | None
-    email: str
+    phone: str
     password: str
 
 
 @dataclass
+class SmsLoginResult:
+    """``POST /auth/sms/login`` 调用结果（OTP 登录，非密码登录）。"""
+
+    status_code: int
+    body: TokenResponse | None
+    phone: str
+
+
+@dataclass
 class LoginResult:
-    """``POST /auth/login`` 调用结果。
+    """``POST /auth/login``（手机号 + 密码）调用结果。
 
     Attributes:
         status_code: HTTP 响应状态码。
         body: 2xx 时经 ``TokenResponse.model_validate`` 解析的响应体；非 2xx 时为 ``None``。
-        email: 本次登录请求使用的邮箱。
+        identifier: 本次登录请求使用的标识符（规范化手机号）。
         password: 本次登录请求使用的明文密码（仅测试上下文，非 API 响应字段）。
     """
 
     status_code: int
     body: TokenResponse | None
-    email: str
+    identifier: str
     password: str
 
 
@@ -171,3 +186,8 @@ class BatchPayResult:
 
     status_code: int
     body: dict | None = None
+
+
+# ── 兼容别名（过渡期，待 §6.2 全量迁移后移除） ─────────────────────
+RegisterResult = SmsRegisterResult
+SmsVerifyResult = SmsRegisterResult  # 旧名，指向 register 结果
