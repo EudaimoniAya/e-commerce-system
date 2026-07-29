@@ -1,0 +1,125 @@
+version: "3"
+
+tasks:
+  sync:
+    desc: 同步 Python 依赖（uv sync）
+    cmds:
+      - uv sync
+
+  ruff:
+    desc: 运行 ruff lint
+    cmds:
+      - uv run ruff check .
+
+  check-test-imports:
+    desc: 禁止 tests 域内 test_ 模块互 import
+    cmds:
+      - bash scripts/check_no_test_cross_imports.sh
+
+  test:
+    desc: 运行 pytest（自动加载 `.env.test`）
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      # pytest 无测试收集时返回 5；包装为 0，真实失败仍向上传递
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:user:
+    desc: 运行 user 域测试（含 unit/user）
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/user','tests/unit/user']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:catalog:
+    desc: 运行 catalog 域测试（含 unit/catalog）
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/catalog','tests/unit/catalog']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:ordering:
+    desc: 运行 ordering 域测试
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/ordering']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:infra:
+    desc: 运行 infra + ops 测试
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/infra','tests/ops']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:unit:
+    desc: 运行纯单元测试
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/unit']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+
+  test:reports:
+    desc: 运行 pytest 并生成 Allure 报告
+    deps:
+      - db:up
+      - redis:up
+    env:
+      APP_ENV_FILE: .env.test
+    cmds:
+      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','--alluredir=reports/allure-results']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
+      - allure generate -o reports/allure-report --clean reports/allure-results
+
+  latest:report:
+    desc: 在浏览器中打开最近生成的 Allure 报告
+    cmds:
+      - bash scripts/allure_open_report.sh
+
+  ci:
+    desc: 本地 CI（ruff + test-import 检查 + test）
+    cmds:
+      - task: ruff
+      - task: check-test-imports
+      - task: test
+
+  db:up:
+    desc: 启动 devbox MySQL 8.0 并确保 dev/test 双库存在
+    cmds:
+      - bash scripts/devbox_mysql_up.sh
+
+  db:down:
+    desc: 停止 devbox MySQL 服务（process-compose）
+    cmds:
+      - bash scripts/devbox_mysql_down.sh
+
+  db:reset:
+    desc: 停止 MySQL 并清除 mysql-data/ 后重新启动（开发用，慎用）
+    cmds:
+      - bash scripts/devbox_mysql_reset.sh
+
+  migrate:
+    desc: 执行 Alembic 迁移至 head（默认 DATABASE_URL 指向 dev 库）
+    cmds:
+      - uv run alembic upgrade head
+
+  migrate:new:
+    desc: 创建新 Alembic revision（autogenerate），用法 task migrate:new -- "描述"
+    cmds:
+      - uv run alembic revision --autogenerate -m '{{default "migration" .CLI_ARGS}}'
+
+  redis:up:
+    desc: 启动 devbox Redis 8.0 并轮询就绪
+    cmds:
+      - bash scripts/devbox_redis_up.sh
+
+  redis:down:
+    desc: 停止 devbox Redis 服务
+    cmds:
+      - bash scripts/devbox_redis_down.sh
+
+  dev:
+    desc: 启动开发服务器（uvicorn --reload）
+    deps:
+      - db:up
+    cmds:
+      - uv run uvicorn app.main:app --reload

@@ -61,6 +61,10 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+reports/
+
+# 本地临时工具（如手动下载的 Allure CLI），勿提交
+.tools/
 
 # =========================
 # 类型检查与 Lint
@@ -80,6 +84,12 @@ logs/
 *.pid.lock
 
 # =========================
+# devbox 本地生成状态
+# =========================
+# virtenv、运行日志、shell 历史等；项目配置见 devbox.json / devbox.d/
+.devbox/
+
+# =========================
 # 数据库与本地数据
 # =========================
 *.db
@@ -87,6 +97,7 @@ logs/
 *.sqlite3
 data/
 mysql-data/
+redis-data/
 postgres-data/
 
 # =========================
@@ -109,6 +120,9 @@ docker-compose.override.yml
 
 # Cursor 本地状态（保留 .cursor/commands、.cursor/skills 等可共享配置）
 .cursorignore
+
+# Claude 本地状态
+.claude/
 
 # =========================
 # 操作系统

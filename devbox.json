@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.1/.schema/devbox.schema.json",
+  "packages": [
+    "uv@latest",
+    "go-task@latest",
+    "mysql80@latest",
+    "redis@8.0.3",
+    "ripgrep@latest"
+  ],
+  "env": {
+    "UV_PROJECT_ENVIRONMENT": ".venv",
+    "MYSQL_DATADIR":          "./mysql-data",
+    "MYSQL_UNIX_PORT":        "/tmp/e-commerce-system-mysql.sock"
+  }
+}

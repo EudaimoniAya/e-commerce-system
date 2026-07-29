@@ -1,0 +1,57 @@
+# ── Python 开发产物 ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── 测试 ─────────────────────────────────────────────────────────────
+tests/
+reports/
+.coverage
+htmlcov/
+
+# ── 本地数据与日志 ───────────────────────────────────────────────────
+mysql-data/
+redis-data/
+logs/
+*.log
+
+# ── Git ───────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+
+# ── CI / 环境 ─────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+.github/
+devbox.d/
+.devbox/
+devbox.json
+devbox.lock
+
+# ── IDE / 编辑器 ─────────────────────────────────────────────────────
+.idea/
+.vscode/
+.claude/
+.cursor/
+*.swp
+*.swo
+*~
+
+# ── 文档与脚本（仅 Dockerfile/uv.lock 保留） ─────────────────────────
+docs/
+openspec/
+scripts/
+README.md
+CLAUDE.md
+Taskfile.yml
+alembic.ini
+
+# ── 操作系统杂物 ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

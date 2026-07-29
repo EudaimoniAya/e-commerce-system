@@ -1,0 +1,86 @@
+---
+description: 禁止跨域 import ORM 与 repository；跨域仅通过 service + Pydantic schema
+globs: app/**/*.py,tests/**/*.py
+alwaysApply: false
+---
+
+# 跨域 import 纪律
+
+本项目采用 **单体多域（Modular Monolith）** 架构。域间协作只走 **公开 service 接口 + schema（DTO）**，禁止穿透到对方持久化层。
+
+详细背景见 [docs/decision/单体多域架构.md](../../docs/decision/单体多域架构.md)。
+
+## 允许
+
+```python
+# 跨域：调用目标域 service，使用其 schema
+from catalog.schemas import ProductSummary
+from catalog.service import get_product
+
+# 域内：router → service → repository → model
+from ordering.repository import OrderRepository
+from ordering.models import Order
+
+# 各域与测试 → infra（配置、Session、Base 等）
+from app.infra.database import get_db, Base
+
+# AI Tool → 业务 service（不直连 repo/ORM）
+from catalog.service import list_products_for_tool
+```
+
+## 禁止
+
+```python
+# ✗ 跨域 import 对方 ORM
+from catalog.models import Product
+
+# ✗ 跨域 import 对方 repository
+from catalog.repository import ProductRepository
+
+# ✗ 业务域 import ai
+from app.ai.tools import recommend
+
+# ✗ infra import 任何业务域（infra 不得依赖业务）
+from catalog.service import get_product  # 在 app/infra/ 内
+```
+
+## 规则细则
+
+### 1. 跨域写路径
+
+下单、扣库存、收藏等 **写操作** 必须调用目标域 **service**，不得直接读写对方表或 ORM。
+
+### 2. 跨域读路径
+
+- 优先：`other_domain.service` 返回 `ProductSummary` 等 schema。
+- 折中：本域 `queries.py` 内只读 JOIN 可返回 schema，**不得** 将 foreign ORM 对象泄漏到 router 或其他域。
+
+### 3. SQLAlchemy relationship
+
+- **域内**：可使用 relationship（如 `Order.items`）。
+- **跨域**：只存 FK 字段（如 `order.user_id`），**不** 声明跨域 `relationship`；关联数据通过 service 或本域只读查询获取。
+
+### 4. ORM 所有权
+
+谁拥有表，谁拥有 ORM 与 repository。对外只暴露 `service` + `schemas`。
+
+### 5. AI 与 infra
+
+- `ai/` 下 Tool **只** 调用各域 `service`，不直连数据库、不 import 业务 `repository`/`models`。
+- `infra/` 提供横切能力（config、database、health、readiness），**不得** import 任何业务域模块。
+
+## 生成与审查代码时
+
+- 新增 import 前确认：是否跨域？若跨域，是否仅为 `*.service` 或 `*.schemas`？
+- OpenSpec spec 中涉及域边界时，应写明禁止 import 的路径。
+- 若需跨域数据，先在目标域 **新增或扩展 service 方法 + schema**，再在调用方 import。
+
+## 快速对照
+
+| 场景 | 做法 |
+|------|------|
+| ordering 需要商品信息 | `catalog.service.get_product()` → `ProductSummary` |
+| catalog 需要用户信息 | `user.service.get_user()` → `UserSummary` |
+| 列表页需要跨域展示字段 | 本域 `queries.py` JOIN，映射为 schema |
+| Alembic / 迁移 | 各域 model 归本域；infra 仅 `_infra_*` 类验证表 |
+| 测试 mock 跨域 | mock **service** 或 HTTP 层，不 mock 对方 ORM |

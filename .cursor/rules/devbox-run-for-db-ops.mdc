@@ -1,0 +1,58 @@
+---
+description: 数据库/迁移/测试须在 devbox 环境中执行；Agent 用 devbox run -- 而非裸 shell
+alwaysApply: true
+---
+
+# devbox 环境执行数据库与测试命令
+
+## 核心原则
+
+本项目 `task`、`mysqladmin`、`mysql`、`mysqld` 由 **devbox** 提供（见 `devbox.json`）。
+在裸 WSL/bash 中直接执行会导致 `command not found`，且 `devbox_mysql_up.sh` 的 ping 轮询会误报「60 秒未就绪」。
+
+**Agent 禁止**交互式 `devbox shell`（无法自动化）。**必须**用 `devbox run -- <command>` 包装。
+
+## 禁止（裸 shell）
+
+```bash
+task db:up
+task migrate
+task test
+task ci
+bash scripts/devbox_mysql_up.sh
+mysqladmin -u root --socket=/tmp/e-commerce-system-mysql.sock ping
+```
+
+## 正确（devbox run）
+
+```bash
+devbox run -- task db:up
+devbox run -- task migrate
+devbox run -- task test
+devbox run -- task ci
+devbox run -- bash scripts/devbox_mysql_up.sh
+devbox run -- uv run alembic upgrade head   # 推荐与 task migrate 一致
+```
+
+## 可不包裹
+
+- 纯静态检查：`uv run ruff check .`
+- MySQL **已确认就绪**后，仅 Python 连库：`uv run alembic current`（走 asyncmy + socket）
+
+为减少环境差异，**迁移与集成测试优先统一** `devbox run --`。
+
+## 执行顺序（本地验证）
+
+1. `devbox run -- task db:up`（含 mysqladmin ping 轮询，见 `service-startup-readiness-polling.mdc`）
+2. `devbox run -- task migrate`（或 `devbox run -- uv run alembic upgrade head`）
+3. `devbox run -- task ci` 或 `devbox run -- task test`
+
+## 排查
+
+```bash
+command -v devbox                    # devbox CLI 是否可用
+devbox run -- which mysqladmin       # 应在 devbox PATH 内
+devbox run -- which task
+```
+
+若 ping 仍失败，查看 `.devbox/virtenv/mysql80/run/mysql.log`；勿在未进 devbox 时重复空等 60 秒。

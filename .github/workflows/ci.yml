@@ -1,0 +1,177 @@
+# GitHub Actions 版本锁定：使用 commit SHA，注释标明对应 tag。
+# 规范见 .cursor/rules/github-actions-pinning.mdc
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  push:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: "测试域（all=全量矩阵，或单选域加速验证）"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - user
+          - catalog
+          - ordering
+          - infra
+          - unit
+
+env:
+  # CI 使用 TCP 连接 mysql service container（与本地 devbox unix socket 不同）
+  DATABASE_URL: mysql+asyncmy://root@127.0.0.1:3306/ecommerce_test?charset=utf8mb4
+  REDIS_URL: redis://127.0.0.1:6379/1
+  JWT_SECRET_KEY: ci-test-secret-key-at-least-32-bytes!!
+  APP_ENV: test
+  SMS_OTP_FIXED_CODE: "123456"
+  APP_ENV_FILE: .env.test
+
+jobs:
+  # ── setup-matrix：根据触发方式决定运行哪些域 ────────────────────────
+  setup-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Determine test matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] || [ "${{ github.event.inputs.domain }}" = "all" ]; then
+            echo 'matrix={"domain":["user","catalog","ordering","infra","unit"]}' >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix={\"domain\":[\"${{ github.event.inputs.domain }}\"]}" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── lint：ruff + check-test-imports，无 DB/Redis 依赖 ──────────────
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+
+      - name: Set up go-task
+        uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
+
+      - name: Sync dependencies
+        run: task sync
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Lint (ruff)
+        run: task ruff
+
+      - name: Check test imports
+        run: task check-test-imports
+
+  # ── test：域 matrix 并行，每 job 独立 mysql + redis services ──────
+  test:
+    needs: setup-matrix # 动态矩阵 + 与 lint 并行
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.setup-matrix.outputs.matrix) }}
+      fail-fast: false # 单域失败不影响其他域
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: ecommerce_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:8.0
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+
+      - name: Set up go-task
+        uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          # 对 uv.lock 哈希，依赖不变 -> key不变 -> 缓存命中
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Sync dependencies
+        run: task sync
+
+      - name: Ensure test database exists
+        run: |
+          mysql -h 127.0.0.1 -u root -e "CREATE DATABASE IF NOT EXISTS ecommerce_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+
+      - name: Run domain tests
+        env:
+          APP_ENV_FILE: .env.test
+        run: |
+          case "${{ matrix.domain }}" in
+            user)
+              uv run pytest tests/user tests/unit/user --alluredir=allure-results --ignore-glob='*__pycache__*'
+              ;;
+            catalog)
+              uv run pytest tests/catalog tests/unit/catalog --alluredir=allure-results --ignore-glob='*__pycache__*'
+              ;;
+            ordering)
+              uv run pytest tests/ordering --alluredir=allure-results --ignore-glob='*__pycache__*'
+              ;;
+            infra)
+              uv run pytest tests/infra tests/ops --alluredir=allure-results --ignore-glob='*__pycache__*'
+              ;;
+            unit)
+              uv run pytest tests/unit --alluredir=allure-results --ignore-glob='*__pycache__*'
+              ;;
+          esac
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.domain }}
+          path: allure-results/
+          retention-days: 14

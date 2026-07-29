@@ -1,0 +1,19 @@
+---
+description: GitHub Actions 使用 commit SHA 锁定版本，禁止仅用浮动 tag
+globs: .github/workflows/**
+alwaysApply: false
+---
+
+# GitHub Actions 版本锁定
+
+编写或修改 `.github/workflows/` 时：
+
+1. **禁止**仅使用 `@v4`、`@main` 等浮动引用作为最终版本。
+2. **必须**将 `uses:` 锁定到具体 **commit SHA**（40 位）。
+3. 在同一行末尾用注释保留可读 tag，例如：
+   ```yaml
+   uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+   ```
+4. 升级 action 时：查新 tag 对应 SHA → 更新 SHA 与注释 → 在 PR 中说明变更。
+
+**理由**：SHA 不可变，避免上游 tag 被移动或覆盖导致 CI 行为突变。
