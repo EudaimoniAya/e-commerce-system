@@ -1,17 +1,17 @@
 ## 1. 决策与路径筛选配置
 
 - [ ] 1.1 新增 `docs/decision/ADR-006-CI工作流与镜像发布策略.md`（paths-filter、全量 test、tag-only build、workflow 命名；CD 留给 infra-cd-compose）
-- [ ] 1.2 新增 `.github/utils/file-filters.yaml`（`code` 过滤器路径与 design §2 一致）
+- [x] 1.2 新增 `.github/utils/file-filters.yaml`（`code` 过滤器路径与 design §2 一致）
 
 ## 2. Test workflow（TDD：先写 workflow 结构，再本地/远程验证）
 
-- [ ] 2.1 新增 `.github/workflows/test.yaml`（name: `Run Tests`）：`filter` + `lint` + 单 job 全量 `task test` + `test-failure-alert`；`dorny/paths-filter` 与 actions SHA 锁定
-- [ ] 2.2 删除 `.github/workflows/ci.yml`；确认无残留对 `CI` workflow name 的引用
+- [x] 2.1 新增 `.github/workflows/test.yaml`（name: `Run Tests`）：`filter` + `lint` + 单 job 全量 `task test` + `test-failure-alert`；`dorny/paths-filter` 与 actions SHA 锁定
+- [x] 2.2 删除 `.github/workflows/ci.yml`；确认无残留对 `CI` workflow name 的引用
 
 ## 3. Build-push workflow
 
-- [ ] 3.1 新增 `.github/workflows/build-push.yaml`（name: `Build and Push Container Images`）：**仅** tag `v[0-9]+.[0-9]+.[0-9]+` + `workflow_dispatch`（必填 semver）；镜像 tag = 去 `v`；job 内 semver regex 校验；保留 `/health` 烟雾
-- [ ] 3.2 删除 `.github/workflows/docker-build.yml`；移除 `docker/metadata-action` 多 tag 逻辑
+- [x] 3.1 新增 `.github/workflows/build-push.yaml`（name: `Build and Push Container Images`）：**仅** tag `v[0-9]+.[0-9]+.[0-9]+` + `workflow_dispatch`（必填 semver）；镜像 tag = 去 `v`；job 内 semver regex 校验；保留 `/health` 烟雾
+- [x] 3.2 删除 `.github/workflows/docker-build.yml`；移除 `docker/metadata-action` 多 tag 逻辑
 
 ## 4. 文档同步
 
