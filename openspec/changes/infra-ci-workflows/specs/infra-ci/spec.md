@@ -2,7 +2,7 @@
 
 ### Requirement: CI paths filter for test workflow
 
-GitHub Actions test workflow（`test.yaml`）SHALL 使用 `dorny/paths-filter`（或等价）读取 `.github/utils/file-filters.yaml`，定义至少一个 `code` 过滤器，匹配业务代码与测试相关路径（含 `app/**`、`tests/**`、`alembic/**`、`pyproject.toml`、`uv.lock` 等）。`lint` 与 `test` job SHALL 仅在 PR/push 变更命中 `code` 时运行。
+GitHub Actions test workflow（`test.yaml`）SHALL 使用 `dorny/paths-filter`（或等价）读取 `.github/utils/file-filters.yaml`，定义至少一个 `code` 过滤器，匹配业务代码与测试相关路径（含 `app/**`、`tests/**`、`alembic/**`、`pyproject.toml`、`uv.lock`、`Taskfile.yml` 等）。`lint` 与 `test` job SHALL 仅在 PR/push 变更命中 `code` 时运行。
 
 #### Scenario: 仅 docs 变更跳过 test
 
@@ -42,7 +42,7 @@ Validate 层 test workflow 文件 SHALL 命名为 `.github/workflows/test.yaml`�
 
 ### Requirement: CI full test single job
 
-GitHub Actions SHALL 提供单个 `test` job（**无** `strategy.matrix.domain`），声明 mysql + redis services、创建 `ecommerce_test`、执行 `alembic upgrade head`、设置与现 CI 一致的 env（含 `SMS_OTP_FIXED_CODE`），并运行**全量** pytest（等价 `task test` 或 `uv run pytest` 无路径子集）。
+GitHub Actions SHALL 提供单个 `test` job（**无** `strategy.matrix.domain`），声明 mysql + redis services、创建 `ecommerce_test`、执行 `alembic upgrade head`、设置与现 CI 一致的 env（含 `SMS_OTP_FIXED_CODE`），并运行**全量** pytest（**SHALL** 通过 `task test` 执行，与本地一致；Allure 原始结果由 workflow 层 `PYTEST_ADDOPTS` 注入，不另增 Taskfile 子命令）。
 
 #### Scenario: 全量 pytest 无域子集
 
@@ -77,14 +77,20 @@ test job SHALL 以 `pytest --alluredir=<dir>` 收集 Allure 原始结果，并�
 - **THEN** SHALL 存在可下载的 artifact 含 Allure JSON 结果
 - **AND** artifact 名称 SHALL 为 `allure-results` 或文档约定等价名
 
-### Requirement: Local domain test tasks
+### Requirement: CI workflow_dispatch full test
 
-Taskfile SHALL 提供 `test:user`、`test:catalog`、`test:ordering`、`test:infra`、`test:unit` 任务，分别运行对应路径的 pytest 供**本地加速**；SHALL 加载 `APP_ENV_FILE=.env.test`。CI **SHALL NOT** 要求与这些子命令路径一一对应的 matrix job。
+test workflow SHALL 支持无输入的 `workflow_dispatch`，在选定 ref 上运行全量 `lint` + `test`（等价 `task test`），且 SHALL 跳过 paths-filter（强制 `code=true`）。**SHALL NOT** 提供 `domain` 等域筛选输入。
 
-#### Scenario: test:user 本地路径
+#### Scenario: 手动触发全量 test
 
-- **WHEN** 开发者执行 `devbox run -- task test:user`
-- **THEN** SHALL 运行 `tests/user` 与 `tests/unit/user` 下 pytest
+- **WHEN** 开发者通过 GitHub UI 或 `gh workflow run "Run Tests" --ref <branch>` 触发 workflow_dispatch
+- **THEN** `lint` 与 `test` job SHALL 运行（不 skip）
+- **AND** `test` job SHALL 执行全量 pytest（等价 `task test`）
+
+#### Scenario: workflow_dispatch 绕过 paths-filter
+
+- **WHEN** workflow_dispatch 触发且 ref 上仅有 docs 变更
+- **THEN** `lint` 与 `test` job SHALL 仍运行（不因 paths-filter 跳过）
 
 ## REMOVED Requirements
 
@@ -92,10 +98,16 @@ Taskfile SHALL 提供 `test:user`、`test:catalog`、`test:ordering`、`test:inf
 
 **Reason**: 单体多域跨 service 耦合；全量单 job test 更简单且总 Actions 分钟更低；domain matrix 仅并行不减少测试范围。
 
-**Migration**: CI 改用单 job 全量 pytest；本地仍可用 `task test:user` 等加速。
+**Migration**: CI 与本地统一单 job / `task test` 全量 pytest。
+
+### Requirement: Local domain test tasks
+
+**Reason**: 废止 CI domain matrix 后，分域 Taskfile 子命令与远程 CI 路径不一致，增加维护成本；本地调试可用 `pytest tests/<domain>/` 或 `task ci` 全量回归。
+
+**Migration**: 从 Taskfile 删除 `test:user`、`test:catalog`、`test:ordering`、`test:infra`、`test:unit`；验收统一为 `devbox run -- task ci`。
 
 ### Requirement: CI workflow_dispatch domain filter
 
-**Reason**: 不再需要 CI 上按域手动筛选；全量 test 为默认；本地 Taskfile 子命令覆盖单域调试。
+**Reason**: 不再需要 CI 上按域手动筛选；全量 test 为默认。
 
-**Migration**: 移除 `workflow_dispatch` 的 `domain` input；保留 `workflow_dispatch` 可无输入触发全量 test（若实现）。
+**Migration**: 移除 `workflow_dispatch` 的 `domain` input；改为无输入触发全量 lint + test（见 ADDED `CI workflow_dispatch full test`）。

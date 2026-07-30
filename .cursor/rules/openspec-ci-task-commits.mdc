@@ -29,8 +29,8 @@ alwaysApply: false
 
 ### 判定信号（满足其一即可视为 CI Task）
 
-- 本地：`task migrate`、`task ci` / `task test`、`task test:*`、DoD 本地全绿
-- 远程：`.github/workflows/ci.yml`、`JWT_SECRET_KEY` 等 CI env、`git push`、`GitHub Actions`、`workflow_dispatch`、`gh workflow run`、`gh run watch`
+- 本地：`task migrate`、`task ci` / `task test`、DoD 本地全绿
+- 远程：`.github/workflows/test.yaml`、`JWT_SECRET_KEY` 等 CI env、`git push`、`GitHub Actions`、`workflow_dispatch`、`gh workflow run`、`gh run watch`
 - 文案：`本地验证`、`远程 CI`、`确认 CI 全绿`、`push 并确认`
 
 ### 两次 commit / push（推荐，与 user-auth 范例一致）
@@ -49,7 +49,7 @@ ci(<change-name>): Task <编号> <简短标题>：
 
 **第二次：远程 CI 全绿确认**
 
-1. `gh workflow run CI --ref <branch>`（feature 分支无 push 触发时）或确认 PR CI。
+1. `gh workflow run "Run Tests" --ref <branch>`（feature 分支无 PR 触发时）或确认 PR CI。
 2. `gh run watch <run-id> --exit-status` 等待 **success**。
 3. **再 commit + push**（勾选 tasks、附 Actions URL）。
 

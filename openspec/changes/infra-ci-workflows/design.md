@@ -17,7 +17,7 @@
 
 **Goals:**
 
-- `test.yaml`（name: `Run Tests`）：paths-filter + lint + 单 job 全量 pytest + failure-alert + uv cache
+- `test.yaml`（name: `Run Tests`）：paths-filter + lint + 单 job 全量 `task test` + `workflow_dispatch`（无输入）+ failure-alert + uv cache
 - `build-push.yaml`（name: `Build and Push Container Images`）：**仅** `vX.Y.Z` tag 触发；镜像 tag = `${GITHUB_REF_NAME#v}`；`/health` 烟雾
 - `.github/utils/file-filters.yaml`：业务代码 vs 可跳过路径
 - `docs/decision/ADR-006-CI工作流与镜像发布策略.md` 记录决策
@@ -28,7 +28,7 @@
 - CD / deploy / tag 后自动上线（`infra-cd-compose`）
 - pre-release tag、main push build、`latest`/`sha-*` 浮动镜像 tag
 - PR 分域 test 筛选
-- 修改 Taskfile 域测试子命令（保留本地加速）
+- 修改 Taskfile：删除 `test:user` 等分域子命令；本地与 CI 统一 `task test` / `task ci`
 
 ## Decisions
 
@@ -38,13 +38,15 @@
 
 ```text
 jobs:
-  filter:     dorny/paths-filter → output code=true/false
-  lint:       if code changed → ruff + check-test-imports
-  test:       if code changed → mysql+redis → migrate → task test（全量）
+  filter:     dorny/paths-filter → output code=true/false；workflow_dispatch 强制 code=true
+  lint:       if code → ruff + check-test-imports
+  test:       if code → mysql+redis → migrate → task test（全量）
   test-failure-alert: 上游 failure/cancelled 时 fail
 ```
 
-**理由**：与本地 `task ci` 一致；跨域耦合下全量更可靠；单套 service 比 5 路 matrix 省 Actions 分钟。
+**workflow_dispatch**：无输入；手动在选定 ref 上跑全量 lint + test（跳过 paths-filter，替代旧版 `domain` 域筛选）。
+
+**理由**：与本地 `task ci` / `task test` 一致；跨域耦合下全量更可靠；单套 service 比 5 路 matrix 省 Actions 分钟。
 
 **备选**：保留 matrix 并行 — 否决（维护成本高、总分钟更高）。
 
@@ -54,7 +56,7 @@ jobs:
 
 | filter 名 | 路径（示例） |
 |-----------|-------------|
-| `code` | `app/**`, `tests/**`, `alembic/**`, `pyproject.toml`, `uv.lock`, `Dockerfile`, `.dockerignore`, `scripts/check_no_test_cross_imports.sh`, `.github/workflows/test.yaml`, `.github/workflows/build-push.yaml`, `.github/utils/file-filters.yaml` |
+| `code` | `app/**`, `tests/**`, `alembic/**`, `pyproject.toml`, `uv.lock`, `Taskfile.yml`, `Dockerfile`, `.dockerignore`, `scripts/check_no_test_cross_imports.sh`, `.github/workflows/test.yaml`, `.github/workflows/build-push.yaml`, `.github/utils/file-filters.yaml` |
 
 **不触发 test**（未命中 `code`）：`docs/**`, `openspec/**`, `.cursor/**`, `README.md`, 纯 `devbox.json` / `scripts/devbox_*`（除非后续扩展 `lint-only` filter）。
 

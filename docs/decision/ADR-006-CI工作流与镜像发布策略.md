@@ -27,7 +27,7 @@
 
 | filter 名 | 路径 |
 |-----------|------|
-| `code` | `app/**`, `tests/**`, `alembic/**`, `pyproject.toml`, `uv.lock`, `Dockerfile`, `.dockerignore`, `scripts/check_no_test_cross_imports.sh`, `.github/workflows/test.yaml`, `.github/workflows/build-push.yaml`, `.github/utils/file-filters.yaml` |
+| `code` | `app/**`, `tests/**`, `alembic/**`, `pyproject.toml`, `uv.lock`, `Taskfile.yml`, `Dockerfile`, `.dockerignore`, `scripts/check_no_test_cross_imports.sh`, `.github/workflows/test.yaml`, `.github/workflows/build-push.yaml`, `.github/utils/file-filters.yaml` |
 
 **不触发**（未命中 `code`）：`docs/**`, `openspec/**`, `.cursor/**`, `README.md`, `devbox.json`, `scripts/devbox_*`。
 
@@ -52,13 +52,12 @@
 ### 决策
 
 ```text
-test:  单 job → mysql + redis → migrate → uv run pytest --alluredir=allure-results
+test:  单 job → mysql + redis → migrate → task test（全量，与本地 task ci 一致）
 ```
 
 - 无 `strategy.matrix`，无 `setup-matrix` job
-- 无 `workflow_dispatch` 的 `domain` 输入
-- allure artifact 无 domain 后缀（单一 `allure-results`）
-- 本地仍保留 `task test:user` 等子命令供本地加速
+- 无 `workflow_dispatch` 的 `domain` 输入；**保留**无输入 `workflow_dispatch` 手动全量 lint + test（跳过 paths-filter）
+- allure artifact 无 domain 后缀（单一 `allure-results`）；CI job 通过 workflow 层 `PYTEST_ADDOPTS` 收集，不另增 Taskfile 子命令
 
 ### 理由
 

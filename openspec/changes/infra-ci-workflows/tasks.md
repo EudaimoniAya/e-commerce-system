@@ -5,7 +5,7 @@
 
 ## 2. Test workflow（TDD：先写 workflow 结构，再本地/远程验证）
 
-- [x] 2.1 新增 `.github/workflows/test.yaml`（name: `Run Tests`）：`filter` + `lint` + 单 job 全量 `task test` + `test-failure-alert`；`dorny/paths-filter` 与 actions SHA 锁定
+- [x] 2.1 新增 `.github/workflows/test.yaml`（name: `Run Tests`）：`filter` + `lint` + 单 job 全量 `task test` + 无输入 `workflow_dispatch` + `test-failure-alert`；`dorny/paths-filter` 与 actions SHA 锁定
 - [x] 2.2 删除 `.github/workflows/ci.yml`；确认无残留对 `CI` workflow name 的引用
 
 ## 3. Build-push workflow
@@ -17,6 +17,7 @@
 
 - [x] 4.1 更新 `docs/architecture.md` §8.3（test.yaml / build-push.yaml 结构；废止 matrix 与 main push build）
 - [x] 4.2 更新 `README.md`（workflow 名、`gh workflow run` 示例、发版流程：main test 绿 → `git tag vX.Y.Z` → build-push）
+- [x] 4.3 精简 `Taskfile.yml`：删除 `test:user` 等分域子命令；本地与 CI 统一 `task test` / `task ci`
 
 ## 5. 本地与远程验证
 

@@ -357,11 +357,14 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 ```text
 filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
+        workflow_dispatch 时强制 code=true（跳过路径筛选）
 lint:   （if code=true）ruff + check-test-imports（无 services；显式 apt install ripgrep）
 test:   （if code=true）单 job，无 matrix
-        mysql + redis services → migrate → uv run pytest --alluredir=allure-results → upload artifact
+        mysql + redis services → migrate → task test → upload artifact
 test-failure-alert: 上游 failure/cancelled 时 exit 1
 ```
+
+**触发**：`pull_request` / `push`（dev、main）；`workflow_dispatch`（无输入，全量 lint + test）。
 
 **Build 结构**（`build-push.yaml`，name: `Build and Push Container Images`）：
 

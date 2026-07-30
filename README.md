@@ -234,7 +234,7 @@ curl -X POST http://127.0.0.1:8000/cart/checkout \
   -d '{"cart_item_ids":["<cart_item_id>"]}'
 ```
 
-> 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci`（或 `task test:user` / `test:catalog` / `test:ordering`）中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
+> 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci` / `task test` 中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
 
 验证 MySQL 双库（可选）：
 
@@ -251,12 +251,7 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 |------|------|
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
-| `task test` | 运行全部 pytest（自动 `APP_ENV_FILE=.env.test`） |
-| `task test:user` | 仅 user 域测试（`tests/user/` + `tests/unit/user/`） |
-| `task test:catalog` | 仅 catalog 域测试（`tests/catalog/` + `tests/unit/catalog/`） |
-| `task test:ordering` | 仅 ordering 域测试（`tests/ordering/`） |
-| `task test:infra` | 仅 infra + ops 测试（`tests/infra/` + `tests/ops/`） |
-| `task test:unit` | 仅纯单元测试（`tests/unit/`） |
+| `task test` | 运行全量 pytest（自动 `APP_ENV_FILE=.env.test`） |
 | `task ci` | 本地 CI：`ruff` + test-import 检查（**依赖 `rg`/ripgrep**）+ `test`（**不**自动 `db:up` / `redis:up`） |
 | `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
@@ -384,11 +379,11 @@ feature/* ──PR──▶ dev ──PR──▶ main（可部署线）
 | 场景 | 说明 |
 |------|------|
 | feature 分支开发 | 从 `dev` 切出，本地 `task db:up` + `task redis:up` + `task ci` 通过后提 PR |
-| feature 远程 CI | push 自动触发（仅 code 变更触发 `Run Tests`）；也可开 Draft PR 到 `dev` 触发 |
+| feature 远程 CI | 开 Draft PR 到 `dev`（code 变更自动跑）；或 `gh workflow run "Run Tests" --ref <branch>` 手动全量 test |
 | 合入 dev | PR → `dev` 触发 GitHub Actions CI |
 | 合入 main | `dev` → `main` PR，CI 通过后可部署 |
 
-feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入前通过 PR 或手动触发验证。
+feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入前通过 **Draft PR** 或 **`workflow_dispatch` 手动触发**验证。
 
 ## CI
 
@@ -398,9 +393,9 @@ Workflow：`.github/workflows/test.yaml`（name: `Run Tests`）
 
 ```text
 filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
-lint:   （仅 code 变更）ruff + check-test-imports（无 services，显式 apt install ripgrep）
-test:   （仅 code 变更）单 job 全量 pytest（无 domain matrix）
-        mysql + redis services → migrate → pytest --alluredir → upload artifact
+lint:   （code 变更或 workflow_dispatch）ruff + check-test-imports（无 services，显式 apt install ripgrep）
+test:   （code 变更或 workflow_dispatch）单 job 全量 task test
+        mysql + redis services → migrate → task test → upload artifact
 test-failure-alert:  上游 failure/cancelled 时 exit 1
 ```
 
@@ -413,7 +408,7 @@ test-failure-alert:  上游 failure/cancelled 时 exit 1
 | 类别 | 路径 |
 |------|------|
 | 业务代码 | `app/**`、`tests/**`、`alembic/**` |
-| 依赖配置 | `pyproject.toml`、`uv.lock` |
+| 依赖配置 | `pyproject.toml`、`uv.lock`、`Taskfile.yml` |
 | Docker | `Dockerfile`、`.dockerignore` |
 | CI 自身 | `.github/workflows/test.yaml`、`.github/workflows/build-push.yaml`、`.github/utils/file-filters.yaml` |
 | 工具脚本 | `scripts/check_no_test_cross_imports.sh` |
@@ -422,12 +417,14 @@ test-failure-alert:  上游 failure/cancelled 时 exit 1
 
 | 事件 | 分支 / 方式 |
 |------|-------------|
-| `pull_request` | `dev`, `main` |
-| `push` | `dev`, `main` |
+| `pull_request` | `dev`, `main`（仅命中 `code` 路径时跑 lint + test） |
+| `push` | `dev`, `main`（同上） |
+| `workflow_dispatch` | 无输入；**始终**全量 lint + test（跳过 paths-filter，适用于 feature 分支手动验证） |
 
 ```bash
-# CLI 手动触发远程 CI（workflow 需已在默认分支上）
+# CLI 手动触发远程全量 test（workflow 须已在默认分支 dev/main 上）
 gh workflow run "Run Tests" --ref <branch>
+gh run watch   # 可选：等待完成
 ```
 
 ### Allure 报告

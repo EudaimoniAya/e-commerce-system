@@ -142,4 +142,4 @@ return await register_and_open_shop(client)
 3. 新 fixture → fail-fast + 瘦身 `*Context(access_token=..., ...)`
 4. 写库测试 → `integration_client` + `db_session`（探针例外除外）
 5. 懒释放/过期 → `tests/support/db` backdate，不设 env TTL 或 sleep
-6. **禁止** 在 `scripts/` 新增 `*_curl_smoke.sh` 或与 integration 重复的 bash HTTP 编排；本地/CI 验收用 `task ci` / `task test:*`
+6. **禁止** 在 `scripts/` 新增 `*_curl_smoke.sh` 或与 integration 重复的 bash HTTP 编排；本地/CI 验收用 `task ci` / `task test`

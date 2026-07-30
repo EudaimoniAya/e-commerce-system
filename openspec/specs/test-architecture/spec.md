@@ -143,7 +143,7 @@ README MAY 保留零散的 curl 示例供手动调试，但 **SHALL NOT** 维护
 #### Scenario: apply 本地验证不依赖 curl 烟雾脚本
 
 - **WHEN** OpenSpec change 的 tasks 描述本地验证或 DoD
-- **THEN** SHALL 以 `devbox run -- task migrate` + `devbox run -- task ci`（或域 `task test:*`）为验收标准
+- **THEN** SHALL 以 `devbox run -- task migrate` + `devbox run -- task ci` 为验收标准
 - **AND** SHALL NOT 要求新增或运行 `scripts/*_curl_smoke.sh`
 
 #### Scenario: scripts 目录无 curl 烟雾脚本
