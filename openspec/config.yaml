@@ -14,7 +14,7 @@ context: |
   - 跨域协作：仅通过对方 service + Pydantic schema，禁止跨域 import ORM 或 repository
   - AI 域与业务域并列，Tool 调用业务 service，不直连 DB
   - 共享设施：infra/（配置、DB、JWT、异常）
-  - 详见 docs/architecture.md 和 docs/decision/单体多域架构.md
+  - 详见 docs/architecture.md 和 docs/decision/ADR-001-单体多域架构.md
 
   电商 MVP 范围：用户、商品、订单；无支付、无物流、无 SKU 多规格
   订单状态：pending → confirmed → completed / cancelled

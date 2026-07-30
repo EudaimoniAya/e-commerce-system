@@ -1,6 +1,6 @@
 # 项目架构设计
 
-> 本文档描述 AI 赋能电商个人项目的整体架构。详细的设计决策见 [docs/decision/](./decision/)。
+> 本文档描述 AI 赋能电商个人项目的整体架构。详细的设计决策见 [docs/decision/](./decision/)（ADR）；个人学习笔记见 [docs/notes/](./notes/)。
 
 ## 1. 项目概述
 
@@ -186,7 +186,7 @@ e-commerce-system/
 └── ...
 ```
 
-**应用入口（`create_app`）**：按序组装 `setup_logging(settings)` → `RequestIDMiddleware`（纯 ASGI，`X-Request-ID` 透传/生成）→ `register_exception_handlers(app)` → 各域 router。错误响应统一为 `{"error": {"code", "message", "request_id"}}`（详见 `infra-api-errors` spec）。日志经 loguru 输出至 stderr 与 `logs/app.log`（development/production；test 仅 stderr 且 level=WARNING）。详见 [中间件栈与异常处理架构决策（ADR-005）](./decision/中间件栈与异常处理架构决策.md)。
+**应用入口（`create_app`）**：按序组装 `setup_logging(settings)` → `RequestIDMiddleware`（纯 ASGI，`X-Request-ID` 透传/生成）→ `register_exception_handlers(app)` → 各域 router。错误响应统一为 `{"error": {"code", "message", "request_id"}}`（详见 `infra-api-errors` spec）。日志经 loguru 输出至 stderr 与 `logs/app.log`（development/production；test 仅 stderr 且 level=WARNING）。详见 [中间件栈与异常处理架构决策（ADR-004）](./decision/ADR-004-中间件栈与异常处理架构决策.md)。
 
 **`users` 表（user 域）**：`id`（UUID PK，JWT `sub` 锚点）、`phone`（VARCHAR 20，UNIQUE，业务主标识）、`email`（可空，仅资料）、`password_hash`（可空，SMS 注册用户须设密码）、`nickname`、`is_active`、`is_admin`（不对外暴露）、`created_at`、`updated_at`。SMS OTP 存 Redis（`sms:otp:{phone}`、`sms:verify_fail:{phone}`、`sms:daily:{phone}:{date}`），见 `user/sms_service.py`。
 
@@ -374,10 +374,25 @@ workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
 
 ## 9. 相关文档
 
-- [单体多域架构决策](./decision/单体多域架构.md)
-- [测试与数据库策略（ADR）](./decision/测试与数据库策略.md)
-- [中间件栈与异常处理架构决策（ADR-005）](./decision/中间件栈与异常处理架构决策.md)
+### 架构决策记录（ADR）
+
+按底座依赖顺序排列：
+
+- [ADR-001：单体多域架构](./decision/ADR-001-单体多域架构.md)
+- [ADR-002：测试与数据库策略](./decision/ADR-002-测试与数据库策略.md)
+- [ADR-003：测试架构——四层分层与数据流约束](./decision/ADR-003-测试架构-四层分层与数据流约束.md)
+- [ADR-004：中间件栈与异常处理架构决策](./decision/ADR-004-中间件栈与异常处理架构决策.md)
+- [ADR-005：Infra 分页与列表数据流](./decision/ADR-005-infra分页与列表数据流.md)
+- [ADR-007：多租户扩展——设计与暂缓计划](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)
+
+> ADR-006 暂未分配（编号保留）。
+
+### 相关笔记（`docs/notes/`，非 ADR）
+
+- [单例与线程锁在 FastAPI 中的适用场景](./notes/单例与线程锁在FastAPI中的适用场景.md)
+
+### 排错与工程上下文
+
 - [异常处理 ServerErrorMiddleware 与测试陷阱（排错）](./troubleshooting/异常处理-ServerErrorMiddleware与测试陷阱.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](./troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)
-- [Infra 分页与列表数据流（ADR）](./decision/infra分页与列表数据流.md)

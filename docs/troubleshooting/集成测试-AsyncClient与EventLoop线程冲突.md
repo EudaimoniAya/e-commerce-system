@@ -111,8 +111,8 @@ task ci
 - `app/infra/database.py` — `get_engine()`、`reset_engine()`
 - `tests/infra/test_database.py` — 独立 engine，不污染全局单例
 - `.cursor/rules/async-integration-testing.mdc` — 测试纪律
-- `docs/decision/测试与数据库策略.md` — 双库与 integration 惯例
-- `docs/decision/单例与线程锁在FastAPI中的适用场景.md` — Engine 单例在生产中的合理性
+- `docs/decision/ADR-002-测试与数据库策略.md` — 双库与 integration 惯例
+- `docs/notes/单例与线程锁在FastAPI中的适用场景.md` — Engine 单例在生产中的合理性
 - [docs/troubleshooting/集成测试-JWT-Settings缓存与401.md](./集成测试-JWT-Settings缓存与401.md) — JWT / Settings 缓存与 401（互补）
 
 ## 参考
