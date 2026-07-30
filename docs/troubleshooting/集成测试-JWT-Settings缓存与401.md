@@ -209,5 +209,5 @@ devbox run -- task ci
 ## 参考
 
 - [docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md](./集成测试-AsyncClient与EventLoop线程冲突.md) — engine / loop 隔离（互补，非 JWT）
-- [docs/decision/测试与数据库策略.md](../decision/测试与数据库策略.md)
+- [docs/decision/ADR-002-测试与数据库策略.md](../decision/ADR-002-测试与数据库策略.md)
 - `.cursor/rules/async-integration-testing.mdc`

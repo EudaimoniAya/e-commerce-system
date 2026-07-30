@@ -1,4 +1,4 @@
-# ADR-006：Infra 分页与列表数据流
+# ADR-005：Infra 分页与列表数据流
 
 - **状态**：已采纳
 - **日期**：2026-07-27
@@ -12,7 +12,7 @@
 - 同一 HTTP 契约、不同 Python 数据流（catalog 在 service 拼外壳，ordering 在 router 拼）
 - 重复 schema（`PaginatedProducts` 与 `PaginatedOrders` 四字段完全相同）
 
-infra 分页提供 **无业务语义** 的横切能力（入参依赖 + 响应壳 + 常量），业务域只填 `TResponse` 元素类型与 Repository 过滤条件。与 [ADR-001 单体多域](./单体多域架构.md) 一致：业务域 → infra 公开 API；infra **不** import 业务域。
+infra 分页提供 **无业务语义** 的横切能力（入参依赖 + 响应壳 + 常量），业务域只填 `TResponse` 元素类型与 Repository 过滤条件。与 [ADR-001 单体多域](./ADR-001-单体多域架构.md) 一致：业务域 → infra 公开 API；infra **不** import 业务域。
 
 ### infra 横切模块的心智模型
 
@@ -162,5 +162,5 @@ class PaginatedProducts(Paginated[ProductResponse]):
 ## 相关文档
 
 - [项目架构](../architecture.md)
-- [ADR-001 单体多域架构](./单体多域架构.md)
+- [ADR-001 单体多域架构](./ADR-001-单体多域架构.md)
 - OpenSpec：`openspec/specs/infra-pagination/spec.md`（archive 后）

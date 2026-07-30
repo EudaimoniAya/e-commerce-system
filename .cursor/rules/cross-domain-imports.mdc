@@ -8,7 +8,7 @@ alwaysApply: false
 
 本项目采用 **单体多域（Modular Monolith）** 架构。域间协作只走 **公开 service 接口 + schema（DTO）**，禁止穿透到对方持久化层。
 
-详细背景见 [docs/decision/单体多域架构.md](../../docs/decision/单体多域架构.md)。
+详细背景见 [docs/decision/ADR-001-单体多域架构.md](../../docs/decision/ADR-001-单体多域架构.md)。
 
 ## 允许
 
