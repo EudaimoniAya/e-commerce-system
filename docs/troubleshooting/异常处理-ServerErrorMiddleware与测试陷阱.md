@@ -131,7 +131,7 @@ class UnhandledExceptionMiddleware:
 
 ## 相关知识
 
-- `docs/decision/中间件栈与异常处理架构决策.md` — 对应的架构决策
+- `docs/decision/ADR-004-中间件栈与异常处理架构决策.md` — 对应的架构决策
 - `app/infra/errors/handlers.py` — handler 实现
 - `app/infra/errors/register.py` — 注册逻辑
 - `app/infra/logging/middleware.py` — RequestIDMiddleware

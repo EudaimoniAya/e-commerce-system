@@ -342,7 +342,7 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 - 本地连接：**unix socket**（非 TCP 3306），见 `.env.example` 与 `devbox.d/mysql80/my.cnf`
 - CI 使用 **TCP** `127.0.0.1:3306`（GitHub Actions mysql service container）
 
-本地与远程 CI 均执行 `task ci`（ruff + pytest）。本地须先 `task db:up` 与 `task redis:up`；CI 在 workflow 内自动启动 mysql + redis service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/测试与数据库策略.md)。
+本地与远程 CI 均执行 `task ci`（ruff + pytest）。本地须先 `task db:up` 与 `task redis:up`；CI 在 workflow 内自动启动 mysql + redis service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
 
 ## 本地 Redis 与逻辑库
 
@@ -473,8 +473,8 @@ Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 ## 文档
 
 - [架构设计](docs/architecture.md)
-- [测试与数据库/Redis 策略（ADR）](docs/decision/测试与数据库策略.md)
-- [中间件栈与异常处理（ADR）](docs/decision/中间件栈与异常处理架构决策.md)
+- [测试与数据库/Redis 策略（ADR）](docs/decision/ADR-002-测试与数据库策略.md)
+- [中间件栈与异常处理（ADR）](docs/decision/ADR-004-中间件栈与异常处理架构决策.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [devbox MySQL 竞态条件排查](docs/troubleshooting/devbox-mysql-竞态条件.md)
 - [OpenSpec 变更归档](openspec/changes/archive/)

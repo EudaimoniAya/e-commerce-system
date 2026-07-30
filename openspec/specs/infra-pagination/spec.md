@@ -2,7 +2,7 @@
 
 ## Purpose
 
-分页横切基础设施：`PaginationParams`、`get_pagination_params`（GET Query 依赖）、泛型响应壳 `Paginated[TResponse]`、默认 limit/offset 常量；统一 catalog / ordering 等域列表端点的入参解析、层职责与响应 envelope。详见 `docs/decision/infra分页与列表数据流.md`。
+分页横切基础设施：`PaginationParams`、`get_pagination_params`（GET Query 依赖）、泛型响应壳 `Paginated[TResponse]`、默认 limit/offset 常量；统一 catalog / ordering 等域列表端点的入参解析、层职责与响应 envelope。详见 `docs/decision/ADR-005-infra分页与列表数据流.md`。
 
 ## Requirements
 

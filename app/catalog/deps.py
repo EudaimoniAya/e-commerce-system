@@ -52,7 +52,11 @@ async def get_current_shop(
     user_id: uuid.UUID = Depends(get_current_user_id),
     repository: ShopRepository = Depends(get_shop_repository),
 ) -> Shop:
-    """解析 JWT 并查库返回当前用户的店铺；无店时 404。"""
+    """解析 JWT 并查库返回当前用户的店铺；无店时 404。
+
+    当前授权基于 ``shops.owner_user_id``（单人店 MVP）。组织层（Merchant +
+    MerchantMember）演进见 ADR-007（``docs/decision/ADR-007-多租户扩展-设计与暂缓计划.md``）。
+    """
     shop = await repository.get_by_owner_user_id(user_id)
     if shop is None:
         raise HTTPException(
