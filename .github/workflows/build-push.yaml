@@ -1,15 +1,16 @@
-# Docker 镜像构建 + push GHCR + /health 烟雾
-# 规范见 openspec/changes/infra-ci-docker/design.md §6-7
-name: Docker Build
+# GitHub Actions 版本锁定：使用 commit SHA，注释标明对应 tag。
+# 规范见 .cursor/rules/github-actions-pinning.mdc
+name: Build and Push Container Images
 
 on:
   push:
-    branches:
-      - main
     tags:
-      - 'v*'
-  # feature 分支不自动 build；如需手动触发
+      - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
+    inputs:
+      version:
+        required: true
+        description: "Semver X.Y.Z（不含 v 前缀）"
 
 env:
   REGISTRY: ghcr.io
@@ -26,54 +27,57 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            # 从 git tag vX.Y.Z 去掉前缀 v
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate semver
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! echo "${VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: Invalid semver: ${VERSION}"
+            exit 1
+          fi
+          echo "Valid semver: ${VERSION}"
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags / labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            # main push → latest
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            # v* tag → semver（v1.0.0, v1.0, v1）
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            # 每次 build → sha-<short>
-            type=sha,prefix=sha-
-
       - name: Build and push
         id: build-push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Smoke test /health
         run: |
-          # 提取第一个 tag 用于 smoke test
-          TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
-          echo "Smoke testing image: $TAG"
+          TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+          echo "Smoke testing image: ${TAG}"
 
           docker run --rm -d --name smoke-test \
             -p 8000:8000 \
             -e DATABASE_URL=mysql+asyncmy://root@127.0.0.1:3306/ecommerce \
             -e REDIS_URL=redis://127.0.0.1:6379/0 \
             -e JWT_SECRET_KEY=smoke-test-secret-key-at-least-32-bytes!! \
-            "$TAG"
+            "${TAG}"
 
           # 等待 uvicorn 就绪
           for i in $(seq 1 15); do

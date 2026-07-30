@@ -349,28 +349,28 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 | 阶段 | 内容 | 实现 |
 |------|------|------|
-| **Validate** | lint（ruff + check-test-imports）独立 job；test 按域 5 路 matrix 并行 | `.github/workflows/ci.yml`（`feature/infra-ci-docker`） |
-| **Build** | 多阶段 Dockerfile → GHCR；`push main` / `v*` tag 触发 | `.github/workflows/docker-build.yml`；`Dockerfile` |
+| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix） | `.github/workflows/test.yaml`（`feature/infra-ci-workflows`） |
+| **Build** | 多阶段 Dockerfile → GHCR；**仅** `vX.Y.Z` tag 触发（`workflow_dispatch` 可选） | `.github/workflows/build-push.yaml`；`Dockerfile` |
 | **Deploy** | CD 部署到云服务器 + alembic upgrade | 留给 `infra-cd-compose`（后续 change） |
 
-**CI job 结构**（`ci.yml`）：
+**CI job 结构**（`test.yaml`，name: `Run Tests`）：
 
 ```text
-lint:  ruff + check-test-imports（无 services；显式 apt install ripgrep）
-test:  5 路 matrix.domain ∈ {user, catalog, ordering, infra, unit}
-       setup-matrix job 按 workflow_dispatch.domain 输入动态决定展开哪些行
-       每 job: mysql + redis services → migrate → pytest --alluredir → upload artifact
+filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
+lint:   （if code=true）ruff + check-test-imports（无 services；显式 apt install ripgrep）
+test:   （if code=true）单 job，无 matrix
+        mysql + redis services → migrate → uv run pytest --alluredir=allure-results → upload artifact
+test-failure-alert: 上游 failure/cancelled 时 exit 1
 ```
 
-**Docker Build 结构**（`docker-build.yml`）：
+**Build 结构**（`build-push.yaml`，name: `Build and Push Container Images`）：
 
 ```text
-push main → build + push GHCR（tag: latest + sha-<short>）
-push v*   → build + push GHCR（tag: semver + sha-<short>）
-workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
+push vX.Y.Z tag  → semver 校验 → build + push GHCR（tag: X.Y.Z，仅此一个 tag）
+workflow_dispatch → 输入 version（必填 semver）→ 同上
 ```
 
-> **踩坑记录**：`gh workflow run` / GitHub Actions API 只识别**默认分支**上的 workflow 文件。在 feature 分支新增 `docker-build.yml` 后，`gh workflow run "Docker Build" --ref feature/...` 返回 404 "could not find any workflows"。即使 `--ref` 指定了 feature 分支，GitHub 也只从默认分支（`dev` / `main`）的 `.github/workflows/` 目录查找。解决方案有二：(1) 合并到 dev 后手动触发 `workflow_dispatch`；(2) 开 Draft PR 到 dev，利用 PR 事件触发 CI job（但 docker-build.yml 不在 PR 触发条件中）。最终选择方案 (1)，合并后通过 GitHub Actions UI 手动 Run workflow。此行为与 GitHub 文档一致——workflow 必须先存在于默认分支上才会被 `workflow_dispatch` 事件识别。
+> **踩坑记录**：`gh workflow run` / GitHub Actions API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。解决：合并后通过 GitHub Actions UI 手动 Run workflow，或使用 `gh workflow run "Run Tests"`（此时 workflow 已在默认分支上）。
 
 ## 9. 相关文档
 
@@ -383,9 +383,8 @@ workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
 - [ADR-003：测试架构——四层分层与数据流约束](./decision/ADR-003-测试架构-四层分层与数据流约束.md)
 - [ADR-004：中间件栈与异常处理架构决策](./decision/ADR-004-中间件栈与异常处理架构决策.md)
 - [ADR-005：Infra 分页与列表数据流](./decision/ADR-005-infra分页与列表数据流.md)
+- [ADR-006：CI 工作流与镜像发布策略](./decision/ADR-006-CI工作流与镜像发布策略.md)
 - [ADR-007：多租户扩展——设计与暂缓计划](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)
-
-> ADR-006 暂未分配（编号保留）。
 
 ### 相关笔记（`docs/notes/`，非 ADR）
 
