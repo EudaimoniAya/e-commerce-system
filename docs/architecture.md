@@ -395,4 +395,5 @@ workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
 
 - [异常处理 ServerErrorMiddleware 与测试陷阱（排错）](./troubleshooting/异常处理-ServerErrorMiddleware与测试陷阱.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](./troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
+- [Gitflow：从 main 切分支导致 Graph 混乱（排错）](./troubleshooting/gitflow-从main切分支导致Graph混乱.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)
