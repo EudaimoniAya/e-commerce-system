@@ -384,7 +384,7 @@ feature/* ──PR──▶ dev ──PR──▶ main（可部署线）
 | 场景 | 说明 |
 |------|------|
 | feature 分支开发 | 从 `dev` 切出，本地 `task db:up` + `task redis:up` + `task ci` 通过后提 PR |
-| feature 远程 CI | push 不自动触发；可用 **Actions → CI → Run workflow**（`workflow_dispatch`）或开 Draft PR → `dev` |
+| feature 远程 CI | push 自动触发（仅 code 变更触发 `Run Tests`）；也可开 Draft PR 到 `dev` 触发 |
 | 合入 dev | PR → `dev` 触发 GitHub Actions CI |
 | 合入 main | `dev` → `main` PR，CI 通过后可部署 |
 
@@ -392,24 +392,31 @@ feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入�
 
 ## CI
 
-Workflow：`.github/workflows/ci.yml`
+Workflow：`.github/workflows/test.yaml`（name: `Run Tests`）
 
 ### 结构
 
 ```text
-lint:  ruff + check-test-imports（无 services，显式 apt install ripgrep）
-test:  5 路 domain matrix 并行：
-       user | catalog | ordering | infra | unit
-       每 job 独立 mysql + redis services → migrate → pytest --alluredir → upload artifact
+filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
+lint:   （仅 code 变更）ruff + check-test-imports（无 services，显式 apt install ripgrep）
+test:   （仅 code 变更）单 job 全量 pytest（无 domain matrix）
+        mysql + redis services → migrate → pytest --alluredir → upload artifact
+test-failure-alert:  上游 failure/cancelled 时 exit 1
 ```
 
-| 域名 | pytest 路径 |
-|------|------------|
-| `user` | `tests/user tests/unit/user` |
-| `catalog` | `tests/catalog tests/unit/catalog` |
-| `ordering` | `tests/ordering` |
-| `infra` | `tests/infra tests/ops` |
-| `unit` | `tests/unit` |
+### 路径筛选（paths-filter）
+
+变更仅命中 `docs/**`、`openspec/**`、`.cursor/**`、`README.md` 等非业务路径时，`lint` 与 `test` job 自动跳过，节省 Actions 分钟。
+
+触发 `code` filter 的路径（完整列表见 `.github/utils/file-filters.yaml`）：
+
+| 类别 | 路径 |
+|------|------|
+| 业务代码 | `app/**`、`tests/**`、`alembic/**` |
+| 依赖配置 | `pyproject.toml`、`uv.lock` |
+| Docker | `Dockerfile`、`.dockerignore` |
+| CI 自身 | `.github/workflows/test.yaml`、`.github/workflows/build-push.yaml`、`.github/utils/file-filters.yaml` |
+| 工具脚本 | `scripts/check_no_test_cross_imports.sh` |
 
 ### 触发
 
@@ -417,16 +424,15 @@ test:  5 路 domain matrix 并行：
 |------|-------------|
 | `pull_request` | `dev`, `main` |
 | `push` | `dev`, `main` |
-| `workflow_dispatch` | 任意分支手动触发，可选 `domain`（all/user/catalog/ordering/infra/unit） |
 
 ```bash
-# CLI 手动触发远程 CI
-gh workflow run CI --ref <branch> -f domain=user
+# CLI 手动触发远程 CI（workflow 需已在默认分支上）
+gh workflow run "Run Tests" --ref <branch>
 ```
 
 ### Allure 报告
 
-- CI 每 matrix job 上传 `allure-results-<domain>` artifact（保留 14 天）
+- CI 每趟上传 `allure-results` artifact（保留 14 天）
 - 本地 `task test:reports` 生成 HTML；`task latest:report` 浏览器查看
 - `reports/` 目录已 `.gitignore`
 
@@ -438,20 +444,27 @@ GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/g
 # 本地构建（验证 Dockerfile 语法）
 docker build -t e-commerce-system .
 
-# 远程构建（gh CLI，合入 main 后自动触发或 workflow_dispatch 手动）
-gh workflow run "Docker Build" --ref main
+# 远程构建（打 semver tag 自动触发，或 workflow_dispatch 手动）
+gh workflow run "Build and Push Container Images" --ref main -f version=1.0.0
 ```
 
 | 触发 | Tag |
 |------|-----|
-| `push main` | `latest`、`sha-<short>` |
-| `push v*` tag | semver（`v1.0.0`、`v1.0`、`v1`）、`sha-<short>` |
+| `push vX.Y.Z` tag | `X.Y.Z`（去 v 前缀，仅此一个 tag） |
+| `workflow_dispatch` version 输入 | 输入的 `X.Y.Z` |
 
 Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 
 镜像仅含 FastAPI app + 生产依赖（不含 MySQL/Redis/tests）。运行时需环境变量注入 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`。
 
-> **踩坑记录**：`gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。feature 分支新增 `docker-build.yml` 后 `gh workflow run "Docker Build" --ref feature/...` 返回 404。workflow 必须先存在于默认分支才会被 `workflow_dispatch` 事件识别，这是 GitHub Actions 的设计约束。
+> **踩坑记录**：`gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。这是 GitHub Actions 的设计约束。
+
+### 发版流程
+
+1. 确保 `main` 上最新 commit 的 `Run Tests` 为绿色
+2. 打 tag：`git tag vX.Y.Z`（如 `git tag v1.0.0`）
+3. push tag：`git push origin vX.Y.Z` → 自动触发 `Build and Push Container Images`
+4. GHCR 出现 tag `X.Y.Z` 的镜像
 
 ## 版本策略
 

@@ -34,8 +34,33 @@ fi
 # ---------------------------------------------------------------------------
 # 2. 服务启动
 # ---------------------------------------------------------------------------
+ensure_redis_service_started() {
+  # process-compose 未运行时，可单独 up redis
+  if devbox services up redis -b -q 2>/dev/null; then
+    return 0
+  fi
+
+  # db:up 已占用 process-compose 时，redis 在 compose 内为 Disabled，
+  # 此时 devbox 报 "process-compose is already running" 且无法单独启用 redis。
+  if devbox services ls 2>/dev/null | grep -qE 'mysql[[:space:]]+default[[:space:]]+Running'; then
+    echo "process-compose 已运行 MySQL，重启 mysql+redis..."
+    local socket="${MYSQL_UNIX_PORT:-/tmp/e-commerce-system-mysql.sock}"
+    mysqladmin -u root --socket="${socket}" shutdown >/dev/null 2>&1 || true
+    redis-cli shutdown nosave >/dev/null 2>&1 || true
+    devbox services stop -q 2>/dev/null || true
+    sleep 1
+    if devbox services up mysql redis -b -q 2>/dev/null; then
+      return 0
+    fi
+  fi
+
+  echo "启动 Redis 失败。可手动执行:" >&2
+  echo "  devbox services stop && devbox services up mysql redis -b" >&2
+  return 1
+}
+
 echo "启动 Redis..."
-devbox services up redis -b -q >/dev/null 2>&1
+ensure_redis_service_started
 
 # ---------------------------------------------------------------------------
 # 3. 就绪轮询（进程已启动 ≠ 服务已就绪）
