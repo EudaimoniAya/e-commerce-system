@@ -388,6 +388,8 @@ workflow_dispatch → 输入 version（必填 semver）→ 同上
 - [ADR-005：Infra 分页与列表数据流](./decision/ADR-005-infra分页与列表数据流.md)
 - [ADR-006：CI 工作流与镜像发布策略](./decision/ADR-006-CI工作流与镜像发布策略.md)
 - [ADR-007：多租户扩展——设计与暂缓计划](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)
+- [ADR-008：Git 分支生命周期与提交工作流规范](./decision/ADR-008-Git分支生命周期与提交工作流规范.md)
+- [ADR-009：Redis 业务扩展与 AI 数据分层策略](./decision/ADR-009-Redis业务扩展与AI数据分层策略.md)
 
 ### 相关笔记（`docs/notes/`，非 ADR）
 
