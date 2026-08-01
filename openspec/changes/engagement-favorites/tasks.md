@@ -11,9 +11,10 @@
 
 ## 2. catalog 跨域扩展（repository 复用 + EngagementProduct）
 
-- [ ] 2.1 `ProductRepository.fetch_products_with_shop_by_ids`：从既有 `get_purchasable_products` SQL 抽取；`get_purchasable_products` refactor 为调用共用方法（行为不变）
-- [ ] 2.2 `EngagementProduct` schema + `ShopService.get_products_for_engagement`；补充 `image_url` 字段映射
-- [ ] 2.3 跑 `tests/ordering/` 与 catalog 相关测试，确认 refactor 无回归
+- [x] 2.1 `ProductRepository.fetch_products_with_shop_by_ids`：从既有 `get_purchasable_products` SQL 抽取；`get_purchasable_products` refactor 为调用共用方法（行为不变）
+- [x] 2.2 `EngagementProduct` schema + `ShopService.get_products_for_engagement`；补充 `image_url` 字段映射
+- [x] 2.3 跑 `tests/ordering/` 与 catalog 相关测试，确认 refactor 无回归
+- [x] 2.4 `tests/unit/catalog/` 新增 `get_products_for_engagement` 字段映射单测（EngagementProduct 全字段、price 字符串化、image_url 保留/None、不过滤上架/店状态、shop_active 推导、空结果返回 []、不存在 id 不出现）
 
 ## 3. 迁移与 engagement ORM（绿 · 基础）
 
