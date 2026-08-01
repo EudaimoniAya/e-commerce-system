@@ -9,7 +9,7 @@
   - `POST /favorites` — body `{ "product_id" }`；商品在 catalog 存在即可（不要求可购/可展示）
   - `DELETE /favorites/{product_id}` — 取消单条收藏
   - `GET /favorites` — 分页列表；`items`（可公开展示）+ `unavailable_items`（含 `reason` 与展示字段）
-  - `POST /favorites/purge-unavailable` — 一键删除当前用户所有 `unavailable_items` 对应收藏行
+  - `POST /favorites/batch-delete` — body `{ "product_ids": [...] }`；批量取消收藏（前端从 `unavailable_items` 收集 id 提交，对标 `POST /orders/batch-pay`）
 - **跨域读路径**：engagement 调用 **catalog.service** `get_products_for_engagement` → `list[EngagementProduct]`；**不**新增 catalog HTTP 路由；**不** import catalog ORM/repository
 - **catalog 最小扩展**：新增跨域 DTO `EngagementProduct` 与 service 方法；与既有 `get_purchasable_products` **共用** repository 批量查询实现
 - **`GET /favorites` 列表策略**：`items` 仅含 favorite 元数据（前端对可展示项再调公开 `GET /products/{id}`）；`unavailable_items` 由 engagement 服务端 enrichment（含 `product_name`、`image_url`），避免前端无法区分 catalog 404（未上架 vs 不存在）
@@ -24,14 +24,14 @@
 - 不修改 catalog 公开 API 404 语义（未上架仍对买家不可见）
 - 不新增 ADR-010（跨域 DTO 规范文档）；本 change 在 design/spec 内自洽，浏览 change 结束后再统一审视
 - 不做 media 域 DTO 重构（`EngagementProduct.image_url` 为过渡期字段）
-- `POST /favorites/purge-unavailable` 不支持按 `reason` 子集过滤（MVP 清理全部 unavailable）
+- 不实现服务端「清空全部 unavailable」专用端点（由前端收集 `product_ids` 后 batch-delete）
 - 不实现 `GET /favorites/{product_id}` 查是否已收藏（可后续 enhancement）
 
 ## Capabilities
 
 ### New Capabilities
 
-- `engagement-favorites`：用户商品收藏 CRUD、分页列表（items + unavailable_items）、批量 purge unavailable
+- `engagement-favorites`：用户商品收藏 CRUD、分页列表（items + unavailable_items）、批量 batch-delete
 
 ### Modified Capabilities
 

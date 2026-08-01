@@ -2,7 +2,7 @@
 
 ## Purpose
 
-engagement 域用户商品收藏垂直切片：认证用户收藏/取消/分页列表（可展示项与失效项分类）、批量 purge unavailable。表：`user_favorites`（migration `009`）。跨域读路径调用 `catalog.service.get_products_for_engagement` → `EngagementProduct`；禁止 import catalog ORM/repository。
+engagement 域用户商品收藏垂直切片：认证用户收藏/取消/分页列表（可展示项与失效项分类）、批量 batch-delete（前端提交 product_ids）。表：`user_favorites`（migration `009`）。跨域读路径调用 `catalog.service.get_products_for_engagement` → `EngagementProduct`；禁止 import catalog ORM/repository。
 
 ## ADDED Requirements
 
@@ -110,31 +110,37 @@ engagement 域用户商品收藏垂直切片：认证用户收藏/取消/分页�
 - **AND** SHALL 含 `reason` 为 `not_found`
 - **AND** `product_name` MAY 为空
 
-### Requirement: POST /favorites/purge-unavailable
+### Requirement: POST /favorites/batch-delete
 
-系统 SHALL 提供 `POST /favorites/purge-unavailable`（可无 body 或空 JSON object），删除当前用户 **全部** 分类为 unavailable 的 favorite 行（`product_unpublished`、`shop_closed`、`not_found`）。SHALL NOT 删除 `items` 侧仍可展示的收藏。
+系统 SHALL 提供 `POST /favorites/batch-delete`，body `{ "product_ids": ["<uuid>", ...] }`（`product_ids` SHALL 至少 1 个元素，与 `POST /orders/batch-pay` 空列表约定一致）。系统 SHALL 删除当前用户收藏中 `product_id` 落在提交列表内的行；SHALL NOT 删除未出现在列表中的 favorite。未收藏过的 `product_id` SHALL 跳过（不导致整批失败）。响应 SHALL 含 `deleted_count`（实际删除行数）。
 
-#### Scenario: purge 删除 unavailable 行
+#### Scenario: batch-delete 删除提交的 unavailable product_ids
 
-- **WHEN** 认证用户有 2 条 unavailable 与 1 条 items favorite，POST purge-unavailable
+- **WHEN** 认证用户有 2 条 unavailable 与 1 条 items favorite，POST batch-delete 提交 2 个 unavailable 的 `product_id`
 - **THEN** 响应状态码 SHALL 为 200
-- **AND** 响应 body SHALL 含 `deleted_count` 为 2
+- **AND** `deleted_count` SHALL 为 2
 - **AND** 再次 GET 仅剩 1 条 items favorite
 
-#### Scenario: 无 unavailable 时 purge 返回零
+#### Scenario: 未收藏的 product_id 跳过
 
-- **WHEN** 认证用户 favorite 均在 items 侧，POST purge-unavailable
+- **WHEN** 认证用户 POST batch-delete 提交 `{ "product_ids": [已收藏id, 未收藏id] }`
 - **THEN** 响应状态码 SHALL 为 200
-- **AND** `deleted_count` SHALL 为 0
+- **AND** `deleted_count` SHALL 为 1
+- **AND** 已收藏 id 对应行 SHALL 被删除
 
-#### Scenario: purge 未认证返回 401
+#### Scenario: 空 product_ids 返回 422
 
-- **WHEN** 未认证客户端 POST purge-unavailable
+- **WHEN** 认证用户 POST batch-delete 提交 `{ "product_ids": [] }`
+- **THEN** 响应状态码 SHALL 为 422
+
+#### Scenario: batch-delete 未认证返回 401
+
+- **WHEN** 未认证客户端 POST batch-delete
 - **THEN** 响应状态码 SHALL 为 401
 
 ### Requirement: Favorites list SHALL NOT auto-delete unavailable rows
 
-GET /favorites SHALL NOT 自动删除 unavailable favorite 行；用户 SHALL 通过 DELETE 单条或 POST purge-unavailable 主动清理。
+GET /favorites SHALL NOT 自动删除 unavailable favorite 行；用户 SHALL 通过 DELETE 单条或 POST batch-delete（前端提交 product_ids）主动清理。
 
 #### Scenario: GET 不删除下架商品收藏
 

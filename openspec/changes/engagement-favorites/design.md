@@ -17,7 +17,7 @@ MVP 已交付 user / catalog / ordering + infra。架构文档 Phase 2 规划 **
 
 **Goals:**
 
-- 可演示闭环：收藏 → 分页列表（可展示 / 失效分类）→ 单删 / 批量 purge unavailable
+- 可演示闭环：收藏 → 分页列表（可展示 / 失效分类）→ 单删 / 批量 batch-delete（前端提交 product_ids）
 - `user_favorites` 表（migration `009`）；engagement 域标准分层
 - catalog 新增 `EngagementProduct` DTO + `get_products_for_engagement`；repository 与 `get_purchasable_products` 共用批量 SQL
 - TDD + AsyncClient integration；422/401/404 与既有域约定一致
@@ -29,7 +29,7 @@ MVP 已交付 user / catalog / ordering + infra。架构文档 Phase 2 规划 **
 - 收藏分组/标签、公开页、与 cart 联动
 - 修改 catalog 公开 GET 404 语义
 - media 域 DTO 重构（`image_url` 过渡期读 `products.image_url`）
-- purge 按 reason 子集过滤
+- 服务端「清空 unavailable」专用 API
 
 ## Decisions
 
@@ -38,7 +38,7 @@ MVP 已交付 user / catalog / ordering + infra。架构文档 Phase 2 规划 **
 ```text
 app/engagement/
   router.py       # /favorites*
-  service.py      # FavoriteService：CRUD + classify + purge
+  service.py      # FavoriteService：CRUD + classify + batch_delete
   repository.py
   models.py       # UserFavorite
   schemas.py
@@ -70,7 +70,7 @@ migration：`009_engagement_favorites.py`（head 当前为 `008_user_phone`）�
 | POST | `/favorites` | `{ "product_id" }` |
 | DELETE | `/favorites/{product_id}` | 按商品取消 |
 | GET | `/favorites` | `?limit=&offset=` |
-| POST | `/favorites/purge-unavailable` | 删除全部 unavailable |
+| POST | `/favorites/batch-delete` | `{ "product_ids": [...] }` 批量取消 |
 
 ### 4. HTTP 状态码
 
@@ -82,7 +82,8 @@ migration：`009_engagement_favorites.py`（head 当前为 `008_user_phone`）�
 | POST 商品不存在 | 422 |
 | DELETE 成功 | 204 |
 | DELETE 未收藏 | 404 |
-| purge 成功（含 0 条） | 200 |
+| batch-delete 成功 | 200 |
+| batch-delete 空 product_ids | 422 |
 
 ### 5. POST 校验：catalog 行存在即可
 
@@ -119,18 +120,21 @@ migration：`009_engagement_favorites.py`（head 当前为 `008_user_phone`）�
 }
 ```
 
-`total` = 该用户 **全部** favorite 行数（含 unavailable）。分类逻辑抽为 `FavoriteService._classify_favorites(...)`，GET 与 purge **共用**，避免分叉。
+`total` = 该用户 **全部** favorite 行数（含 unavailable）。分类逻辑抽为 `FavoriteService._classify_favorites(...)`，供 GET 列表使用。
 
 **替代方案（未采用）：** 改 catalog 公开 API 区分 404 — 破坏买家可见性契约；前端 diff catalog — 无法区分未上架与不存在。
 
-### 7. POST /favorites/purge-unavailable
+### 7. POST /favorites/batch-delete
 
-- 列出当前用户全部 favorites → 共用 classify → DELETE 所有落在 `unavailable_items` 侧的行
-- 单事务 commit
-- 响应 `{ "deleted_count": N }`；N=0 仍 200
-- **不**删除 `items` 侧仍可展示的收藏
+对标 `POST /orders/batch-pay`：前端负责编排（如从 `unavailable_items` 收集 `product_id`），后端只处理提交的 id 列表。
 
-对标 `POST /orders/batch-pay`：POST + 动作语义 + JWT 用户。
+- body：`{ "product_ids": ["uuid", ...] }`；`product_ids` 为空 → **422**（与 batch-pay 空 `order_ids` 一致）
+- 删除当前用户收藏中 `product_id ∈ product_ids` 的行；**单事务** commit
+- 未收藏过的 `product_id` **跳过**（不 404）；`deleted_count` 为实际删除行数
+- 响应 `{ "deleted_count": N }`；N=0 仍 200（例如提交的 id 均不在收藏中）
+- **不**删除未出现在 `product_ids` 中的 favorite（含 items 侧）
+
+**替代方案（未采用）：** `POST /favorites/purge-unavailable` 服务端推断全部 unavailable — 与 batch-pay「前端提交 id 列表」模式不一致。
 
 ### 8. catalog 跨域扩展（无 HTTP 路由）
 
@@ -179,7 +183,7 @@ Repository 返回 Row/dict；各 service 方法各自映射 DTO。**不**对外 
 
 - `tests/engagement/test_favorites_crud.py` — POST/DELETE/401/422/404/幂等
 - `tests/engagement/test_favorites_list.py` — 分页、分类、unavailable enrichment、倒序
-- `tests/engagement/test_favorites_purge.py` — purge 全删 unavailable、不影响 items、deleted_count=0
+- `tests/engagement/test_favorites_batch_delete.py` — batch-delete 子集删除、跳过未收藏 id、422/401
 - `tests/support/helper/engagement.py` + `results.py`
 - AsyncClient；禁止 TestClient
 
@@ -187,7 +191,7 @@ Repository 返回 Row/dict；各 service 方法各自映射 DTO。**不**对外 
 
 | 风险 | 缓解 |
 |------|------|
-| classify 逻辑在 GET 与 purge 分叉 | 抽 `_classify_favorites` 单点 |
+| 提交的 product_id 部分未收藏 | 跳过并计入 deleted_count 仅实际删除数 |
 | `EngagementProduct.image_url` 与 media 域演进冲突 | docstring + Non-goals 标注过渡期；后续独立 refactor change |
 | `get_purchasable_products` 与 `fetch_*`  refactor 回归 ordering | apply 后跑全量 `tests/ordering/` |
 | unavailable 含 `not_found`（MVP 无 DELETE 商品 API，少见） | 保留 reason 枚举与 cart 一致 |

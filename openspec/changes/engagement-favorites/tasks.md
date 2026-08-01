@@ -1,13 +1,13 @@
 ## 1. TDD — 失败测试（红）
 
-- [ ] 1.1 扩展 `tests/support/`（遵循 test-architecture 四层）：
-  - `helper/engagement.py` 原子 HTTP helper（返回 `*Result`，不 assert 成功）：`add_favorite`、`delete_favorite`、`list_favorites`、`purge_unavailable_favorites`
-  - `results.py`：FavoriteResult、FavoriteListResult、PurgeUnavailableResult
+- [x] 1.1 扩展 `tests/support/`（遵循 test-architecture 四层）：
+  - `helper/engagement.py` 原子 HTTP helper（返回 `*Result`，不 assert 成功）：`add_favorite`、`delete_favorite`、`list_favorites`、`batch_delete_favorites`
+  - `results.py`：FavoriteResult、FavoriteListResult、BatchDeleteFavoritesResult
   - 复用既有 `arrange_purchasable_product` / catalog seed 编排场景
-- [ ] 1.2 编写 `tests/engagement/test_favorites_crud.py`（POST 201/200 幂等、422 不存在、DELETE 204/404、401）；不编写实现
-- [ ] 1.3 编写 `tests/engagement/test_favorites_list.py`（GET 空列表、items/unavailable_items 分类、reason 枚举、分页 total、created_at 降序、未上架可 POST）；不编写实现
-- [ ] 1.4 编写 `tests/engagement/test_favorites_purge.py`（purge 删 unavailable、保留 items、deleted_count=0、401）；不编写实现
-- [ ] 1.5 `devbox run -- task db:up` 后跑新增 engagement 测试，确认失败（红）
+- [x] 1.2 编写 `tests/engagement/test_favorites_crud.py`（POST 201/200 幂等、422 不存在、DELETE 204/404、401）；不编写实现
+- [x] 1.3 编写 `tests/engagement/test_favorites_list.py`（GET 空列表、items/unavailable_items 分类、reason 枚举、分页 total、created_at 降序、未上架可 POST）；不编写实现
+- [x] 1.4 编写 `tests/engagement/test_favorites_batch_delete.py`（batch-delete 子集删除、跳过未收藏 id、422 空列表、401）；不编写实现
+- [x] 1.5 `devbox run -- task db:up` 后跑新增 engagement 测试，确认失败（红）
 
 ## 2. catalog 跨域扩展（repository 复用 + EngagementProduct）
 
@@ -22,8 +22,8 @@
 
 ## 4. engagement 实现（绿）
 
-- [ ] 4.1 `repository.py` + schemas（FavoriteItem、UnavailableFavoriteItem、FavoriteListResponse、PurgeUnavailableResponse 等）
-- [ ] 4.2 `FavoriteService`：POST/DELETE、`_classify_favorites`（GET 与 purge 共用）、list + purge；注入 `ShopService`
+- [ ] 4.1 `repository.py` + schemas（FavoriteItem、UnavailableFavoriteItem、FavoriteListResponse、BatchDeleteFavoritesRequest/Response 等）
+- [ ] 4.2 `FavoriteService`：POST/DELETE、`_classify_favorites`、list + batch_delete；注入 `ShopService`
 - [ ] 4.3 `deps.py` + `router.py`（/favorites*）；`main.py` 挂载
 - [ ] 4.4 跑 engagement 测试至全绿
 
