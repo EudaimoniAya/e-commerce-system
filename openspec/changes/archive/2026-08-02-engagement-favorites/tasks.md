@@ -30,5 +30,5 @@
 
 ## 5. 文档与 CI
 
-- [ ] 5.1 更新 `docs/architecture.md`（engagement 域、user_favorites、API 摘要）
-- [ ] 5.2 `devbox run -- task ci` 全绿
+- [x] 5.1 更新 `docs/architecture.md`（engagement 域、user_favorites、API 摘要）
+- [x] 5.2 `devbox run -- task ci` 全绿

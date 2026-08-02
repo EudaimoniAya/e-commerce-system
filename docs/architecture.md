@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放）；继续扩展 engagement 等 MVP 域
+- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`）；浏览记录等待后续 `engagement-browse-events` change
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -59,7 +59,7 @@
 | `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
 | `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
-| `engagement` | 收藏、浏览记录 | UserFavorite, BrowseEvent | Phase 2 |
+| `engagement` | 用户收藏（浏览记录待后续 change） | UserFavorite（已实现）；BrowseEvent（待实现） | **Phase 2（收藏已实现）** |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -112,7 +112,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（user + catalog + ordering + infra）
+### 5.1 当前骨架（user + catalog + ordering + engagement + infra）
 
 ```text
 e-commerce-system/
@@ -156,6 +156,13 @@ e-commerce-system/
 │       ├── models.py             # orders、order_items、cart_items、checkout_batches
 │       ├── schemas.py
 │       └── deps.py
+│   └── engagement/               # 用户行为域（收藏已实现）
+│       ├── router.py             # POST/GET/DELETE /favorites*、POST /favorites/batch-delete
+│       ├── service.py            # FavoriteService：CRUD、列表分类、batch_delete
+│       ├── repository.py
+│       ├── models.py             # user_favorites
+│       ├── schemas.py
+│       └── deps.py
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
@@ -165,7 +172,8 @@ e-commerce-system/
 │       ├── 0ca23eb664a9_005_ordering_orders.py  # orders、order_items
 │       ├── e1674055eb99_006_ordering_initiated_by.py  # orders.initiated_by
 │       ├── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
-│       └── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
+│       ├── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
+│       └── 009_engagement_favorites.py  # user_favorites
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -176,7 +184,8 @@ e-commerce-system/
 │   │   └── test_redis.py         # REDIS_URL、PING、SET/GET/TTL
 │   ├── user/                     # SMS/密码认证、me/profile integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
-│   └── ordering/                 # 买家订单 + 购物车 integration
+│   ├── ordering/                 # 买家订单 + 购物车 integration
+│   └── engagement/               # 用户收藏 integration
 ├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
 │   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
 │   ├── devbox_redis_up.sh / devbox_redis_down.sh
@@ -210,9 +219,13 @@ e-commerce-system/
 
 **购物车读路径**：`GET /cart` 批量调用 `catalog.service.get_purchasable_products` enrichment，按店分组；不可购项进 `invalid_items`（不自动删除）。列表展示 catalog 实时价；成交价以 checkout 建单时 `order_items` 快照为准。
 
+**`user_favorites` 表（engagement 域）**：`id`（UUID PK）、`user_id`（FK → `users.id`）、`product_id`（仅存 ID，展示走 catalog.service）、`created_at`；`UNIQUE(user_id, product_id)`；索引 `ix_user_favorites_user_id`。**不**存 price/name/image 快照；**不**跨域 ORM relationship。语义为**用户偏好**，与 ordering 域 `cart_items`（购买意图）独立。
+
+**收藏读路径**：`GET /favorites` 分页读 `user_favorites` → 批量 `catalog.service.get_products_for_engagement` → 分类为 `items`（可公开展示；前端再调 `GET /products/{id}`）与 `unavailable_items`（含 `reason`：`product_unpublished` | `shop_closed` | `not_found`，及 `product_name`/`image_url` enrichment）。POST 收藏校验 catalog 行存在即可（不要求可购）。`POST /favorites/batch-delete` 接受 `{ "product_ids": [...] }`（对标 `POST /orders/batch-pay`）；engagement **不得** import catalog ORM/repository。catalog 跨域 DTO：`EngagementProduct` + `get_products_for_engagement`（与 `get_purchasable_products` 共用 repository 批量 SQL）。
+
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充 `ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。`user/`、`catalog/`（shop + 类目/商品）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
+随垂直切片增量补充 `engagement/`（浏览等）、后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`（收藏）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -252,7 +265,13 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── engagement/                   # Phase 2
+├── engagement/                   # 收藏已实现；browse_events 待后续 change
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   └── deps.py
 ├── events/                       # 后期
 └── ai/                           # 后期
 ```
@@ -266,7 +285,8 @@ app/
 - 创建订单、查询订单、取消订单、支付桩、发货、确认收货
 - 库存预留与释放（创建扣减、取消/超时加回；订单行快照价格与商品名）
 - **购物车**（ordering 域）：`cart_items` 暂存、`POST /cart/checkout` 跨店单事务建单 + 轻量 `checkout_batches`、`POST /orders/batch-pay` 合并支付；与 `POST /orders` 立即购买并行
-- 收藏、浏览记录（Phase 2，归入 engagement 域）
+- **收藏**（engagement 域）：`user_favorites`；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`（用户偏好，与购物车语义独立）
+- 浏览记录（Phase 2 待实现，归入 engagement 域）
 
 ### 6.2 明确不做（MVP）
 
