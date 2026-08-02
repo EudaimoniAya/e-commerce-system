@@ -18,15 +18,15 @@
 
 ## 3. 迁移与 engagement ORM（绿 · 基础）
 
-- [ ] 3.1 新增 `app/engagement/models.py`（`UserFavorite`）；`alembic/env.py` 导入
-- [ ] 3.2 新增 migration `009`：`user_favorites` 表及 `UNIQUE(user_id, product_id)`、索引
+- [x] 3.1 新增 `app/engagement/models.py`（`UserFavorite`）；`alembic/env.py` 导入
+- [x] 3.2 新增 migration `009`：`user_favorites` 表及 `UNIQUE(user_id, product_id)`、索引
 
 ## 4. engagement 实现（绿）
 
-- [ ] 4.1 `repository.py` + schemas（FavoriteItem、UnavailableFavoriteItem、FavoriteListResponse、BatchDeleteFavoritesRequest/Response 等）
-- [ ] 4.2 `FavoriteService`：POST/DELETE、`_classify_favorites`、list + batch_delete；注入 `ShopService`
-- [ ] 4.3 `deps.py` + `router.py`（/favorites*）；`main.py` 挂载
-- [ ] 4.4 跑 engagement 测试至全绿
+- [x] 4.1 `repository.py` + schemas（FavoriteItem、UnavailableFavoriteItem、FavoriteListResponse、BatchDeleteFavoritesRequest/Response 等）
+- [x] 4.2 `FavoriteService`：POST/DELETE、`_classify_favorites`、list + batch_delete；注入 `ShopService`
+- [x] 4.3 `deps.py` + `router.py`（/favorites*）；`main.py` 挂载
+- [x] 4.4 跑 engagement 测试至全绿
 
 ## 5. 文档与 CI
 
