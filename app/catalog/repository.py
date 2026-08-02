@@ -268,10 +268,17 @@ class ProductRepository:
         result = await self._session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_purchasable_products(
+    async def fetch_products_with_shop_by_ids(
         self, product_ids: list[str]
     ) -> list[dict]:
-        """批量查询商品及所属店铺信息（供 ordering 下单校验用）。"""
+        """批量查询商品及所属店铺信息（共用行）。
+
+        供 ``get_purchasable_products``（ordering）与 ``get_products_for_engagement``
+        （engagement）各自映射 DTO。仅返回 DB 存在的行；不过滤上架/店状态。
+        空列表输入返回 ``[]``。
+        """
+        if not product_ids:
+            return []
         result = await self._session.execute(
             select(
                 Product.id,
@@ -280,6 +287,7 @@ class ProductRepository:
                 Product.price,
                 Product.stock,
                 Product.is_published,
+                Product.image_url,
                 Shop.name.label("shop_name"),
                 Shop.status.label("shop_status"),
                 Shop.owner_user_id,
@@ -295,12 +303,19 @@ class ProductRepository:
                 "price": row.price,
                 "stock": row.stock,
                 "is_published": row.is_published,
+                "image_url": row.image_url,
                 "shop_name": row.shop_name,
                 "shop_status": row.shop_status,
                 "owner_user_id": str(row.owner_user_id),
             }
             for row in result.all()
         ]
+
+    async def get_purchasable_products(
+        self, product_ids: list[str]
+    ) -> list[dict]:
+        """批量查询商品及所属店铺信息（供 ordering 下单校验用；行为与 history 一致）。"""
+        return await self.fetch_products_with_shop_by_ids(product_ids)
 
     async def reserve_stock(self, items: list[tuple[str, int]]) -> None:
         """条件扣减库存（供 ordering 域预留调用；不提交事务）。"""

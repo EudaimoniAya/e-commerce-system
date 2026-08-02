@@ -169,6 +169,19 @@ class PurchasableProduct(BaseModel):
     owner_user_id: str
 
 
+class EngagementProduct(BaseModel):
+    """跨域 DTO：供 engagement 域收藏列表 enrichment 使用（无 HTTP 路由，不泄漏 ORM 实例）。"""
+
+    id: str
+    shop_id: str
+    shop_name: str
+    name: str
+    price: str
+    image_url: str | None  # 过渡期；media 域完成后重构
+    is_published: bool
+    shop_active: bool
+
+
 class PaginatedProducts(Paginated[ProductResponse]):
     """分页商品列表。"""
 

@@ -186,3 +186,42 @@ class BatchPayResult:
 
     status_code: int
     body: dict | None = None
+
+
+@dataclass
+class FavoriteResult:
+    """收藏 HTTP 调用结果（POST/DELETE /favorites*）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: POST 2xx 时解析为 dict（含 id/product_id/created_at）；DELETE 204 及非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class FavoriteListResult:
+    """GET /favorites HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（items/unavailable_items/total/limit/offset）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class BatchDeleteFavoritesResult:
+    """POST /favorites/batch-delete HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（含 deleted_count）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None

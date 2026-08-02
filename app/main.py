@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from app.catalog.router import router as catalog_router
+from app.engagement.router import router as engagement_router
 from app.infra.config import get_settings
 from app.infra.errors.register import register_exception_handlers
 from app.infra.health.router import router as health_router
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(cart_router)
     app.include_router(ordering_router)
+    app.include_router(engagement_router)
 
     return app
 
