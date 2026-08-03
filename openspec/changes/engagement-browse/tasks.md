@@ -12,8 +12,8 @@
 
 ## 2. 配置与 infra
 
-- [ ] 2.1 `app/infra/config.py` 新增 `browse_history_max_per_user`、`browse_history_retention_days`、`browse_debounce_seconds`
-- [ ] 2.2 更新 `.env.example`（50/30/5）与 `.env.test`（3/30/5）
+- [x] 2.1 `app/infra/config.py` 新增 `browse_history_max_per_user`、`browse_history_retention_days`、`browse_debounce_seconds`
+- [x] 2.2 更新 `.env.example`（50/30/5）与 `.env.test`（3/30/5）
 
 ## 3. 迁移与 engagement ORM（绿 · 基础）
 
