@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     sms_verify_fail_window_seconds: int = 900
     sms_otp_fixed_code: str | None = None
 
+    # engagement 浏览记录（user_browse_history）：top N + retention + debounce
+    browse_history_max_per_user: int = 50
+    browse_history_retention_days: int = 30
+    browse_debounce_seconds: int = 5
+
 
 @lru_cache
 def get_settings() -> Settings:

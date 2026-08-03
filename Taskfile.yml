@@ -17,47 +17,12 @@ tasks:
       - bash scripts/check_no_test_cross_imports.sh
 
   test:
-    desc: 运行 pytest（自动加载 `.env.test`）
+    desc: 运行全量 pytest（自动加载 `.env.test`）
     env:
       APP_ENV_FILE: .env.test
     cmds:
       # pytest 无测试收集时返回 5；包装为 0，真实失败仍向上传递
       - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
-
-  test:user:
-    desc: 运行 user 域测试（含 unit/user）
-    env:
-      APP_ENV_FILE: .env.test
-    cmds:
-      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/user','tests/unit/user']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
-
-  test:catalog:
-    desc: 运行 catalog 域测试（含 unit/catalog）
-    env:
-      APP_ENV_FILE: .env.test
-    cmds:
-      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/catalog','tests/unit/catalog']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
-
-  test:ordering:
-    desc: 运行 ordering 域测试
-    env:
-      APP_ENV_FILE: .env.test
-    cmds:
-      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/ordering']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
-
-  test:infra:
-    desc: 运行 infra + ops 测试
-    env:
-      APP_ENV_FILE: .env.test
-    cmds:
-      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/infra','tests/ops']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
-
-  test:unit:
-    desc: 运行纯单元测试
-    env:
-      APP_ENV_FILE: .env.test
-    cmds:
-      - uv run python -c "import subprocess,sys;c=subprocess.run([sys.executable,'-m','pytest','tests/unit']);sys.exit(0 if c.returncode in (0,5) else c.returncode)"
 
   test:reports:
     desc: 运行 pytest 并生成 Allure 报告
@@ -106,6 +71,11 @@ tasks:
     desc: 创建新 Alembic revision（autogenerate），用法 task migrate:new -- "描述"
     cmds:
       - uv run alembic revision --autogenerate -m '{{default "migration" .CLI_ARGS}}'
+
+  browse:trim:
+    desc: 按 top N + retention 裁剪 user_browse_history（生产由 cron 独立进程定时执行）
+    cmds:
+      - uv run python -m app.engagement.jobs.trim_browse_history
 
   redis:up:
     desc: 启动 devbox Redis 8.0 并轮询就绪

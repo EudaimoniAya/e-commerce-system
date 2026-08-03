@@ -1,0 +1,17 @@
+# GitHub Actions paths-filter 规则文件
+# 与 dorny/paths-filter 配合使用，定义 code 过滤器
+# 参考：openspec/changes/infra-ci-workflows/design.md §2
+---
+code:
+  - "app/**"
+  - "tests/**"
+  - "alembic/**"
+  - "pyproject.toml"
+  - "uv.lock"
+  - "Taskfile.yml"
+  - "Dockerfile"
+  - ".dockerignore"
+  - "scripts/check_no_test_cross_imports.sh"
+  - ".github/workflows/test.yaml"
+  - ".github/workflows/build-push.yaml"
+  - ".github/utils/file-filters.yaml"

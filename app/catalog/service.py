@@ -11,6 +11,7 @@ from app.catalog.repository import CategoryRepository, ProductRepository, ShopRe
 from app.catalog.schemas import (
     CategoryCreate,
     CategoryResponse,
+    EngagementProduct,
     PaginatedProducts,
     ProductCategoryItem,
     ProductCreate,
@@ -323,6 +324,30 @@ class ShopService:
                 is_published=bool(row["is_published"]),
                 shop_active=row["shop_status"] == "active",
                 owner_user_id=row["owner_user_id"],
+            )
+            for row in rows
+        ]
+
+    async def get_products_for_engagement(
+        self, product_ids: list[str]
+    ) -> list[EngagementProduct]:
+        """批量查询商品信息（供 engagement 域收藏列表 enrichment 与 POST 存在性校验）。
+
+        仅返回 DB 存在的行；不过滤上架/店状态（偏好 ≠ 可购）。空列表输入返回 ``[]``。
+        """
+        rows = await self._product_repository.fetch_products_with_shop_by_ids(
+            product_ids
+        )
+        return [
+            EngagementProduct(
+                id=row["id"],
+                shop_id=row["shop_id"],
+                shop_name=row["shop_name"],
+                name=row["name"],
+                price=f"{row['price']:.2f}",
+                image_url=row["image_url"],
+                is_published=bool(row["is_published"]),
+                shop_active=row["shop_status"] == "active",
             )
             for row in rows
         ]

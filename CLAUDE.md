@@ -115,3 +115,32 @@ async def test_register(client: AsyncClient):                 # ✓
 | 独立 DB 探测 | service 内独立 `create_async_engine` |
 
 > 来源：`.cursor/rules/async-integration-testing.mdc`
+
+## 4. Commit message 规范（OpenSpec 短 change 标签）
+
+OpenSpec 垂直切片相关提交在标题中带 **`[<short-change>]`**，与业务域 `scope` 并列：
+
+```text
+<type>(<scope>) [<short-change>]: Task <N> <简短主题>
+
+- <要点：改了什么、为什么>
+```
+
+**示例：**
+
+```text
+test(engagement) [browse]: Task 1 TDD 红
+
+- helper: record/list/delete_browse；tests/engagement/test_browse_*.py
+```
+
+**规则摘要：**
+
+| 字段 | 含义 | 示例 |
+|------|------|------|
+| `scope` | 业务域 | `engagement`、`ordering`、`infra` |
+| `[short-change]` | change 名去掉 `{scope}-` 前缀 | `engagement-browse` → `[browse]` |
+| 标题 | 宜短（≤72 字）；细节进正文 `-` 列表 | `Task 1 TDD 红` |
+
+- propose / apply / archive / CI 确认提交**均**使用同一 `[short-change]`。
+- Agent 建议 commit message 时遵循此格式；完整规则见 [ADR-008 决策 6](./docs/decision/ADR-008-Git分支生命周期与提交工作流规范.md) 与 `.cursor/rules/openspec-ci-task-commits.mdc`。

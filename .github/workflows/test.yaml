@@ -1,6 +1,6 @@
 # GitHub Actions 版本锁定：使用 commit SHA，注释标明对应 tag。
 # 规范见 .cursor/rules/github-actions-pinning.mdc
-name: CI
+name: Run Tests
 
 on:
   pull_request:
@@ -11,20 +11,8 @@ on:
     branches:
       - dev
       - main
+  # 无输入：手动全量 lint + test（feature 分支验证、绕过 paths-filter）
   workflow_dispatch:
-    inputs:
-      domain:
-        description: "测试域（all=全量矩阵，或单选域加速验证）"
-        required: false
-        default: "all"
-        type: choice
-        options:
-          - all
-          - user
-          - catalog
-          - ordering
-          - infra
-          - unit
 
 env:
   # CI 使用 TCP 连接 mysql service container（与本地 devbox unix socket 不同）
@@ -34,25 +22,41 @@ env:
   APP_ENV: test
   SMS_OTP_FIXED_CODE: "123456"
   APP_ENV_FILE: .env.test
+  # .env.test 不入库；browse trim 单测依赖小 MAX（与本地 .env.test 一致）
+  BROWSE_HISTORY_MAX_PER_USER: "3"
+  BROWSE_HISTORY_RETENTION_DAYS: "30"
+  BROWSE_DEBOUNCE_SECONDS: "5"
 
 jobs:
-  # ── setup-matrix：根据触发方式决定运行哪些域 ────────────────────────
-  setup-matrix:
+  # ── filter：路径筛选，仅 code 变更时运行 lint + test ─────────────────
+  filter:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      code: ${{ steps.code.outputs.code }}
     steps:
-      - name: Determine test matrix
-        id: set-matrix
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Paths filter
+        if: github.event_name != 'workflow_dispatch'
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: .github/utils/file-filters.yaml
+
+      - name: Set code output
+        id: code
         run: |
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ] || [ "${{ github.event.inputs.domain }}" = "all" ]; then
-            echo 'matrix={"domain":["user","catalog","ordering","infra","unit"]}' >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
           else
-            echo "matrix={\"domain\":[\"${{ github.event.inputs.domain }}\"]}" >> "$GITHUB_OUTPUT"
+            echo "code=${{ steps.filter.outputs.code }}" >> "$GITHUB_OUTPUT"
           fi
 
   # ── lint：ruff + check-test-imports，无 DB/Redis 依赖 ──────────────
   lint:
+    needs: filter
+    if: needs.filter.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -81,13 +85,11 @@ jobs:
       - name: Check test imports
         run: task check-test-imports
 
-  # ── test：域 matrix 并行，每 job 独立 mysql + redis services ──────
+  # ── test：单 job 全量 pytest，无 domain matrix ─────────────────────
   test:
-    needs: setup-matrix # 动态矩阵 + 与 lint 并行
+    needs: filter
+    if: needs.filter.outputs.code == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      matrix: ${{ fromJSON(needs.setup-matrix.outputs.matrix) }}
-      fail-fast: false # 单域失败不影响其他域
 
     services:
       mysql:
@@ -128,7 +130,7 @@ jobs:
         uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/uv
           # 对 uv.lock 哈希，依赖不变 -> key不变 -> 缓存命中
@@ -146,32 +148,24 @@ jobs:
       - name: Run migrations
         run: uv run alembic upgrade head
 
-      - name: Run domain tests
+      - name: Run full test suite
         env:
-          APP_ENV_FILE: .env.test
-        run: |
-          case "${{ matrix.domain }}" in
-            user)
-              uv run pytest tests/user tests/unit/user --alluredir=allure-results --ignore-glob='*__pycache__*'
-              ;;
-            catalog)
-              uv run pytest tests/catalog tests/unit/catalog --alluredir=allure-results --ignore-glob='*__pycache__*'
-              ;;
-            ordering)
-              uv run pytest tests/ordering --alluredir=allure-results --ignore-glob='*__pycache__*'
-              ;;
-            infra)
-              uv run pytest tests/infra tests/ops --alluredir=allure-results --ignore-glob='*__pycache__*'
-              ;;
-            unit)
-              uv run pytest tests/unit --alluredir=allure-results --ignore-glob='*__pycache__*'
-              ;;
-          esac
+          PYTEST_ADDOPTS: --alluredir=allure-results
+        run: task test
 
       - name: Upload Allure results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: allure-results-${{ matrix.domain }}
+          name: allure-results
           path: allure-results/
           retention-days: 14
+
+  # ── test-failure-alert：上游失败时确保 required check 仍 fail ─────
+  test-failure-alert:
+    needs: [filter, lint, test]
+    if: always() && (failure() || cancelled())
+    runs-on: ubuntu-latest
+    steps:
+      - name: Alert on test failure
+        run: exit 1

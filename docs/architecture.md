@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放）；继续扩展 engagement 等 MVP 域
+- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`）
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -59,7 +59,7 @@
 | `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
 | `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
-| `engagement` | 收藏、浏览记录 | UserFavorite, BrowseEvent | Phase 2 |
+| `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **Phase 2（收藏 + 浏览已实现）** |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -112,7 +112,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（user + catalog + ordering + infra）
+### 5.1 当前骨架（user + catalog + ordering + engagement + infra）
 
 ```text
 e-commerce-system/
@@ -156,6 +156,14 @@ e-commerce-system/
 │       ├── models.py             # orders、order_items、cart_items、checkout_batches
 │       ├── schemas.py
 │       └── deps.py
+│   └── engagement/               # 用户行为域（收藏 + 浏览已实现）
+│       ├── router.py             # POST/GET/DELETE /favorites*、POST /favorites/batch-delete；POST/GET /browse、DELETE /browse/{product_id}
+│       ├── service.py            # FavoriteService；BrowseService（record_browse_async 异步 upsert、列表分类、单删）
+│       ├── repository.py
+│       ├── models.py             # user_favorites、user_browse_history
+│       ├── schemas.py
+│       ├── deps.py
+│       └── jobs/                 # trim_browse_history.py（task browse:trim，top N + retention 裁剪）
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
@@ -165,7 +173,9 @@ e-commerce-system/
 │       ├── 0ca23eb664a9_005_ordering_orders.py  # orders、order_items
 │       ├── e1674055eb99_006_ordering_initiated_by.py  # orders.initiated_by
 │       ├── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
-│       └── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
+│       ├── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
+│       ├── 009_engagement_favorites.py  # user_favorites
+│       └── 010_engagement_browse.py     # user_browse_history
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -176,7 +186,8 @@ e-commerce-system/
 │   │   └── test_redis.py         # REDIS_URL、PING、SET/GET/TTL
 │   ├── user/                     # SMS/密码认证、me/profile integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
-│   └── ordering/                 # 买家订单 + 购物车 integration
+│   ├── ordering/                 # 买家订单 + 购物车 integration
+│   └── engagement/               # 用户收藏 integration
 ├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
 │   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
 │   ├── devbox_redis_up.sh / devbox_redis_down.sh
@@ -210,9 +221,21 @@ e-commerce-system/
 
 **购物车读路径**：`GET /cart` 批量调用 `catalog.service.get_purchasable_products` enrichment，按店分组；不可购项进 `invalid_items`（不自动删除）。列表展示 catalog 实时价；成交价以 checkout 建单时 `order_items` 快照为准。
 
+**`user_favorites` 表（engagement 域）**：`id`（UUID PK）、`user_id`（FK → `users.id`）、`product_id`（仅存 ID，展示走 catalog.service）、`created_at`；`UNIQUE(user_id, product_id)`；索引 `ix_user_favorites_user_id`。**不**存 price/name/image 快照；**不**跨域 ORM relationship。语义为**用户偏好**，与 ordering 域 `cart_items`（购买意图）独立。
+
+**收藏读路径**：`GET /favorites` 分页读 `user_favorites` → 批量 `catalog.service.get_products_for_engagement` → 分类为 `items`（可公开展示；前端再调 `GET /products/{id}`）与 `unavailable_items`（含 `reason`：`product_unpublished` | `shop_closed` | `not_found`，及 `product_name`/`image_url` enrichment）。POST 收藏校验 catalog 行存在即可（不要求可购）。`POST /favorites/batch-delete` 接受 `{ "product_ids": [...] }`（对标 `POST /orders/batch-pay`）；engagement **不得** import catalog ORM/repository。catalog 跨域 DTO：`EngagementProduct` + `get_products_for_engagement`（与 `get_purchasable_products` 共用 repository 批量 SQL）。
+
+**`user_browse_history` 表（engagement 域）**：`id`（UUID PK）、`user_id`（FK → `users.id`）、`product_id`（仅存 ID，展示走 catalog.service）、`first_viewed_at`（首次 INSERT，不更新）、`last_viewed_at`（每次有效 POST 刷新）、`view_count`（INT，间断重置累计）；`UNIQUE(user_id, product_id)`；索引 `ix_user_browse_history_user_id_last_viewed`（`(user_id, last_viewed_at)` ASC，MySQL 反向扫描等效 DESC）。**不**存 price/name/image 快照；**不**跨域 ORM relationship。语义为**近期足迹 + 兴趣强度**，与 `user_favorites`（长期偏好）独立。
+
+**浏览写路径（`POST /browse`）**：认证用户提交 `{ "product_id" }` → catalog 校验（不存在 → 422 且不调度）→ **202** `{ "accepted": true }` + **BackgroundTasks** 异步 upsert（`BrowseService.record_browse_async`，复用请求级 session）。upsert 语义：首次 INSERT `view_count=1`；debounce（`<= BROWSE_DEBOUNCE_SECONDS`）仅刷 `last_viewed_at` 不 +1；间断重置（距上次 `> BROWSE_HISTORY_RETENTION_DAYS`）`view_count` 归 1；活跃期 +1。`first_viewed_at` 终身不变。时间基准用 UTC 墙钟 naive（`datetime.now(UTC).replace(tzinfo=None)`），与 asyncmy 对 `DATETIME` 的 naive 读回一致。
+
+**浏览读路径（`GET /browse`）**：分页读 `user_browse_history`（`last_viewed_at DESC`）→ 批量 `get_products_for_engagement` → 分类为 `items`（可展示；不含嵌套 product 详情）与 `unavailable_items`（`reason`：`product_unpublished` | `shop_closed` | `not_found`，含 `product_name`/`image_url` enrichment）；`total` 计该用户全部 browse 行（含 unavailable）。`GET /browse` **不**自动删除 unavailable 行（用户 `DELETE /browse/{product_id}` 主动清理；204 / 404）。
+
+**定时 trim（`task browse:trim`）**：`app/engagement/jobs/trim_browse_history.py`，生产由 **cron 独立进程** 定时执行（非 HTTP worker）。算法：每用户按 `last_viewed_at DESC` 取 top `BROWSE_HISTORY_MAX_PER_USER` 保留（top N 内行即使超 retention 也保留）；其余行中 `last_viewed_at < now - BROWSE_HISTORY_RETENTION_DAYS` 删除。纯函数 `plan_browse_trim_deletes`（`BrowseTrimRow` 输入、返回应删行 id 集合）可单测；`__main__` 供 `task browse:trim` CLI。
+
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充 `ordering/`、`engagement/` 等业务域，以及后期的 `ai/`、`events/` 等。`user/`、`catalog/`（shop + 类目/商品）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
+随垂直切片增量补充 `engagement/`（浏览等）、后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`（收藏）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -252,7 +275,14 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── engagement/                   # Phase 2
+├── engagement/                   # 收藏 + 浏览已实现
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── deps.py
+│   └── jobs/                     # trim_browse_history（task browse:trim）
 ├── events/                       # 后期
 └── ai/                           # 后期
 ```
@@ -266,7 +296,8 @@ app/
 - 创建订单、查询订单、取消订单、支付桩、发货、确认收货
 - 库存预留与释放（创建扣减、取消/超时加回；订单行快照价格与商品名）
 - **购物车**（ordering 域）：`cart_items` 暂存、`POST /cart/checkout` 跨店单事务建单 + 轻量 `checkout_batches`、`POST /orders/batch-pay` 合并支付；与 `POST /orders` 立即购买并行
-- 收藏、浏览记录（Phase 2，归入 engagement 域）
+- **收藏**（engagement 域）：`user_favorites`；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`（用户偏好，与购物车语义独立）
+- **浏览**（engagement 域）：`user_browse_history`；`POST/GET /browse`、`DELETE /browse/{product_id}`（202 异步 upsert、分页历史、单删）+ 配置化 top N + retention 定时 trim（`task browse:trim`，生产 cron 独立进程）
 
 ### 6.2 明确不做（MVP）
 
@@ -349,28 +380,31 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 | 阶段 | 内容 | 实现 |
 |------|------|------|
-| **Validate** | lint（ruff + check-test-imports）独立 job；test 按域 5 路 matrix 并行 | `.github/workflows/ci.yml`（`feature/infra-ci-docker`） |
-| **Build** | 多阶段 Dockerfile → GHCR；`push main` / `v*` tag 触发 | `.github/workflows/docker-build.yml`；`Dockerfile` |
+| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix） | `.github/workflows/test.yaml`（`feature/infra-ci-workflows`） |
+| **Build** | 多阶段 Dockerfile → GHCR；**仅** `vX.Y.Z` tag 触发（`workflow_dispatch` 可选） | `.github/workflows/build-push.yaml`；`Dockerfile` |
 | **Deploy** | CD 部署到云服务器 + alembic upgrade | 留给 `infra-cd-compose`（后续 change） |
 
-**CI job 结构**（`ci.yml`）：
+**CI job 结构**（`test.yaml`，name: `Run Tests`）：
 
 ```text
-lint:  ruff + check-test-imports（无 services；显式 apt install ripgrep）
-test:  5 路 matrix.domain ∈ {user, catalog, ordering, infra, unit}
-       setup-matrix job 按 workflow_dispatch.domain 输入动态决定展开哪些行
-       每 job: mysql + redis services → migrate → pytest --alluredir → upload artifact
+filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
+        workflow_dispatch 时强制 code=true（跳过路径筛选）
+lint:   （if code=true）ruff + check-test-imports（无 services；显式 apt install ripgrep）
+test:   （if code=true）单 job，无 matrix
+        mysql + redis services → migrate → task test → upload artifact
+test-failure-alert: 上游 failure/cancelled 时 exit 1
 ```
 
-**Docker Build 结构**（`docker-build.yml`）：
+**触发**：`pull_request` / `push`（dev、main）；`workflow_dispatch`（无输入，全量 lint + test）。
+
+**Build 结构**（`build-push.yaml`，name: `Build and Push Container Images`）：
 
 ```text
-push main → build + push GHCR（tag: latest + sha-<short>）
-push v*   → build + push GHCR（tag: semver + sha-<short>）
-workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
+push vX.Y.Z tag  → semver 校验 → build + push GHCR（tag: X.Y.Z，仅此一个 tag）
+workflow_dispatch → 输入 version（必填 semver）→ 同上
 ```
 
-> **踩坑记录**：`gh workflow run` / GitHub Actions API 只识别**默认分支**上的 workflow 文件。在 feature 分支新增 `docker-build.yml` 后，`gh workflow run "Docker Build" --ref feature/...` 返回 404 "could not find any workflows"。即使 `--ref` 指定了 feature 分支，GitHub 也只从默认分支（`dev` / `main`）的 `.github/workflows/` 目录查找。解决方案有二：(1) 合并到 dev 后手动触发 `workflow_dispatch`；(2) 开 Draft PR 到 dev，利用 PR 事件触发 CI job（但 docker-build.yml 不在 PR 触发条件中）。最终选择方案 (1)，合并后通过 GitHub Actions UI 手动 Run workflow。此行为与 GitHub 文档一致——workflow 必须先存在于默认分支上才会被 `workflow_dispatch` 事件识别。
+> **踩坑记录**：`gh workflow run` / GitHub Actions API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。解决：合并后通过 GitHub Actions UI 手动 Run workflow，或使用 `gh workflow run "Run Tests"`（此时 workflow 已在默认分支上）。
 
 ## 9. 相关文档
 
@@ -383,9 +417,10 @@ workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
 - [ADR-003：测试架构——四层分层与数据流约束](./decision/ADR-003-测试架构-四层分层与数据流约束.md)
 - [ADR-004：中间件栈与异常处理架构决策](./decision/ADR-004-中间件栈与异常处理架构决策.md)
 - [ADR-005：Infra 分页与列表数据流](./decision/ADR-005-infra分页与列表数据流.md)
+- [ADR-006：CI 工作流与镜像发布策略](./decision/ADR-006-CI工作流与镜像发布策略.md)
 - [ADR-007：多租户扩展——设计与暂缓计划](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)
-
-> ADR-006 暂未分配（编号保留）。
+- [ADR-008：Git 分支生命周期与提交工作流规范](./decision/ADR-008-Git分支生命周期与提交工作流规范.md)
+- [ADR-009：Redis 业务扩展与 AI 数据分层策略](./decision/ADR-009-Redis业务扩展与AI数据分层策略.md)
 
 ### 相关笔记（`docs/notes/`，非 ADR）
 
@@ -395,4 +430,5 @@ workflow_dispatch → 手动触发（任意分支可用 GitHub UI）
 
 - [异常处理 ServerErrorMiddleware 与测试陷阱（排错）](./troubleshooting/异常处理-ServerErrorMiddleware与测试陷阱.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](./troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
+- [Gitflow：从 main 切分支导致 Graph 混乱（排错）](./troubleshooting/gitflow-从main切分支导致Graph混乱.md)
 - [OpenSpec 项目上下文](../openspec/config.yaml)

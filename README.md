@@ -234,7 +234,7 @@ curl -X POST http://127.0.0.1:8000/cart/checkout \
   -d '{"cart_item_ids":["<cart_item_id>"]}'
 ```
 
-> 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci`（或 `task test:user` / `test:catalog` / `test:ordering`）中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
+> 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci` / `task test` 中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
 
 验证 MySQL 双库（可选）：
 
@@ -251,12 +251,7 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 |------|------|
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
-| `task test` | 运行全部 pytest（自动 `APP_ENV_FILE=.env.test`） |
-| `task test:user` | 仅 user 域测试（`tests/user/` + `tests/unit/user/`） |
-| `task test:catalog` | 仅 catalog 域测试（`tests/catalog/` + `tests/unit/catalog/`） |
-| `task test:ordering` | 仅 ordering 域测试（`tests/ordering/`） |
-| `task test:infra` | 仅 infra + ops 测试（`tests/infra/` + `tests/ops/`） |
-| `task test:unit` | 仅纯单元测试（`tests/unit/`） |
+| `task test` | 运行全量 pytest（自动 `APP_ENV_FILE=.env.test`） |
 | `task ci` | 本地 CI：`ruff` + test-import 检查（**依赖 `rg`/ripgrep**）+ `test`（**不**自动 `db:up` / `redis:up`） |
 | `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
@@ -384,49 +379,57 @@ feature/* ──PR──▶ dev ──PR──▶ main（可部署线）
 | 场景 | 说明 |
 |------|------|
 | feature 分支开发 | 从 `dev` 切出，本地 `task db:up` + `task redis:up` + `task ci` 通过后提 PR |
-| feature 远程 CI | push 不自动触发；可用 **Actions → CI → Run workflow**（`workflow_dispatch`）或开 Draft PR → `dev` |
+| feature 远程 CI | 开 Draft PR 到 `dev`（code 变更自动跑）；或 `gh workflow run "Run Tests" --ref <branch>` 手动全量 test |
 | 合入 dev | PR → `dev` 触发 GitHub Actions CI |
 | 合入 main | `dev` → `main` PR，CI 通过后可部署 |
 
-feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入前通过 PR 或手动触发验证。
+feature 分支直接 push **不**自动跑远程 CI（节省配额）；合入前通过 **Draft PR** 或 **`workflow_dispatch` 手动触发**验证。
 
 ## CI
 
-Workflow：`.github/workflows/ci.yml`
+Workflow：`.github/workflows/test.yaml`（name: `Run Tests`）
 
 ### 结构
 
 ```text
-lint:  ruff + check-test-imports（无 services，显式 apt install ripgrep）
-test:  5 路 domain matrix 并行：
-       user | catalog | ordering | infra | unit
-       每 job 独立 mysql + redis services → migrate → pytest --alluredir → upload artifact
+filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
+lint:   （code 变更或 workflow_dispatch）ruff + check-test-imports（无 services，显式 apt install ripgrep）
+test:   （code 变更或 workflow_dispatch）单 job 全量 task test
+        mysql + redis services → migrate → task test → upload artifact
+test-failure-alert:  上游 failure/cancelled 时 exit 1
 ```
 
-| 域名 | pytest 路径 |
-|------|------------|
-| `user` | `tests/user tests/unit/user` |
-| `catalog` | `tests/catalog tests/unit/catalog` |
-| `ordering` | `tests/ordering` |
-| `infra` | `tests/infra tests/ops` |
-| `unit` | `tests/unit` |
+### 路径筛选（paths-filter）
+
+变更仅命中 `docs/**`、`openspec/**`、`.cursor/**`、`README.md` 等非业务路径时，`lint` 与 `test` job 自动跳过，节省 Actions 分钟。
+
+触发 `code` filter 的路径（完整列表见 `.github/utils/file-filters.yaml`）：
+
+| 类别 | 路径 |
+|------|------|
+| 业务代码 | `app/**`、`tests/**`、`alembic/**` |
+| 依赖配置 | `pyproject.toml`、`uv.lock`、`Taskfile.yml` |
+| Docker | `Dockerfile`、`.dockerignore` |
+| CI 自身 | `.github/workflows/test.yaml`、`.github/workflows/build-push.yaml`、`.github/utils/file-filters.yaml` |
+| 工具脚本 | `scripts/check_no_test_cross_imports.sh` |
 
 ### 触发
 
 | 事件 | 分支 / 方式 |
 |------|-------------|
-| `pull_request` | `dev`, `main` |
-| `push` | `dev`, `main` |
-| `workflow_dispatch` | 任意分支手动触发，可选 `domain`（all/user/catalog/ordering/infra/unit） |
+| `pull_request` | `dev`, `main`（仅命中 `code` 路径时跑 lint + test） |
+| `push` | `dev`, `main`（同上） |
+| `workflow_dispatch` | 无输入；**始终**全量 lint + test（跳过 paths-filter，适用于 feature 分支手动验证） |
 
 ```bash
-# CLI 手动触发远程 CI
-gh workflow run CI --ref <branch> -f domain=user
+# CLI 手动触发远程全量 test（workflow 须已在默认分支 dev/main 上）
+gh workflow run "Run Tests" --ref <branch>
+gh run watch   # 可选：等待完成
 ```
 
 ### Allure 报告
 
-- CI 每 matrix job 上传 `allure-results-<domain>` artifact（保留 14 天）
+- CI 每趟上传 `allure-results` artifact（保留 14 天）
 - 本地 `task test:reports` 生成 HTML；`task latest:report` 浏览器查看
 - `reports/` 目录已 `.gitignore`
 
@@ -438,20 +441,27 @@ GitHub Actions 使用 **commit SHA** 锁定 action 版本（见 `.cursor/rules/g
 # 本地构建（验证 Dockerfile 语法）
 docker build -t e-commerce-system .
 
-# 远程构建（gh CLI，合入 main 后自动触发或 workflow_dispatch 手动）
-gh workflow run "Docker Build" --ref main
+# 远程构建（打 semver tag 自动触发，或 workflow_dispatch 手动）
+gh workflow run "Build and Push Container Images" --ref main -f version=1.0.0
 ```
 
 | 触发 | Tag |
 |------|-----|
-| `push main` | `latest`、`sha-<short>` |
-| `push v*` tag | semver（`v1.0.0`、`v1.0`、`v1`）、`sha-<short>` |
+| `push vX.Y.Z` tag | `X.Y.Z`（去 v 前缀，仅此一个 tag） |
+| `workflow_dispatch` version 输入 | 输入的 `X.Y.Z` |
 
 Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 
 镜像仅含 FastAPI app + 生产依赖（不含 MySQL/Redis/tests）。运行时需环境变量注入 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`。
 
-> **踩坑记录**：`gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。feature 分支新增 `docker-build.yml` 后 `gh workflow run "Docker Build" --ref feature/...` 返回 404。workflow 必须先存在于默认分支才会被 `workflow_dispatch` 事件识别，这是 GitHub Actions 的设计约束。
+> **踩坑记录**：`gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。这是 GitHub Actions 的设计约束。
+
+### 发版流程
+
+1. 确保 `main` 上最新 commit 的 `Run Tests` 为绿色
+2. 打 tag：`git tag vX.Y.Z`（如 `git tag v1.0.0`）
+3. push tag：`git push origin vX.Y.Z` → 自动触发 `Build and Push Container Images`
+4. GHCR 出现 tag `X.Y.Z` 的镜像
 
 ## 版本策略
 

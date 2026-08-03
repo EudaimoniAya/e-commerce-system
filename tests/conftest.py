@@ -28,12 +28,15 @@ from tests.support.helper.catalog import (
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.utils import bootstrap_test_env
 from tests.support.results import (
+    BatchDeleteFavoritesResult,
     BatchPayResult,
     CartItemResult,
     CartListResult,
     CategoryResult,
     CheckoutBatchResult,
     CheckoutResult,
+    FavoriteListResult,
+    FavoriteResult,
     LoginResult,
     ProductResult,
     ShopResult,
@@ -46,12 +49,15 @@ from tests.support.results import (
 __all__ = [
     "AdminAuthContext",
     "AuthContext",
+    "BatchDeleteFavoritesResult",
     "BatchPayResult",
     "CartItemResult",
     "CartListResult",
     "CategoryResult",
     "CheckoutBatchResult",
     "CheckoutResult",
+    "FavoriteListResult",
+    "FavoriteResult",
     "LoginResult",
     "ProductResult",
     "ShopOwnerContext",
