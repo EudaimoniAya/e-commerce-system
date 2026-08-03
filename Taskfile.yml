@@ -72,6 +72,11 @@ tasks:
     cmds:
       - uv run alembic revision --autogenerate -m '{{default "migration" .CLI_ARGS}}'
 
+  browse:trim:
+    desc: 按 top N + retention 裁剪 user_browse_history（生产由 cron 独立进程定时执行）
+    cmds:
+      - uv run python -m app.engagement.jobs.trim_browse_history
+
   redis:up:
     desc: 启动 devbox Redis 8.0 并轮询就绪
     cmds:

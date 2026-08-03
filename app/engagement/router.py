@@ -1,19 +1,22 @@
-"""engagement 域收藏 REST 端点（JWT 隐式用户，URL 不含 user_id）。"""
+"""engagement 域收藏 + 浏览 REST 端点（JWT 隐式用户，URL 不含 user_id）。"""
 
 import uuid
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Response
 from fastapi.responses import JSONResponse
 
-from app.engagement.deps import get_favorite_service
+from app.engagement.deps import get_browse_service, get_favorite_service
 from app.engagement.schemas import (
     BatchDeleteFavoritesRequest,
     BatchDeleteFavoritesResponse,
+    BrowseAcceptedResponse,
+    BrowseListResponse,
+    BrowseRecordRequest,
     FavoriteCreateRequest,
     FavoriteItem,
     FavoriteListResponse,
 )
-from app.engagement.service import FavoriteService
+from app.engagement.service import BrowseService, FavoriteService
 from app.infra.auth import get_current_user_id
 from app.infra.pagination.deps import get_pagination_params
 from app.infra.pagination.schemas import PaginationParams
@@ -81,3 +84,58 @@ async def batch_delete_favorites(
         product_ids=body.product_ids,
     )
     return BatchDeleteFavoritesResponse(deleted_count=deleted_count)
+
+
+# ── 浏览（user_browse_history）────────────────────────────────
+
+
+@router.post(
+    "/browse",
+    response_model=BrowseAcceptedResponse,
+    status_code=202,
+    tags=["browse"],
+)
+async def record_browse(
+    body: BrowseRecordRequest,
+    background_tasks: BackgroundTasks,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    service: BrowseService = Depends(get_browse_service),
+) -> BrowseAcceptedResponse:
+    """记录浏览：catalog 校验后经 BackgroundTasks 异步 upsert，受理即 202。
+
+    202 不代表已落库（最终一致）；``catalog`` 无此商品 → 422 且不调度。
+    """
+    await service.record_browse(
+        user_id=user_id,
+        product_id=body.product_id,
+        background_tasks=background_tasks,
+    )
+    return BrowseAcceptedResponse(accepted=True)
+
+
+@router.get("/browse", response_model=BrowseListResponse, tags=["browse"])
+async def list_browses(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    service: BrowseService = Depends(get_browse_service),
+    params: PaginationParams = Depends(get_pagination_params),
+) -> BrowseListResponse:
+    """分页浏览历史（items + unavailable_items，按 last_viewed_at 降序）。"""
+    return await service.list_browses(
+        user_id=user_id,
+        limit=params.limit,
+        offset=params.offset,
+    )
+
+
+@router.delete("/browse/{product_id}", status_code=204, tags=["browse"])
+async def remove_browse(
+    product_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    service: BrowseService = Depends(get_browse_service),
+) -> Response:
+    """删除单条浏览记录（误触清理）；无记录 → 404。"""
+    await service.delete_browse(
+        user_id=user_id,
+        product_id=str(product_id),
+    )
+    return Response(status_code=204)

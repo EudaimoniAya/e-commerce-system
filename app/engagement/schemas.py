@@ -58,3 +58,58 @@ class BatchDeleteFavoritesResponse(BaseModel):
     """POST /favorites/batch-delete 响应。"""
 
     deleted_count: int
+
+
+# ── 浏览（user_browse_history）────────────────────────────────
+
+
+class BrowseItem(BaseModel):
+    """浏览行（items 侧）。
+
+    不含 product 详情——前端对可展示项调公开 ``GET /products/{id}``。
+    """
+
+    id: str
+    product_id: str
+    first_viewed_at: datetime
+    last_viewed_at: datetime
+    view_count: int
+
+
+class UnavailableBrowseItem(BaseModel):
+    """失效浏览行（unavailable_items 侧）。
+
+    ``product_name`` / ``image_url`` 来自 ``EngagementProduct`` 读时 enrichment，非 DB 快照；
+    ``not_found`` 时 ``product_name`` 可能为空。
+    """
+
+    id: str
+    product_id: str
+    first_viewed_at: datetime
+    last_viewed_at: datetime
+    view_count: int
+    reason: Literal["not_found", "product_unpublished", "shop_closed"]
+    product_name: str | None
+    image_url: str | None
+
+
+class BrowseListResponse(BaseModel):
+    """GET /browse 分页响应（total 计该用户全部 browse 行，含 unavailable）。"""
+
+    items: list[BrowseItem]
+    unavailable_items: list[UnavailableBrowseItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class BrowseRecordRequest(BaseModel):
+    """POST /browse 请求体。"""
+
+    product_id: str
+
+
+class BrowseAcceptedResponse(BaseModel):
+    """POST /browse 响应（202 受理，后台异步 upsert 落库）。"""
+
+    accepted: bool

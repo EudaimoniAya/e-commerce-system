@@ -151,21 +151,52 @@ dev/main 双线永久增长；back-merge 是让两条永久分支尖端收敛的
 
 ### 决策
 
-沿用 Conventional Commits 风格：`type(scope): 主题` + 要点列表。
+沿用 Conventional Commits 风格，OpenSpec 相关提交在标题中增加 **短 change 标签**：
 
 ```text
-feat(ordering): Task 4 购物车 CRUD + 列表 enrichment 实现：
+<type>(<scope>) [<short-change>]: Task <N> <简短主题>
+
+- <要点 1：改了什么、为什么>
+- <要点 2>
+```
+
+**示例：**
+
+```text
+test(engagement) [browse]: Task 1 TDD 红
+
+- helper: record/list/delete_browse + Browse*Result
+- tests/engagement/test_browse_*.py；tests/support/db/engagement.py
+```
+
+```text
+feat(ordering) [buyer-cart]: Task 4 购物车 CRUD
+
 - catalog: PurchasableProduct 新增 shop_name 字段
-- ordering/schemas.py: 新增 CartItemCreate、CartItemResponse 等
-- ordering/cart_service.py: 新建 CartService（批量查询避免 N+1）
+- ordering/cart_service.py: CartService（批量查询避免 N+1）
 ```
 
 **要求：**
 
 - `type` 用 `feat`/`fix`/`refactor`/`docs`/`test`/`ci`/`chore`/`build`。
-- `scope` 用域或模块名（`ordering`、`infra`、`catalog`、`ci`、`openspec`）。
-- 主题句后用要点列表展开**变更内容 + 决策理由**（不是流水账，每个要点回答"改了什么、为什么"）。
-- 关键决策在 message 中保留理由（如"commit=False 仅 flush 由 CartService 统一提交"），供半年后回顾。
+- `scope` 用**业务域或模块**（`ordering`、`engagement`、`infra`、`openspec` 等），**不是** OpenSpec change 全名；跨域时写 `(catalog, engagement)`。
+- `[<short-change>]`：OpenSpec change 的**短标签**，便于 `git log --grep '\[browse\]'` 串联同一垂直切片。推导规则见下。
+- **标题行宜短**（建议 ≤72 字符）：只写 `Task N` + 一句摘要；**不要**在标题堆「——」和长说明。
+- 空一行后用 `-` 要点列表展开**变更内容 + 决策理由**（不是流水账，每个要点回答「改了什么、为什么」）。
+- 关键决策在 message 中保留理由（如「commit=False 仅 flush 由 CartService 统一提交」），供半年后回顾。
+
+**短 change 标签推导（`<short-change>`）：**
+
+| OpenSpec change 名 | scope | `[short-change]` |
+|------------------|-------|------------------|
+| `engagement-browse` | `engagement` | `[browse]` |
+| `engagement-favorites` | `engagement` | `[favorites]` |
+| `ordering-buyer-cart` | `ordering` | `[buyer-cart]` |
+| `infra-ci-workflows` | `infra` | `[ci-workflows]` |
+
+- 默认：change 名为 `{scope}-{capability}` 时，标签取 **去掉首个 `{scope}-` 前缀** 的剩余部分。
+- 若 change 名不以 scope 开头，取 change 名去掉常见前缀后的** distinctive 后缀**，或整段短名（如 `[infra-redis]` → `[redis]`）；**避免**与其它 change 标签撞名。
+- propose / archive / apply 提交**均**带同一 `[short-change]`，与 `openspec/changes/<change-name>/` 对应。
 
 ### 理由
 
