@@ -10,7 +10,6 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    DateTime,
     Index,
     JSON,
     String,
@@ -18,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infra.database import Base
@@ -63,11 +63,11 @@ class SupportConversation(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DATETIME(fsp=6),
         server_default=func.now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DATETIME(fsp=6),
         server_default=func.now(),
         onupdate=func.now(),
     )
@@ -117,6 +117,6 @@ class SupportMessage(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DATETIME(fsp=6),
         server_default=func.now(),
     )

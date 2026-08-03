@@ -22,10 +22,10 @@
 
 ## 4. support 域实现（绿）
 
-- [ ] 4.1 `repository.py` + `schemas.py`（Request/Response DTO、Paginated alias）
-- [ ] 4.2 `SupportService`：lazy create、买卖家发消息、inbox、鉴权 403/404、closed 规则、preview/updated_at bump；注入 `ShopService`
-- [ ] 4.3 `deps.py` + `router.py`（买家 `/support/shops/*`、店主 `/support/inbox/*`）；`main.py` 注册 router
-- [ ] 4.4 跑 support integration 测试至全绿
+- [x] 4.1 `repository.py` + `schemas.py`（Request/Response DTO、Paginated alias）
+- [x] 4.2 `SupportService`：lazy create、买卖家发消息、inbox、鉴权 403/404、closed 规则、preview/updated_at bump；注入 `ShopService`
+- [x] 4.3 `deps.py` + `router.py`（买家 `/support/shops/*`、店主 `/support/inbox/*`）；`main.py` 注册 router
+- [x] 4.4 跑 support integration 测试至全绿
 
 ## 5. 文档与 CI
 
