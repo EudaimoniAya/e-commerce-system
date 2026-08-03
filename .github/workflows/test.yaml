@@ -22,6 +22,10 @@ env:
   APP_ENV: test
   SMS_OTP_FIXED_CODE: "123456"
   APP_ENV_FILE: .env.test
+  # .env.test 不入库；browse trim 单测依赖小 MAX（与本地 .env.test 一致）
+  BROWSE_HISTORY_MAX_PER_USER: "3"
+  BROWSE_HISTORY_RETENTION_DAYS: "30"
+  BROWSE_DEBOUNCE_SECONDS: "5"
 
 jobs:
   # ── filter：路径筛选，仅 code 变更时运行 lint + test ─────────────────
