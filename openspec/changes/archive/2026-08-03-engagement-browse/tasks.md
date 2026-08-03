@@ -35,5 +35,5 @@
 
 ## 6. 文档与 CI
 
-- [ ] 6.1 更新 `docs/architecture.md`（engagement 浏览、`/browse*` API、trim job 摘要）
-- [ ] 6.2 `devbox run -- task ci` 全绿（含 trim unit + browse integration）
+- [x] 6.1 更新 `docs/architecture.md`（engagement 浏览、`/browse*` API、trim job 摘要）
+- [x] 6.2 `devbox run -- task ci` 全绿（含 trim unit + browse integration）

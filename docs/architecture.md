@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`）；浏览记录等待后续 `engagement-browse-events` change
+- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`）
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -59,7 +59,7 @@
 | `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
 | `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
-| `engagement` | 用户收藏（浏览记录待后续 change） | UserFavorite（已实现）；BrowseEvent（待实现） | **Phase 2（收藏已实现）** |
+| `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **Phase 2（收藏 + 浏览已实现）** |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -156,13 +156,14 @@ e-commerce-system/
 │       ├── models.py             # orders、order_items、cart_items、checkout_batches
 │       ├── schemas.py
 │       └── deps.py
-│   └── engagement/               # 用户行为域（收藏已实现）
-│       ├── router.py             # POST/GET/DELETE /favorites*、POST /favorites/batch-delete
-│       ├── service.py            # FavoriteService：CRUD、列表分类、batch_delete
+│   └── engagement/               # 用户行为域（收藏 + 浏览已实现）
+│       ├── router.py             # POST/GET/DELETE /favorites*、POST /favorites/batch-delete；POST/GET /browse、DELETE /browse/{product_id}
+│       ├── service.py            # FavoriteService；BrowseService（record_browse_async 异步 upsert、列表分类、单删）
 │       ├── repository.py
-│       ├── models.py             # user_favorites
+│       ├── models.py             # user_favorites、user_browse_history
 │       ├── schemas.py
-│       └── deps.py
+│       ├── deps.py
+│       └── jobs/                 # trim_browse_history.py（task browse:trim，top N + retention 裁剪）
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
@@ -173,7 +174,8 @@ e-commerce-system/
 │       ├── e1674055eb99_006_ordering_initiated_by.py  # orders.initiated_by
 │       ├── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
 │       ├── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
-│       └── 009_engagement_favorites.py  # user_favorites
+│       ├── 009_engagement_favorites.py  # user_favorites
+│       └── 010_engagement_browse.py     # user_browse_history
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -223,6 +225,14 @@ e-commerce-system/
 
 **收藏读路径**：`GET /favorites` 分页读 `user_favorites` → 批量 `catalog.service.get_products_for_engagement` → 分类为 `items`（可公开展示；前端再调 `GET /products/{id}`）与 `unavailable_items`（含 `reason`：`product_unpublished` | `shop_closed` | `not_found`，及 `product_name`/`image_url` enrichment）。POST 收藏校验 catalog 行存在即可（不要求可购）。`POST /favorites/batch-delete` 接受 `{ "product_ids": [...] }`（对标 `POST /orders/batch-pay`）；engagement **不得** import catalog ORM/repository。catalog 跨域 DTO：`EngagementProduct` + `get_products_for_engagement`（与 `get_purchasable_products` 共用 repository 批量 SQL）。
 
+**`user_browse_history` 表（engagement 域）**：`id`（UUID PK）、`user_id`（FK → `users.id`）、`product_id`（仅存 ID，展示走 catalog.service）、`first_viewed_at`（首次 INSERT，不更新）、`last_viewed_at`（每次有效 POST 刷新）、`view_count`（INT，间断重置累计）；`UNIQUE(user_id, product_id)`；索引 `ix_user_browse_history_user_id_last_viewed`（`(user_id, last_viewed_at)` ASC，MySQL 反向扫描等效 DESC）。**不**存 price/name/image 快照；**不**跨域 ORM relationship。语义为**近期足迹 + 兴趣强度**，与 `user_favorites`（长期偏好）独立。
+
+**浏览写路径（`POST /browse`）**：认证用户提交 `{ "product_id" }` → catalog 校验（不存在 → 422 且不调度）→ **202** `{ "accepted": true }` + **BackgroundTasks** 异步 upsert（`BrowseService.record_browse_async`，复用请求级 session）。upsert 语义：首次 INSERT `view_count=1`；debounce（`<= BROWSE_DEBOUNCE_SECONDS`）仅刷 `last_viewed_at` 不 +1；间断重置（距上次 `> BROWSE_HISTORY_RETENTION_DAYS`）`view_count` 归 1；活跃期 +1。`first_viewed_at` 终身不变。时间基准用 UTC 墙钟 naive（`datetime.now(UTC).replace(tzinfo=None)`），与 asyncmy 对 `DATETIME` 的 naive 读回一致。
+
+**浏览读路径（`GET /browse`）**：分页读 `user_browse_history`（`last_viewed_at DESC`）→ 批量 `get_products_for_engagement` → 分类为 `items`（可展示；不含嵌套 product 详情）与 `unavailable_items`（`reason`：`product_unpublished` | `shop_closed` | `not_found`，含 `product_name`/`image_url` enrichment）；`total` 计该用户全部 browse 行（含 unavailable）。`GET /browse` **不**自动删除 unavailable 行（用户 `DELETE /browse/{product_id}` 主动清理；204 / 404）。
+
+**定时 trim（`task browse:trim`）**：`app/engagement/jobs/trim_browse_history.py`，生产由 **cron 独立进程** 定时执行（非 HTTP worker）。算法：每用户按 `last_viewed_at DESC` 取 top `BROWSE_HISTORY_MAX_PER_USER` 保留（top N 内行即使超 retention 也保留）；其余行中 `last_viewed_at < now - BROWSE_HISTORY_RETENTION_DAYS` 删除。纯函数 `plan_browse_trim_deletes`（`BrowseTrimRow` 输入、返回应删行 id 集合）可单测；`__main__` 供 `task browse:trim` CLI。
+
 ### 5.2 规划中的完整结构
 
 随垂直切片增量补充 `engagement/`（浏览等）、后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`（收藏）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
@@ -265,13 +275,14 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── engagement/                   # 收藏已实现；browse_events 待后续 change
+├── engagement/                   # 收藏 + 浏览已实现
 │   ├── router.py
 │   ├── service.py
 │   ├── repository.py
 │   ├── models.py
 │   ├── schemas.py
-│   └── deps.py
+│   ├── deps.py
+│   └── jobs/                     # trim_browse_history（task browse:trim）
 ├── events/                       # 后期
 └── ai/                           # 后期
 ```
@@ -286,7 +297,7 @@ app/
 - 库存预留与释放（创建扣减、取消/超时加回；订单行快照价格与商品名）
 - **购物车**（ordering 域）：`cart_items` 暂存、`POST /cart/checkout` 跨店单事务建单 + 轻量 `checkout_batches`、`POST /orders/batch-pay` 合并支付；与 `POST /orders` 立即购买并行
 - **收藏**（engagement 域）：`user_favorites`；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`（用户偏好，与购物车语义独立）
-- 浏览记录（Phase 2 待实现，归入 engagement 域）
+- **浏览**（engagement 域）：`user_browse_history`；`POST/GET /browse`、`DELETE /browse/{product_id}`（202 异步 upsert、分页历史、单删）+ 配置化 top N + retention 定时 trim（`task browse:trim`，生产 cron 独立进程）
 
 ### 6.2 明确不做（MVP）
 
