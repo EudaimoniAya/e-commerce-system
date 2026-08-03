@@ -1,14 +1,14 @@
 ## 1. TDD — 失败测试（红）
 
-- [ ] 1.1 扩展 `tests/support/`：
+- [x] 1.1 扩展 `tests/support/`：
   - `helper/engagement.py` 追加原子 HTTP helper：`record_browse`、`list_browse`、`delete_browse`（返回 `*Result`）
   - `results.py`：BrowseAcceptedResult、BrowseListResult
   - helper 内 await BackgroundTasks 完成后再返回（或提供 `flush_background_tasks` fixture）
-- [ ] 1.2 编写 `tests/engagement/test_browse_record.py`（POST 202、422 不存在、401、debounce 不 +1、view_count 递增/重置、await DB）；不编写实现
-- [ ] 1.3 编写 `tests/engagement/test_browse_list.py`（GET 空列表、items/unavailable_items 分类、reason 枚举、分页 total、last_viewed_at 降序）；不编写实现
-- [ ] 1.4 编写 `tests/engagement/test_browse_delete.py`（DELETE 204/404、401）；不编写实现
-- [ ] 1.5 编写 `tests/unit/engagement/test_trim_browse_history.py`（top N 内超 retention 保留、top N 外超 retention 删除；使用 `.env.test` 小 MAX）；不编写实现
-- [ ] 1.6 `devbox run -- task db:up` 后跑新增 browse 测试，确认失败（红）
+- [x] 1.2 编写 `tests/engagement/test_browse_record.py`（POST 202、422 不存在、401、debounce 不 +1、view_count 递增/重置、await DB）；不编写实现
+- [x] 1.3 编写 `tests/engagement/test_browse_list.py`（GET 空列表、items/unavailable_items 分类、reason 枚举、分页 total、last_viewed_at 降序）；不编写实现
+- [x] 1.4 编写 `tests/engagement/test_browse_delete.py`（DELETE 204/404、401）；不编写实现
+- [x] 1.5 编写 `tests/unit/engagement/test_trim_browse_history.py`（top N 内超 retention 保留、top N 外超 retention 删除；使用 `.env.test` 小 MAX）；不编写实现
+- [x] 1.6 `devbox run -- task db:up` 后跑新增 browse 测试，确认失败（红）
 
 ## 2. 配置与 infra
 

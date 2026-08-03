@@ -225,3 +225,29 @@ class BatchDeleteFavoritesResult:
 
     status_code: int
     body: dict | None = None
+
+
+@dataclass
+class BrowseAcceptedResult:
+    """浏览 HTTP 调用结果（POST /browse、DELETE /browse/{product_id}）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: POST 2xx 时解析为 dict（含 ``accepted``）；DELETE 204 及非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class BrowseListResult:
+    """GET /browse HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（items/unavailable_items/total/limit/offset）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
