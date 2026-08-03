@@ -133,6 +133,19 @@ class ProductRepository:
         """按主键查询商品。"""
         return await self._session.get(Product, str(product_id))
 
+    async def get_by_ids(self, product_ids: list[uuid.UUID]) -> list[Product]:
+        """按主键批量查询商品（供 support 域 product ref 校验）。
+
+        空列表输入返回 ``[]``；未命中的 id 不出现在结果中。
+        """
+        if not product_ids:
+            return []
+        id_strs = [str(item) for item in product_ids]
+        result = await self._session.execute(
+            select(Product).where(Product.id.in_(id_strs))
+        )
+        return list(result.scalars().all())
+
     async def create(
         self,
         *,

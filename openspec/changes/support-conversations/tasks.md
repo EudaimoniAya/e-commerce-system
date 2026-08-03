@@ -12,13 +12,13 @@
 
 ## 2. catalog 跨域 service（绿 · 依赖）
 
-- [ ] 2.1 `app/catalog/schemas.py` 新增 `ShopSupportContext`；`ShopService` 新增 `get_shop_for_support`、`validate_product_refs_for_shop`
-- [ ] 2.2 可选：`tests/catalog/test_support_service.py` 覆盖 404/422/未上架允许；跑至绿
+- [x] 2.1 `app/catalog/schemas.py` 新增 `ShopSupportContext`；`ShopService` 新增 `get_shop_for_support`、`validate_product_refs_for_shop`
+- [x] 2.2 可选：`tests/unit/catalog/test_support_service.py` 覆盖 404/422/未上架允许；跑至绿
 
 ## 3. 迁移与 support ORM（绿 · 基础）
 
-- [ ] 3.1 `app/support/models.py`：`SupportConversation`、`SupportMessage`；`alembic/env.py` 导入 support models
-- [ ] 3.2 新增 migration `011`：`support_conversations`、`support_messages` 表、UNIQUE 与索引
+- [x] 3.1 `app/support/models.py`：`SupportConversation`、`SupportMessage`；`alembic/env.py` 导入 support models
+- [x] 3.2 新增 migration `011`：`support_conversations`、`support_messages` 表、UNIQUE 与索引
 
 ## 4. support 域实现（绿）
 
