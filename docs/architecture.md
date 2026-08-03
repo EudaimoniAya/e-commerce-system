@@ -193,7 +193,8 @@ e-commerce-system/
 │   ├── devbox_redis_up.sh / devbox_redis_down.sh
 │   ├── allure_open_report.sh     # Task latest:report
 │   └── check_no_test_cross_imports.sh  # Task check-test-imports；依赖 rg（ripgrep），见 test-architecture / infra-ci spec
-├── .github/workflows/ci.yml      # DATABASE_URL + REDIS_URL + JWT_SECRET_KEY；migrate + task ci
+├── .github/workflows/test.yaml       # Run Tests：paths-filter、lint、单 job task test
+├── .github/workflows/build-push.yaml # Build and Push Container Images：tag-only GHCR
 └── ...
 ```
 
@@ -380,7 +381,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 | 阶段 | 内容 | 实现 |
 |------|------|------|
-| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix） | `.github/workflows/test.yaml`（`feature/infra-ci-workflows`） |
+| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix） | `.github/workflows/test.yaml` |
 | **Build** | 多阶段 Dockerfile → GHCR；**仅** `vX.Y.Z` tag 触发（`workflow_dispatch` 可选） | `.github/workflows/build-push.yaml`；`Dockerfile` |
 | **Deploy** | CD 部署到云服务器 + alembic upgrade | 留给 `infra-cd-compose`（后续 change） |
 

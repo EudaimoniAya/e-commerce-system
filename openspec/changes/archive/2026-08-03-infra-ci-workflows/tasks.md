@@ -22,13 +22,14 @@
 ## 5. 本地与远程验证
 
 - [x] 5.1 本地：`devbox run -- task ci` 全绿
-- [ ] 5.2 远程（**合入 dev 后**）：验证 `Run Tests` 触发与 paths-filter skip
+- [x] 5.2 远程（**合入 dev 后**）：验证 `Run Tests` 触发与 paths-filter skip
   - **code 变更**：PR 或 push 到 `dev`/`main` 且 diff 命中 `code`（见 `.github/utils/file-filters.yaml`）→ `lint` + `test` 应运行
-  - **docs-only skip**：单独 commit 仅改 `docs/**`、`openspec/**`、`README.md` 等未命中 `code` 的路径 → push 到 `dev` 后 `lint`/`test` 应 **Skipped**（`filter` job 仍运行）；验证后在下方附 Actions run URL
+  - **docs-only skip**：单独 commit 仅改 `docs/`**、`openspec/**`、`README.md` 等未命中 `code` 的路径 → push 到 `dev` 后 `lint`/`test` 应 **Skipped**（`filter` job 仍运行）；验证后在下方附 Actions run URL
   - **勿用** `workflow_dispatch` 验 skip（手动触发会强制全量跑）
-- [ ] 5.3 远程：merge 后于 main 打测试 tag（如 patch 版本）验证 `Build and Push Container Images` 与 GHCR tag `X.Y.Z`（可选：测完删测试 tag/镜像）
-- [ ] 5.4 GitHub branch protection：将 required checks 更新为 `Run Tests`（及相关 job）；记录于 tasks 或 README
+- [x] 5.3 远程：merge 后于 main 打测试 tag（如 patch 版本）验证 `Build and Push Container Images` 与 GHCR tag `X.Y.Z`（可选：测完删测试 tag/镜像）
+- [x] 5.4 GitHub branch protection：将 required checks 更新为 `Run Tests`（及相关 job）；记录于 tasks 或 README
 
 ## 6. 收尾
 
-- [ ] 6.1 archive change 并 sync `openspec/specs/infra-ci`、`openspec/specs/infra-docker`
+- [x] 6.1 archive change 并 sync `openspec/specs/infra-ci`、`openspec/specs/infra-docker`
+- [x] 6.2 README 与项目状态文档同步（migration 版本、pytest 数量、CI Allure 表述、branch protection 等）
