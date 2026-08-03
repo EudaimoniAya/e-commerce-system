@@ -29,5 +29,5 @@
 
 ## 5. 文档与 CI
 
-- [ ] 5.1 更新 `docs/architecture.md`（support 域、API 摘要、ADR-007 演进指针）
-- [ ] 5.2 `devbox run -- task ci` 全绿（含 support integration + catalog service 测）
+- [x] 5.1 更新 `docs/architecture.md`（support 域、API 摘要、ADR-007 演进指针）
+- [x] 5.2 `devbox run -- task ci` 全绿（含 support integration + catalog service 测）

@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `010`（engagement.browse）；本地与 CI 全量 pytest **302 项**。
+AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**support**（店铺客服会话、inbox、product ref），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `011`（support.conversations）；本地与 CI 全量 pytest **335 项**。
 
 ## 前置条件
 
@@ -232,6 +232,34 @@ curl -X POST http://127.0.0.1:8000/cart/checkout \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer <buyer_token>" \
   -d '{"cart_item_ids":["<cart_item_id>"]}'
+```
+
+店铺客服 API（须 Bearer token；买家路径按 `shop_id`；店主路径须 `get_current_shop`；一买家一店一会话；禁自购 403；closed 店买家 POST 422、店主可回复已有会话）：
+
+```bash
+# 买家查询与某店的会话（有 200，无 404 → 前端「发起咨询」）
+curl http://127.0.0.1:8000/support/shops/<shop_id>/conversation \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 买家发消息（201；首条 lazy create 会话 + 消息；可带 message_refs 引用本店商品）
+curl -X POST http://127.0.0.1:8000/support/shops/<shop_id>/conversation/messages \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <buyer_token>" \
+  -d '{"body":"请问这款还有货吗？","message_refs":[{"ref_type":"product","ref_id":"<product_id>"}]}'
+
+# 买家拉取消息历史（created_at 升序分页；无会话 404）
+curl "http://127.0.0.1:8000/support/shops/<shop_id>/conversation/messages?limit=20&offset=0" \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 店主 inbox 列表（updated_at 降序，含 last_message_preview）
+curl "http://127.0.0.1:8000/support/inbox?limit=20&offset=0" \
+  -H "Authorization: Bearer <shop_owner_token>"
+
+# 店主回复
+curl -X POST http://127.0.0.1:8000/support/inbox/<conversation_id>/messages \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <shop_owner_token>" \
+  -d '{"body":"有的，欢迎下单"}'
 ```
 
 > 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci` / `task test` 中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
@@ -473,7 +501,7 @@ Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 | Tag | 含义 |
 |-----|------|
 | `v1.0.0` | 电商底座 MVP 首次 release（本 change 合入 main 后） |
-| `v1.x.0` | 底座完善（engagement、infra-cd-compose 等） |
+| `v1.x.0` | 底座完善（engagement、support、infra-cd-compose 等） |
 | `v2.0.0` | AI 平台阶段 |
 
 ## Definition of Done（DoD）
