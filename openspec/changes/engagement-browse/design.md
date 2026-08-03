@@ -62,7 +62,7 @@ app/engagement/
 | `last_viewed_at` | DATETIME | 每次有效 POST（含 debounce 更新）刷新 |
 | `view_count` | INT | 间断重置累计，默认 1 |
 
-约束：`UNIQUE(user_id, product_id)`。索引：`ix_user_browse_history_user_id_last_viewed`（`(user_id, last_viewed_at DESC)` 列表排序）。
+约束：`UNIQUE(user_id, product_id)`。索引：`ix_user_browse_history_user_id_last_viewed`（`(user_id, last_viewed_at)` ASC，列表排序；MySQL 反向扫描等效 DESC，且 Alembic autogenerate 可正常比对——2026-08-03 用户拍板由 DESC 改 ASC）。
 
 migration：新 revision（如 `010_engagement_browse.py`），`down_revision` = 当前 head（`009_engagement_favorites`）。
 
@@ -191,6 +191,22 @@ migration：新 revision（如 `010_engagement_browse.py`），`down_revision` =
 | catalog | 无变更，不新增单测 |
 
 **BackgroundTasks 测试：** 使用 Starlette/FastAPI 测试模式在 assert 前 flush pending background tasks（与项目 async client fixture 配合）。
+
+### 13. 绿阶段接口松弛（TDD 纪律补充）
+
+TDD 红绿隔离默认纪律：**绿阶段不得读 `tests/` 下任何文件**，实现必须从 spec/design 推导（防止写出"刚好通过测试"而非从规格推导的实现）。
+
+**例外（本 change Task 4 触发，经用户拍板）**：当 spec/design 未定义测试期望的**接口**（函数名、签名、类型）时，允许绿阶段读取测试的**接口声明部分**——import 语句、类型/helper 定义、函数调用签名；**不得读取断言逻辑**——算法与行为仍须从 spec/design 推导。
+
+**判定准则：**
+
+| 情形 | 绿阶段处理 |
+|------|-----------|
+| 接口可从 spec/design 推导 | 不读测试（默认） |
+| 接口在 spec/design 缺项且无法推导 | 可读接口声明（imports/类型/调用签名），不可读断言 |
+| 超出接口范畴的行为细节缺失 | 暂停并交用户拍板 |
+
+> 本 change 实例：`plan_browse_trim_deletes` / `BrowseTrimRow` 系红阶段测试发明、design 未定义的接口；经用户授权读取其 import 块与类型/调用签名后实现，算法仍依 design §10。
 
 ## Risks / Trade-offs
 

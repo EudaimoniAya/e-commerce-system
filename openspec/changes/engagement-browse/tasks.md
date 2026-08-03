@@ -17,14 +17,14 @@
 
 ## 3. 迁移与 engagement ORM（绿 · 基础）
 
-- [ ] 3.1 `app/engagement/models.py` 追加 `UserBrowseHistory`；`alembic/env.py` 已导入 engagement models
-- [ ] 3.2 新增 migration `010`：`user_browse_history` 表、`UNIQUE(user_id, product_id)`、索引
+- [x] 3.1 `app/engagement/models.py` 追加 `UserBrowseHistory`；`alembic/env.py` 已导入 engagement models
+- [x] 3.2 新增 migration `010`：`user_browse_history` 表、`UNIQUE(user_id, product_id)`、索引
 
 ## 4. Trim job（绿 · unit）
 
-- [ ] 4.1 `app/engagement/jobs/trim_browse_history.py`：纯函数 + `async` session 入口 + `__main__` CLI
-- [ ] 4.2 `Taskfile.yml` 新增 `browse:trim`
-- [ ] 4.3 跑 trim unit 测试至全绿
+- [x] 4.1 `app/engagement/jobs/trim_browse_history.py`：纯函数 + `async` session 入口 + `__main__` CLI
+- [x] 4.2 `Taskfile.yml` 新增 `browse:trim`
+- [x] 4.3 跑 trim unit 测试至全绿
 
 ## 5. engagement browse 实现（绿）
 
