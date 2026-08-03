@@ -41,10 +41,11 @@ alwaysApply: false
 2. **commit + push**。
 
 ```text
-ci(<change-name>): Task <编号> <简短标题>：
- * <本地 migrate + task ci 结果>；
- * <关键验证（域 test 或 integration 覆盖）>；
- * ci.yml <具体 env 变更>；更新 tasks.md。
+ci(<scope>) [<short-change>]: Task <编号> <简短标题>
+
+- <本地 migrate + task ci 结果>
+- <关键验证（域 test 或 integration 覆盖）>
+- ci.yml <具体 env 变更>；更新 tasks.md
 ```
 
 **第二次：远程 CI 全绿确认**
@@ -54,7 +55,7 @@ ci(<change-name>): Task <编号> <简短标题>：
 3. **再 commit + push**（勾选 tasks、附 Actions URL）。
 
 ```text
-ci(<change-name>): Task <编号> 确认 GitHub Actions CI 全绿
+ci(<scope>) [<short-change>]: Task <编号> 确认 GitHub Actions CI 全绿
 
 workflow_dispatch on <branch>: <run-url>
 ```
@@ -64,14 +65,16 @@ workflow_dispatch on <branch>: <run-url>
 ## 通用 commit message 格式
 
 ```text
-<type>(<scope>): Task <编号> <主题>：
- * <要点 1>；
- * <要点 2>；
+<type>(<scope>) [<short-change>]: Task <编号> <简短主题>
+
+- <要点 1>
+- <要点 2>
 ```
 
 - **type**：`feat` / `test` / `ci` / `docs` / `build` 等
-- **scope**：**受影响的业务域**（如 `ordering`、`user`），而非 change 名；跨域时写 `(user, ordering)`
-- 正文用 `*` 分条，中文简体
+- **scope**：**受影响的业务域**（如 `ordering`、`engagement`）；跨域时写 `(catalog, engagement)`
+- **`[<short-change>]`**：OpenSpec change 短标签（如 `engagement-browse` → `[browse]`）；规则见 ADR-008 决策 6
+- **标题宜短**（≤72 字符）；细节放正文 `-` 列表，中文简体
 
 ## 禁止
 
@@ -81,5 +84,5 @@ workflow_dispatch on <branch>: <run-url>
 
 ## 参考
 
-- 范例：`test(user): Task 1 …`（整节）/ `ci(user-auth): Task 6.1 …` / `Task 6.2 确认 GitHub Actions CI 全绿`（CI 子项可单独 commit；节号作 message 编号，**非** CI 触发条件）
+- 范例：`test(engagement) [browse]: Task 1 TDD 红` / `ci(engagement) [browse]: Task 6 确认 CI 全绿`（CI 子项可单独 commit；节号作 message 编号，**非** CI 触发条件）
 - DoD：README §Definition of Done
