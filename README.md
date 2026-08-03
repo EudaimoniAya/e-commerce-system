@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `008`（users.phone）；本地与 CI integration 测试 **252 项**。
+AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `010`（engagement.browse）；本地与 CI 全量 pytest **302 项**。
 
 ## 前置条件
 
@@ -9,7 +9,7 @@ AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OT
 
 本地工具链由 devbox 提供：Python 3.13、uv、go-task、MySQL 8.0、**Redis 8.0**。
 
-> **`task check-test-imports` 依赖 `rg`（ripgrep）**：脚本 `scripts/check_no_test_cross_imports.sh` 使用 ripgrep 扫描 test 互 import。Implement `infra-ci-docker` §7 后，`devbox.json` 将包含 `ripgrep`；此前本地可 `sudo apt install ripgrep`。CI lint job 亦须在跑该 Task 前显式安装 ripgrep（不得假设 runner 预装）。
+> **`task check-test-imports` 依赖 `rg`（ripgrep）**：脚本 `scripts/check_no_test_cross_imports.sh` 使用 ripgrep 扫描 test 互 import。`devbox.json` 已包含 `ripgrep` 包，本地 `devbox run -- task check-test-imports` 可直接运行。CI lint job 亦须在跑该 Task 前显式安装 ripgrep（不得假设 runner 预装）。
 
 > **重要**：所有 `task` 命令（含 `db:*`、`redis:*`）须在 `devbox shell` 内执行（或使用 `devbox run -- task …`）。
 
@@ -302,7 +302,7 @@ task test:reports
 task latest:report
 ```
 
-`reports/` 目录已加入 `.gitignore`，不会提交到仓库。CI 每 matrix job 上传 `allure-results` artifact（14 天保留），供本地下载后 `allure generate` 查看。
+`reports/` 目录已加入 `.gitignore`，不会提交到仓库。CI test job 上传 `allure-results` artifact（保留 14 天），供本地下载后 `allure generate` 查看。
 
 ### `db:up` 预期输出
 
@@ -398,6 +398,8 @@ test:   （code 变更或 workflow_dispatch）单 job 全量 task test
         mysql + redis services → migrate → task test → upload artifact
 test-failure-alert:  上游 failure/cancelled 时 exit 1
 ```
+
+`dev` / `main` 的 branch protection required check 已更新为 **`Run Tests`** workflow（上游 job 失败时由 `test-failure-alert` 汇总为非零退出）。
 
 ### 路径筛选（paths-filter）
 
