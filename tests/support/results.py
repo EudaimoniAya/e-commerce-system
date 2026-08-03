@@ -251,3 +251,57 @@ class BrowseListResult:
 
     status_code: int
     body: dict | None = None
+
+
+@dataclass
+class ConversationResult:
+    """support 会话 HTTP 调用结果（GET 买家会话 / GET inbox 详情）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（含 id/shop_id/buyer_user_id/handler_mode/updated_at/last_message_preview）；
+              非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class MessageResult:
+    """support 发消息 HTTP 调用结果（买家 POST / 店主 POST）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx/201 时解析为 dict（含 id/conversation_id/sender_role/author_role/body/message_refs/created_at）；
+              非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class MessageListResult:
+    """support 消息列表 HTTP 调用结果（GET 买家 messages / GET inbox messages）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（items/total/limit/offset，符合 infra-pagination）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
+
+
+@dataclass
+class InboxListResult:
+    """GET /support/inbox HTTP 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx 时解析为 dict（items/total/limit/offset，items 含 last_message_preview）；非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
