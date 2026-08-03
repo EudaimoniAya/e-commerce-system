@@ -20,6 +20,7 @@ from app.catalog.schemas import (
     PurchasableProduct,
     ShopCreate,
     ShopResponse,
+    ShopSupportContext,
     ShopUpdate,
 )
 
@@ -32,6 +33,7 @@ _CATEGORY_DUPLICATE_MSG = "Category name already exists under this parent"
 _CATEGORY_NOT_FOUND_MSG = "One or more categories not found"
 _CATEGORY_PARENT_NOT_FOUND_MSG = "Parent category not found"
 _FORBIDDEN_PRODUCT_MSG = "Not allowed to modify this product"
+_PRODUCT_REF_INVALID_MSG = "Product ref not found or not in this shop"
 
 
 def _to_shop_response(shop: Shop) -> ShopResponse:
@@ -437,3 +439,41 @@ class ShopService:
                 detail=_SHOP_NOT_FOUND_MSG,
             )
         return _to_shop_response(shop)
+
+    async def get_shop_for_support(self, shop_id: uuid.UUID) -> ShopSupportContext:
+        """返回供 support 域会话创建与校验使用的店铺上下文；shop 不存在时 404。
+
+        跨域 service（无 HTTP 路由）：support 域注入本方法即可，禁止 import catalog ORM。
+        """
+        shop = await self._repository.get_by_id(shop_id)
+        if shop is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=_SHOP_NOT_FOUND_MSG,
+            )
+        return ShopSupportContext(
+            id=str(shop.id),
+            status=shop.status,
+            owner_user_id=str(shop.owner_user_id),
+        )
+
+    async def validate_product_refs_for_shop(
+        self,
+        shop_id: uuid.UUID,
+        product_ids: list[uuid.UUID],
+    ) -> None:
+        """校验 product refs 均属于该 shop；任一不存在或跨 shop → 422。
+
+        不按公开可见性过滤：未上架商品若属于该 shop SHALL 视为合法。
+        """
+        if not product_ids:
+            return
+        products = await self._product_repository.get_by_ids(product_ids)
+        found = {str(product.id): product for product in products}
+        for product_id in product_ids:
+            product = found.get(str(product_id))
+            if product is None or str(product.shop_id) != str(shop_id):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=_PRODUCT_REF_INVALID_MSG,
+                )

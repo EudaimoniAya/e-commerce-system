@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`）
+- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览**、**support 域店铺客服会话** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`；买家 `/support/shops/{shop_id}/*` lazy create 发消息、店主 `/support/inbox/*` inbox 与回复、可引用本店商品）
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -38,10 +38,10 @@
           │  │   user   │ │ catalog  │ │ ordering │  │    ai    │ │
           │  │ 用户认证  │ │ 商品目录  │ │ 订单购物车│  │ RAG/推荐 │ │
           │  └──────────┘ └──────────┘ └──────────┘  │ 助手/搭子 │ │
-          │  ┌──────────┐                             └────┬─────┘ │
-          │  │engagement│                                   │       │
-          │  │收藏/浏览  │◄──────────────────────────────────┘       │
-          │  └──────────┘         Tool 调用业务 service              │
+          │  ┌──────────┐ ┌──────────┐                  └────┬─────┘ │
+          │  │engagement│ │ support  │                        │       │
+          │  │收藏/浏览  │ │店铺客服   │◄───────────────────────┘       │
+          │  └──────────┘ └──────────┘         Tool 调用业务 service   │
           └────────────────────────────┬─────────────────────────────┘
                                        │
                     ┌──────────────────┴──────────────────┐
@@ -60,6 +60,7 @@
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
 | `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
 | `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **Phase 2（收藏 + 浏览已实现）** |
+| `support` | 店铺客服会话（shop 管辖、lazy create、inbox、product ref；预留 AI） | SupportConversation、SupportMessage | **Phase 2（已实现）** |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -112,7 +113,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 ## 5. 目录结构
 
-### 5.1 当前骨架（user + catalog + ordering + engagement + infra）
+### 5.1 当前骨架（user + catalog + ordering + engagement + support + infra）
 
 ```text
 e-commerce-system/
@@ -164,6 +165,13 @@ e-commerce-system/
 │       ├── schemas.py
 │       ├── deps.py
 │       └── jobs/                 # trim_browse_history.py（task browse:trim，top N + retention 裁剪）
+│   └── support/                  # 店铺客服域（会话 + 消息已实现）
+│       ├── router.py             # 买家 /support/shops/{shop_id}/*；店主 /support/inbox/*
+│       ├── service.py            # lazy create、inbox、closed/禁自购/403404 规则
+│       ├── repository.py
+│       ├── models.py             # support_conversations、support_messages
+│       ├── schemas.py
+│       └── deps.py
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
@@ -175,7 +183,8 @@ e-commerce-system/
 │       ├── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
 │       ├── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
 │       ├── 009_engagement_favorites.py  # user_favorites
-│       └── 010_engagement_browse.py     # user_browse_history
+│       ├── 010_engagement_browse.py     # user_browse_history
+│       └── 011_support_conversations.py # support_conversations、support_messages
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -187,7 +196,8 @@ e-commerce-system/
 │   ├── user/                     # SMS/密码认证、me/profile integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
 │   ├── ordering/                 # 买家订单 + 购物车 integration
-│   └── engagement/               # 用户收藏 integration
+│   ├── engagement/               # 用户收藏 + 浏览 integration
+│   └── support/                  # 店铺客服会话 integration
 ├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
 │   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
 │   ├── devbox_redis_up.sh / devbox_redis_down.sh
@@ -234,9 +244,19 @@ e-commerce-system/
 
 **定时 trim（`task browse:trim`）**：`app/engagement/jobs/trim_browse_history.py`，生产由 **cron 独立进程** 定时执行（非 HTTP worker）。算法：每用户按 `last_viewed_at DESC` 取 top `BROWSE_HISTORY_MAX_PER_USER` 保留（top N 内行即使超 retention 也保留）；其余行中 `last_viewed_at < now - BROWSE_HISTORY_RETENTION_DAYS` 删除。纯函数 `plan_browse_trim_deletes`（`BrowseTrimRow` 输入、返回应删行 id 集合）可单测；`__main__` 供 `task browse:trim` CLI。
 
+**`support_conversations` 表（support 域）**：`id`（UUID PK）、`shop_id`（FK 语义 → `shops.id`）、`buyer_user_id`（FK 语义 → `users.id`）、`handler_mode`（`ai` \| `human`，MVP 默认 `human`，供前端展示与后续 AI 路由）、`last_message_preview`（VARCHAR 200）、`created_at`、`updated_at`；`UNIQUE(shop_id, buyer_user_id)`（一买家一店一会话）；索引 `ix_support_conversations_shop_updated`（`(shop_id, updated_at)` 供 inbox 降序）。**不**跨域 ORM relationship。演进对齐 [ADR-007](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)：隔离键 `shop_id`；演示阶段店主兼客服（`get_current_shop`）；后续 `ai-support-agent` 写 `author_role=ai` 消息。
+
+**`support_messages` 表（support 域）**：`id`（UUID PK）、`conversation_id`（FK → `support_conversations.id`）、`sender_role`（`buyer` \| `shop`）、`author_role`（`human` \| `ai`，MVP 恒 `human`）、`body`（TEXT 可空）、`message_refs`（JSON 可空，`[{ref_type, ref_id}]`，MVP 仅 `product`）、`created_at`；索引 `ix_support_messages_conversation_created`（`(conversation_id, created_at)` ASC 供历史）。`body` 与 `message_refs` 至少一项非空。
+
+**support 写路径（买家 `POST /support/shops/{shop_id}/conversation/messages`）**：JWT 买家 → `catalog.service.get_shop_for_support`（不存在 404）→ 禁自购（`buyer == owner_user_id` → **403**）→ closed 店任意 POST → **422** → 校验 body/refs（空/超长/ order ref / refs>10 → 422）→ `validate_product_refs_for_shop` → lazy create 或追加消息（同事务）→ bump `updated_at` + `last_message_preview`。
+
+**support 读路径（买家）**：`GET .../conversation` 有会话 200 / 无 404；`GET .../messages` 分页 ASC / 无会话 404。非 buyer 且非店主 → **404**。
+
+**support 店主路径（`GET /support/inbox*`、`POST .../inbox/{id}/messages`）**：`get_current_shop` 鉴权；inbox 按 `updated_at DESC` 含 `last_message_preview`；非本店会话 404；closed 店仍允许回复已有会话。support **不得** import catalog / ordering ORM；商品校验走 `ShopSupportContext` + `validate_product_refs_for_shop`（catalog service，见 `catalog-products` spec）。
+
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充 `engagement/`（浏览等）、后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`（收藏）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
+随垂直切片增量补充后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`、`support/` 与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -284,6 +304,13 @@ app/
 │   ├── schemas.py
 │   ├── deps.py
 │   └── jobs/                     # trim_browse_history（task browse:trim）
+├── support/                      # 店铺客服（会话 + inbox 已实现）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   └── deps.py
 ├── events/                       # 后期
 └── ai/                           # 后期
 ```
@@ -299,6 +326,7 @@ app/
 - **购物车**（ordering 域）：`cart_items` 暂存、`POST /cart/checkout` 跨店单事务建单 + 轻量 `checkout_batches`、`POST /orders/batch-pay` 合并支付；与 `POST /orders` 立即购买并行
 - **收藏**（engagement 域）：`user_favorites`；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`（用户偏好，与购物车语义独立）
 - **浏览**（engagement 域）：`user_browse_history`；`POST/GET /browse`、`DELETE /browse/{product_id}`（202 异步 upsert、分页历史、单删）+ 配置化 top N + retention 定时 trim（`task browse:trim`，生产 cron 独立进程）
+- **店铺客服**（support 域）：`support_conversations`、`support_messages`；买家 `GET/POST /support/shops/{shop_id}/conversation*`（lazy create、product ref）；店主 `GET/POST /support/inbox*`（inbox、`last_message_preview`）；禁自购 403、closed 店买家 POST 422；为 `ai-support-agent` 预留 `handler_mode` / `author_role`
 
 ### 6.2 明确不做（MVP）
 
@@ -348,7 +376,8 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 | 功能 | 技术 | 说明 |
 |------|------|------|
-| 店铺 RAG 智能客服 | LangChain Retriever | 商品描述、FAQ 语义检索 |
+| 店铺客服对话 | support 域（已交付） | 买家↔店铺 lazy create 会话、inbox、product ref；见 ADR-007 |
+| 店铺 RAG 智能客服 | LangChain Retriever | 商品描述、FAQ 语义检索；后续 `ai-support-agent` change |
 | 推荐系统 | 协同过滤 → 自研模型 | 消费 order_items、engagement 行为数据 |
 | 店铺经营助手 | DeepAgents | 读 admin API 聚合数据，长上下文 |
 | 购物搭子 | LangGraph 精细编排 | 私域流量实验功能，严格控制 token 成本 |

@@ -182,6 +182,14 @@ class EngagementProduct(BaseModel):
     shop_active: bool
 
 
+class ShopSupportContext(BaseModel):
+    """跨域 DTO：供 support 域会话创建与校验使用（无 HTTP 路由，不泄漏 ORM 实例）。"""
+
+    id: str
+    status: str  # active | closed
+    owner_user_id: str
+
+
 class PaginatedProducts(Paginated[ProductResponse]):
     """分页商品列表。"""
 

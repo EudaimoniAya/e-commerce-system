@@ -9,7 +9,7 @@ context: |
   后期 AI：LangChain 家族 + PostgreSQL/pgvector（MySQL 为唯一写源）
 
   架构：简易版单体多域（Modular Monolith）
-  - 按限界上下文纵切：user / catalog / ordering / engagement（后期）/ ai（后期）
+  - 按限界上下文纵切：user / catalog / ordering / engagement / support / ai（后期）
   - 每域内部：router → service → repository → model + schemas
   - 跨域协作：仅通过对方 service + Pydantic schema，禁止跨域 import ORM 或 repository
   - AI 域与业务域并列，Tool 调用业务 service，不直连 DB
@@ -18,7 +18,7 @@ context: |
 
   电商 MVP 范围：用户、商品、订单；无支付、无物流、无 SKU 多规格
   订单状态：pending → confirmed → completed / cancelled
-  Phase 2：购物车（ordering 域）、收藏/浏览（engagement 域）
+  Phase 2：购物车（ordering 域）、收藏/浏览（engagement 域）、店铺客服（support 域）
 
   开发流程：垂直切片增量交付，SDD + TDD，一个 change = 一个可演示能力
   初期可粗糙（表可少），但工程纪律从第一天起（CI lint + test）
@@ -29,7 +29,7 @@ context: |
 rules:
   proposal:
     - 必须包含 Non-goals 章节，明确本 change 不做什么
-    - 声明影响的业务域（user / catalog / ordering / engagement / infra）
+    - 声明影响的业务域（user / catalog / ordering / engagement / support / infra）
     - 单个 change 应在一个垂直切片内可演示，不要一次覆盖多个域
   design:
     - 跨域交互必须说明调用哪个域的 service 及使用的 schema
