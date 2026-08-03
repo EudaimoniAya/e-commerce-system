@@ -454,7 +454,10 @@ Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 
 镜像仅含 FastAPI app + 生产依赖（不含 MySQL/Redis/tests）。运行时需环境变量注入 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET_KEY`。
 
-> **踩坑记录**：`gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。这是 GitHub Actions 的设计约束。
+> **踩坑记录**：
+>
+> - `gh workflow run` / GitHub API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。这是 GitHub Actions 的设计约束。
+> - **GHCR 镜像名须小写**：`infra-ci-workflows` 废止 `docker/metadata-action` 后，`build-push.yaml` 直接拼 `${{ github.repository }}` 作镜像路径。若 GitHub owner 含大写（如 `EudaimoniAya`），buildx 报 `repository name must be lowercase`。旧 workflow 靠 metadata-action 自动小写故 `v1.0.0` 正常；`v1.1.0` 首次暴露回归。修复：`id: image` step 输出 `${GITHUB_REPOSITORY,,}`，引用 `${{ steps.image.outputs.name }}`。详见 ADR-006 决策 3。
 
 ### 发版流程
 

@@ -114,6 +114,54 @@ gitflow 语义对齐：
 - 删除 main push build 后不再有"每 merge 即镜像"——intentional，发版需打 tag。
 - tag 可能打在未完全测试的 commit——流程要求先 main test 绿才打 tag。
 
+### 为何废止 `docker/metadata-action` 多 tag 逻辑
+
+旧版 `docker-build.yml` 依赖 `docker/metadata-action@v5` 一次 build 生成并 push 多个 tag：
+
+| 旧 tag | 来源 | 问题 |
+|--------|------|------|
+| `latest` | `main` push | 浮动标签，无法对应唯一 release；每 merge main 即覆盖 |
+| `X.Y.Z` / `X.Y` / `X` | `v*` tag 的 semver 多级衍生 | `1.0`、`1` 可被后续 patch/minor 覆盖，部署引用歧义 |
+| `sha-<short>` | 每次 build 的 commit 指纹 | 适合调试/trace，不适合作为发布契约 |
+
+`metadata-action` 在此模型中是**多 tag 生成器**；新策略要求 **一 release 一 tag**，其能力用不上，且与 spec 冲突（`infra-docker`：SHALL NOT push `latest`、`sha-*`、`X.Y`、`X`）。
+
+**单一 semver tag 的好处**：
+
+1. **gitflow 语义**：`main` = 可演示基线（不自动产镜像）；`vX.Y.Z` = 正式发布契约。
+2. **版本一一对应**：`git tag v1.1.0` → 镜像 `ghcr.io/<owner>/repo:1.1.0`，查 GHCR / 回滚无歧义。
+3. **CD 契约清晰**：后续 `infra-cd-compose` 只需引用精确 semver，无需在 `latest` / `sha-*` / semver 别名间选择。
+4. **触发更严格**：旧 `tags: 'v*'` 会匹配 `v1`、`v1.0` 等非标准 tag；新 regex `v[0-9]+.[0-9]+.[0-9]+` 仅标准 release。
+5. **workflow 更简单**：少一个 action 依赖；tag 逻辑为 `VERSION="${GITHUB_REF_NAME#v}"`，与 `workflow_dispatch` 输入一致。
+
+**备选（否决）**：
+
+| 方案 | 否决理由 |
+|------|---------|
+| 保留 metadata-action，仅配置 `type=semver,pattern={{version}}` | 仍引入额外 action；不如 bash 一行去 `v` 前缀直观 |
+| main push + `latest`（capstone staging） | 与 gitflow「tag = 发布」冲突 |
+| 保留 `sha-*` 便于 trace | release build 频率低；git tag 已绑定 commit，无需镜像层重复 fingerprint |
+
+### 镜像 repository 路径须小写
+
+Docker/OCI 规范要求 registry 路径**全小写**。`github.repository` 保留 GitHub owner 的原始大小写（如 `EudaimoniAya/e-commerce-system`），直接拼 tag 会报错：
+
+```text
+invalid tag "ghcr.io/EudaimoniAya/e-commerce-system:1.1.0": repository name must be lowercase
+```
+
+旧版 `docker/metadata-action` 在 **Image name sanitization** 中**自动小写**镜像名，因此 `v1.0.0` 未暴露此问题。废止 metadata-action 后，workflow **必须显式**小写 repository 路径，并通过 step output 供后续步骤引用（避免 `${{ env.IMAGE_NAME }}` 静态分析误报）：
+
+```yaml
+- name: Set image name (lowercase)
+  id: image
+  run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+# 引用：${{ steps.image.outputs.name }}
+```
+
+GHCR 实际路径为 `ghcr.io/eudaimoniaya/e-commerce-system`（小写 owner），与 GitHub 网页 URL 大小写无关。
+
 ## 决策 4：workflow 文件命名与 display name
 
 ### 决策

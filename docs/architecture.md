@@ -404,7 +404,10 @@ push vX.Y.Z tag  → semver 校验 → build + push GHCR（tag: X.Y.Z，仅此�
 workflow_dispatch → 输入 version（必填 semver）→ 同上
 ```
 
-> **踩坑记录**：`gh workflow run` / GitHub Actions API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。解决：合并后通过 GitHub Actions UI 手动 Run workflow，或使用 `gh workflow run "Run Tests"`（此时 workflow 已在默认分支上）。
+> **踩坑记录**：
+>
+> - `gh workflow run` / GitHub Actions API 只识别**默认分支**上的 workflow 文件。新 workflow 必须合并到默认分支后才会被 `workflow_dispatch` 事件识别。解决：合并后通过 GitHub Actions UI 手动 Run workflow，或使用 `gh workflow run "Run Tests"`（此时 workflow 已在默认分支上）。
+> - **GHCR 镜像名须小写**：废止 `docker/metadata-action` 后 `build-push.yaml` 手动拼 tag，须对 `github.repository` 小写（`id: image` step → `${{ steps.image.outputs.name }}`）。owner 含大写时 buildx 报 `repository name must be lowercase`；旧 metadata-action 曾隐式处理，`v1.1.0` 首次触发回归。详见 ADR-006 决策 3。
 
 ## 9. 相关文档
 
