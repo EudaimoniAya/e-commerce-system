@@ -1,11 +1,11 @@
-"""engagement 域仓储层：UserFavorite CRUD。"""
+"""engagement 域仓储层：UserFavorite、UserBrowseHistory CRUD。"""
 
 import uuid
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engagement.models import UserFavorite
+from app.engagement.models import UserBrowseHistory, UserFavorite
 
 
 class FavoriteRepository:
@@ -76,3 +76,53 @@ class FavoriteRepository:
         )
         result = await self._session.execute(stmt)
         return result.rowcount
+
+
+class BrowseRepository:
+    """浏览仓储（user_browse_history 表）。"""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_user_and_product(
+        self,
+        user_id: uuid.UUID,
+        product_id: str,
+    ) -> UserBrowseHistory | None:
+        """按 (user_id, product_id) 查唯一行（upsert/删除前定位）。"""
+        stmt = select(UserBrowseHistory).where(
+            UserBrowseHistory.user_id == str(user_id),
+            UserBrowseHistory.product_id == product_id,
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def list_page(
+        self,
+        user_id: uuid.UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[UserBrowseHistory], int]:
+        """分页查询该用户浏览足迹（last_viewed_at DESC）+ total 计数。
+
+        Returns:
+            (browse_rows, total)：``total`` 为该用户全部 browse 行数（含 unavailable），不受分页影响。
+        """
+        base = select(UserBrowseHistory).where(
+            UserBrowseHistory.user_id == str(user_id)
+        )
+        count_result = await self._session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+        total = int(count_result.scalar_one())
+        result = await self._session.execute(
+            base.order_by(UserBrowseHistory.last_viewed_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all()), total
+
+    async def delete(self, row: UserBrowseHistory) -> None:
+        """删除单条浏览行。"""
+        await self._session.delete(row)

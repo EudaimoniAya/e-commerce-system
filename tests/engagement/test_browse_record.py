@@ -220,7 +220,8 @@ async def test_browse_record_active_view_count_increments(
     )
     assert after is not None
     assert after["view_count"] == 8
-    assert after["last_viewed_at"] > now - timedelta(hours=1)
+    # DB 读回为 naive 墙钟（asyncmy 对 DATETIME 必返 naive）；now 为 aware，需剥 tz 后比较
+    assert after["last_viewed_at"] > now.replace(tzinfo=None) - timedelta(hours=1)
 
 
 @pytest.mark.integration

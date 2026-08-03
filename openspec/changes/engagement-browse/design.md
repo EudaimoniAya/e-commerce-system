@@ -114,6 +114,10 @@ migration：新 revision（如 `010_engagement_browse.py`），`down_revision` =
 
 **不在 POST 路径裁剪 top N**（由 trim job 负责）。
 
+**会话与时间基准（2026-08-03 实现验证）：**
+- `record_browse_async` 复用请求级 session（非独立 session）——测试经 SAVEPOINT override 使 HTTP 共享 db_session，独立 session 写库会因 REPEATABLE READ 快照不可见；且 FastAPI 0.139 实证 **background task 先于 dependency teardown 运行**（session 未关闭），生产同样安全。
+- `now` 取 **UTC 墙钟 naive**（`datetime.now(UTC).replace(tzinfo=None)`）——asyncmy 对 DATETIME 列必返 naive（aware 落库亦按 UTC 墙钟存），测试 seed 用 `datetime.now(UTC)`；本地 CST(+8) 若用 `datetime.now()` 会差 8h 致 debounce/retention 误判。已实证 gap 计算正确。
+
 **替代方案（未采用）：** 同步写 + 200 — 简单但 ADR/演进需 202 语义对接 Outbox；Outbox 本 change 不做。
 
 ### 6. view_count 语义：间断重置累计

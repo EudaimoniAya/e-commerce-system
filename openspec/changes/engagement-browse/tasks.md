@@ -28,10 +28,10 @@
 
 ## 5. engagement browse 实现（绿）
 
-- [ ] 5.1 `repository.py` 追加 BrowseRepository；schemas（BrowseItem、UnavailableBrowseItem、BrowseListResponse、BrowseRecordRequest、BrowseAcceptedResponse）
-- [ ] 5.2 `BrowseService`：POST 校验 + `record_browse_async`（upsert/debounce/view_count）、`_classify_browses`、list、delete；注入 `ShopService`
-- [ ] 5.3 `deps.py` + `router.py` 追加 `/browse*`（BackgroundTasks）；无需改 `main.py`（同 engagement router）
-- [ ] 5.4 跑 browse integration 测试至全绿
+- [x] 5.1 `repository.py` 追加 BrowseRepository；schemas（BrowseItem、UnavailableBrowseItem、BrowseListResponse、BrowseRecordRequest、BrowseAcceptedResponse）
+- [x] 5.2 `BrowseService`：POST 校验 + `record_browse_async`（upsert/debounce/view_count）、`_classify_browses`、list、delete；注入 `ShopService`
+- [x] 5.3 `deps.py` + `router.py` 追加 `/browse*`（BackgroundTasks）；无需改 `main.py`（同 engagement router）
+- [x] 5.4 跑 browse integration 测试至全绿
 
 ## 6. 文档与 CI
 
