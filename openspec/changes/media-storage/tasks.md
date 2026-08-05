@@ -1,19 +1,19 @@
 ## 1. TDD — 失败测试（红）
 
-- [ ] 1.1 扩展 `tests/support/`：
+- [x] 1.1 扩展 `tests/support/`：
   - `results.py` 追加 `MediaResult`
   - `helper/media.py` 追加 `upload_media`（返回 `MediaResult`，不替 Case 断言）
   - 小体积 PNG/JPEG fixture bytes（helper 内常量或 `tests/support/fixtures/`）
-- [ ] 1.2 编写 `tests/unit/media/test_storage_local.py`（Local + pytest `tmp_path`：save/open/delete、分片路径）；**不编写** `app/media/storage/` 实现
-- [ ] 1.3 编写 `tests/unit/media/test_magic_bytes.py`（JPEG/PNG/WEBP 通过、SVG/伪造 Content-Type 拒绝）；**不编写** validation 实现
-- [ ] 1.4 编写 `tests/unit/media/test_visibility.py`（`owner_only` / `public` 读规则；InMemory 注入）；**不编写** service 实现
-- [ ] 1.5 编写 `tests/media/test_upload.py`（201 + `MediaSummary` 形状、401）；**不编写** router/service
-- [ ] 1.6 编写 `tests/media/test_upload_validation.py`（超大、SVG、魔数不匹配 → 413/422）；**不编写**实现
-- [ ] 1.7 编写 `tests/media/test_download.py`（`public` 匿名 200、`owner_only` owner 200/非 owner 403、404）；**不编写**实现
-- [ ] 1.8 编写 `tests/media/test_delete.py`（owner 204、非 owner 403）；**不编写**实现
-- [ ] 1.9 编写 `tests/media/test_rate_limit.py`（超限 429）；**不编写**实现
-- [ ] 1.10 编写 `tests/media/test_duplicate_upload.py`（同字节两次 upload → 不同 `id`）；**不编写**实现
-- [ ] 1.11 `devbox run -- task db:up` 后跑 `tests/media/`、`tests/unit/media/`，确认失败（红）
+- [x] 1.2 编写 `tests/unit/media/test_storage_local.py`（Local + pytest `tmp_path`：save/open/delete、分片路径）；**不编写** `app/media/storage/` 实现
+- [x] 1.3 编写 `tests/unit/media/test_magic_bytes.py`（JPEG/PNG/WEBP 通过、SVG/伪造 Content-Type 拒绝）；**不编写** validation 实现
+- [x] 1.4 编写 `tests/unit/media/test_visibility.py`（`owner_only` / `public` 读规则；InMemory 注入）；**不编写** service 实现
+- [x] 1.5 编写 `tests/media/test_upload.py`（201 + `MediaSummary` 形状、401）；**不编写** router/service
+- [x] 1.6 编写 `tests/media/test_upload_validation.py`（超大、SVG、魔数不匹配 → 413/422）；**不编写**实现
+- [x] 1.7 编写 `tests/media/test_download.py`（`public` 匿名 200、`owner_only` owner 200/非 owner 403、404）；**不编写**实现
+- [x] 1.8 编写 `tests/media/test_delete.py`（owner 204、非 owner 403）；**不编写**实现
+- [x] 1.9 编写 `tests/media/test_rate_limit.py`（超限 429）；**不编写**实现
+- [x] 1.10 编写 `tests/media/test_duplicate_upload.py`（同字节两次 upload → 不同 `id`）；**不编写**实现
+- [x] 1.11 `devbox run -- task db:up` 后跑 `tests/media/`、`tests/unit/media/`，确认失败（红）
 
 ## 2. 配置与测试基建（绿 · 前置）
 

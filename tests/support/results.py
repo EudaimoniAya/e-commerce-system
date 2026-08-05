@@ -305,3 +305,17 @@ class InboxListResult:
 
     status_code: int
     body: dict | None = None
+
+
+@dataclass
+class MediaResult:
+    """POST /media 调用结果。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 2xx/201 时解析为 dict（含 id/url/content_type/size_bytes/created_at）；
+              非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None
