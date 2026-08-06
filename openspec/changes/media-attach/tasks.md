@@ -7,14 +7,14 @@
 
 > migration + ORM 已就绪；service/router 尚未接入 → 测试因**行为不匹配**失败（非 AttributeError）。
 
-- [ ] 2.1 更新 `tests/support/builders.py`：`build_shop_create` / `build_product_create` 用 `logo_media_id` / `primary_media_id`，移除 `logo_url` / `image_url`
-- [ ] 2.2 更新 `tests/support/helper/catalog.py`：create_shop / create_product 编排 `upload_media` + media_id（或接受显式 media_id 参数）
-- [ ] 2.3 编写 `tests/user/test_avatar_attach.py`（attach 200 + avatar_url、403 绑他人、422 非 image、清空 null、公开 GET）；**不编写** user/media attach 实现
-- [ ] 2.4 编写/更新 `tests/catalog/test_shop_media.py`、`tests/catalog/test_product_media.py`（logo/主图 attach、403、422、响应 url）；**不编写** catalog 实现
-- [ ] 2.5 编写 `tests/media/test_get_media_metadata.py`（public 匿名 200、owner_only 403/200、404）；**不编写** `GET /media/{id}` 实现
-- [ ] 2.6 编写/更新 `tests/media/test_delete_media.py`：非 owner DELETE public media → 403；编写 `tests/media/test_delete_referenced.py`（avatar/logo/product 引用 → 409）；**不编写** 修复与 count_references
-- [ ] 2.7 更新 `tests/unit/catalog/test_engagement_product_service.py`（row 含 `primary_media_id`、mock resolve → image_url）；**不编写** service 改动
-- [ ] 2.8 `devbox run -- task db:up` 后跑上述新增/变更测例，确认失败（红）
+- [x] 2.1 更新 `tests/support/builders.py`：`build_shop_create` / `build_product_create` 用 `logo_media_id` / `primary_media_id`，移除 `logo_url` / `image_url`
+- [x] 2.2 更新 `tests/support/helper/catalog.py`：create_shop / create_product 编排 `upload_media` + media_id（或接受显式 media_id 参数）
+- [x] 2.3 编写 `tests/user/test_avatar_attach.py`（attach 200 + avatar_url、403 绑他人、422 非 image、清空 null、公开 GET）；**不编写** user/media attach 实现
+- [x] 2.4 编写/更新 `tests/catalog/test_shop_media.py`、`tests/catalog/test_product_media.py`（logo/主图 attach、403、422、响应 url）；**不编写** catalog 实现
+- [x] 2.5 编写 `tests/media/test_get_media_metadata.py`（public 匿名 200、owner_only 403/200、404）；**不编写** `GET /media/{id}` 实现
+- [x] 2.6 编写/更新 `tests/media/test_delete_media.py`：非 owner DELETE public media → 403；编写 `tests/media/test_delete_referenced.py`（avatar/logo/product 引用 → 409）；**不编写** 修复与 count_references
+- [x] 2.7 更新 `tests/unit/catalog/test_engagement_product_service.py`（row 含 `primary_media_id`、mock resolve → image_url）；**不编写** service 改动
+- [x] 2.8 `devbox run -- task db:up` 后跑上述新增/变更测例，确认失败（红）
 
 ## 3. media 域 bugfix + 增强（绿）
 

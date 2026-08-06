@@ -15,7 +15,7 @@ class ShopCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=128)
     description: str | None = None
-    logo_url: str | None = Field(default=None, max_length=512)
+    logo_media_id: str | None = Field(default=None, max_length=36)
 
 
 class ShopUpdate(BaseModel):
@@ -23,7 +23,7 @@ class ShopUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=128)
     description: str | None = None
-    logo_url: str | None = Field(default=None, max_length=512)
+    logo_media_id: str | None = Field(default=None, max_length=36)
     status: Literal["active", "closed"] | None = None
 
 
@@ -76,7 +76,7 @@ class ProductCreate(BaseModel):
     price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     stock: int = Field(gt=0)
     description: str | None = None
-    image_url: str | None = Field(default=None, max_length=512)
+    primary_media_id: str | None = Field(default=None, max_length=36)
     is_published: bool = False
     category_ids: list[str] = Field(min_length=1)
     primary_category_id: str
@@ -112,7 +112,7 @@ class ProductUpdate(BaseModel):
     price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     stock: int | None = Field(default=None, ge=0)
     description: str | None = None
-    image_url: str | None = Field(default=None, max_length=512)
+    primary_media_id: str | None = Field(default=None, max_length=36)
     is_published: bool | None = None
     category_ids: list[str] | None = None
     primary_category_id: str | None = None

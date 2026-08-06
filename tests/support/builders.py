@@ -84,13 +84,13 @@ def build_shop_create(
     *,
     name: str | None = None,
     description: str | None = None,
-    logo_url: str | None = None,
+    logo_media_id: str | None = None,
 ) -> ShopCreate:
     """构造合法 ShopCreate。"""
     return ShopCreate(
         name=name or unique_shop_name(),
         description=description,
-        logo_url=logo_url,
+        logo_media_id=logo_media_id,
     )
 
 
@@ -112,7 +112,7 @@ def build_product_create(
     price: str | Decimal = "99.00",
     stock: int = 10,
     description: str | None = None,
-    image_url: str | None = None,
+    primary_media_id: str | None = None,
     is_published: bool = False,
     category_ids: list[str],
     primary_category_id: str,
@@ -123,7 +123,7 @@ def build_product_create(
         price=Decimal(str(price)),
         stock=stock,
         description=description,
-        image_url=image_url,
+        primary_media_id=primary_media_id,
         is_published=is_published,
         category_ids=category_ids,
         primary_category_id=primary_category_id,

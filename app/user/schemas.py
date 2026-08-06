@@ -45,6 +45,7 @@ class UserProfileUpdateRequest(BaseModel):
 
     email: EmailStr | None = None
     nickname: str | None = None
+    avatar_media_id: str | None = None
 
 
 # ── 响应 DTO ────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ class UserResponse(BaseModel):
     phone: str
     email: str | None = None
     nickname: str
+    avatar_url: str | None = None
     created_at: datetime
 
 
