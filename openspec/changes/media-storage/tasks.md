@@ -17,9 +17,9 @@
 
 ## 2. 配置与测试基建（绿 · 前置）
 
-- [ ] 2.1 `app/infra/config.py` 增加 `media_storage_root`、`media_storage_backend`、`media_max_size_bytes`、media 限速配置；更新 `.env.example`
-- [ ] 2.2 `.gitignore` 增加 `.data/media`
-- [ ] 2.3 integration 测试 bootstrap：`MEDIA_STORAGE_BACKEND=memory` 或 `dependency_overrides[get_storage_backend]` → `InMemoryBackend`
+- [x] 2.1 `app/infra/config.py` 增加 `media_storage_root`、`media_storage_backend`、`media_max_size_bytes`、media 限速配置；更新 `.env.example`
+- [x] 2.2 `.gitignore` 增加 `.data/media`
+- [x] 2.3 integration 测试 bootstrap：`MEDIA_STORAGE_BACKEND=memory` 或 `dependency_overrides[get_storage_backend]` → `InMemoryBackend`
 
 ## 3. StorageBackend（绿）
 

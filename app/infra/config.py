@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     browse_history_retention_days: int = 30
     browse_debounce_seconds: int = 5
 
+    # ── media 平台域 ─────────────────────────────────────────────────
+    # storage backend：local（落盘 .data/media）| memory（进程内，测试用）
+    media_storage_backend: str = "local"
+    # 本地存储根目录（仅 local backend 生效）
+    media_storage_root: str = ".data/media"
+    # 上传文件大小上限（字节），默认 5 MB
+    media_max_size_bytes: int = 5_242_880
+    # 每用户每窗口最多上传次数（Redis 滑动窗口限速）
+    media_upload_rate_limit_per_minute: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:

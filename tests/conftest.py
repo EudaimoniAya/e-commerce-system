@@ -195,6 +195,36 @@ async def integration_client(
         yield ac
 
 
+@pytest.fixture(autouse=True)
+async def _override_media_storage_backend(
+    request: pytest.FixtureRequest,
+) -> AsyncIterator[None]:
+    """integration 测试自动注入 InMemoryBackend，避免文件 IO 残留。
+
+    仅 ``@pytest.mark.integration`` 测例触发；单元测试不受影响。
+    ``app/media/`` 模块创建后自动激活；当前不存在则静默跳过。
+    """
+    if request.node.get_closest_marker("integration") is None:
+        yield
+        return
+
+    try:
+        from app.media.deps import get_storage_backend  # noqa: F401
+        from app.media.storage.memory import InMemoryBackend  # noqa: F401
+    except ImportError:
+        yield
+        return
+
+    from app.main import app as _app
+
+    backend = InMemoryBackend()
+    _app.dependency_overrides[get_storage_backend] = lambda: backend
+    try:
+        yield
+    finally:
+        _app.dependency_overrides.pop(get_storage_backend, None)
+
+
 @pytest.fixture
 async def authenticated_user(integration_client: AsyncClient) -> AuthContext:
     """注册成功后的极薄 AuthContext（orchestrator → fail-fast → Context）。"""
