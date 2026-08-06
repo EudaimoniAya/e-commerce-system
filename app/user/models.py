@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infra.database import Base
@@ -27,6 +27,11 @@ class User(Base):
     )
     password_hash: Mapped[str | None] = mapped_column(
         String(255), nullable=True
+    )
+    avatar_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        String(36),
+        ForeignKey("media_assets.id"),
+        nullable=True,
     )
     nickname: Mapped[str] = mapped_column(String(64))
     is_active: Mapped[bool] = mapped_column(

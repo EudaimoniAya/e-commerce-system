@@ -1,7 +1,7 @@
 ## 1. migration（红测前置）
 
-- [ ] 1.1 Alembic：`users.avatar_media_id`；`shops.logo_media_id` + drop `logo_url`；`products.primary_media_id` + drop `image_url`
-- [ ] 1.2 更新 user/catalog ORM models
+- [x] 1.1 Alembic：`users.avatar_media_id`；`shops.logo_media_id` + drop `logo_url`；`products.primary_media_id` + drop `image_url`
+- [x] 1.2 更新 user/catalog ORM models
 
 ## 2. TDD — 失败测试（红）
 
