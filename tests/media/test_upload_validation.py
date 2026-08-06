@@ -13,11 +13,11 @@ from tests.support.helper.media import MINI_PNG_BYTES, SVG_BYTES, TEXT_BYTES, up
 @pytest.mark.asyncio
 @allure.epic("media")
 @allure.feature("upload_validation")
-@allure.title("上传超过大小上限的文件返回 413 或 422")
-async def test_upload_oversized_returns_413_or_422(
+@allure.title("上传超过大小上限的文件返回 413")
+async def test_upload_oversized_returns_413(
     integration_client: AsyncClient, authenticated_user: AuthContext
 ) -> None:
-    """超过 media_max_size_bytes 的上传应被拒绝。"""
+    """超过 media_max_size_bytes 的上传应在 read() 之前被预检拦截（413）。"""
     # 10 MB 数据（默认上限 5 MB）
     large_data = b"x" * (10 * 1024 * 1024)
     result = await upload_media(
@@ -28,7 +28,7 @@ async def test_upload_oversized_returns_413_or_422(
         content_type="image/png",
     )
 
-    assert result.status_code in (413, 422)
+    assert result.status_code == 413
 
 
 @pytest.mark.integration

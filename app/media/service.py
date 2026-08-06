@@ -75,12 +75,17 @@ class MediaService:
             created_at=datetime.now(timezone.utc),
         )
 
-    async def get_file_stream(self, media_id: str) -> bytes:
-        """从 storage 读取文件字节。"""
+    async def get_file_stream(self, media_id: str) -> tuple[bytes, str]:
+        """从 storage 读取文件字节与 content_type。
+
+        Returns:
+            (bytes, content_type) — 字节 + 持久化的 MIME 类型。
+        """
         asset = await self._load(uuid.UUID(media_id))
         if asset is None:
             raise FileNotFoundError(media_id)
-        return await self._storage.open(asset.storage_key)
+        data = await self._storage.open(asset.storage_key)
+        return data, asset.content_type
 
     async def delete(self, media_id: str) -> None:
         """删除媒体资产：DB 行 → storage 字节。"""

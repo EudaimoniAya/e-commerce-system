@@ -43,12 +43,12 @@
 
 ### Requirement: Upload validation chain
 
-上传 SHALL 按序校验：（1）流式累计大小不超过 `media_max_size_bytes`（默认 5MB），超限 SHALL 413 或 422；（2）最终 MIME SHALL 属于 `image/jpeg`、`image/png`、`image/webp`；（3）SHALL 魔数校验文件头，不信任客户端 Content-Type；（4）持久化 `content_type` SHALL 为魔数结果；（5）SHALL 拒绝 `image/svg+xml` 及魔数不匹配文件。
+上传 SHALL 按序校验：（1）`file.size` 预检不超过 `media_max_size_bytes`（默认 5MB），超限 SHALL 413；（2）最终 MIME SHALL 属于 `image/jpeg`、`image/png`、`image/webp`；（3）SHALL 魔数校验文件头，不信任客户端 Content-Type；（4）持久化 `content_type` SHALL 为魔数结果；（5）SHALL 拒绝 `image/svg+xml` 及魔数不匹配文件。
 
 #### Scenario: Oversized upload rejected
 
 - **WHEN** 已登录用户上传超过 `media_max_size_bytes` 的文件
-- **THEN** 响应 status SHALL 为 413 或 422
+- **THEN** 响应 status SHALL 为 413
 - **AND** SHALL NOT 创建 `media_assets` 行
 
 #### Scenario: SVG upload rejected
