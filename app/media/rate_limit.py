@@ -10,15 +10,15 @@ import uuid
 
 from fastapi import Depends, HTTPException, status
 
+from app.infra.auth import get_current_user_id
 from app.infra.config import Settings, get_settings
 from app.infra.redis import get_redis
 
-# 与 conftest 中 flush_test_redis_db 隔离的 key 前缀
 _KEY_PREFIX = "media_rate"
 
 
 async def check_upload_rate_limit(
-    user_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ) -> None:
     """检查当前用户是否超过上传速率限制。

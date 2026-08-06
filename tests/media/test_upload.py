@@ -6,7 +6,7 @@ from httpx import AsyncClient
 
 from tests.support.contexts import AuthContext
 from tests.support.helper.auth import auth_headers, register_user_via_otp
-from tests.support.helper.media import MINI_PNG_BYTES, upload_media
+from tests.support.helper.media import MINI_JPEG_BYTES, MINI_PNG_BYTES, upload_media
 
 
 @pytest.mark.integration
@@ -54,7 +54,7 @@ async def test_upload_jpeg_returns_201(
     result = await upload_media(
         integration_client,
         headers=auth_headers(user.body.access_token),
-        file_bytes=MINI_PNG_BYTES,  # 绿阶段替换为 MINI_JPEG_BYTES
+        file_bytes=MINI_JPEG_BYTES,
         filename="photo.jpg",
         content_type="image/jpeg",
     )
