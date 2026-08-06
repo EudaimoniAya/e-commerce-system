@@ -35,15 +35,15 @@
 
 ## 5. 迁移与 ORM（绿 · 基础）
 
-- [ ] 5.1 `app/media/models.py` `MediaAsset` ORM（8 列）；`alembic/env.py` 导入 media models
-- [ ] 5.2 新增 migration 创建 `media_assets`
-- [ ] 5.3 `app/media/repository.py` CRUD（insert / get_by_id / delete_by_id）
+- [x] 5.1 `app/media/models.py` `MediaAsset` ORM（8 列）；`alembic/env.py` 导入 media models
+- [x] 5.2 新增 migration 创建 `media_assets`
+- [x] 5.3 `app/media/repository.py` CRUD（insert / get_by_id / delete_by_id）
 
 ## 6. Service 层（绿）
 
-- [ ] 6.1 `app/media/schemas.py` `MediaSummary`；`app/media/deps.py` storage/service 依赖
-- [ ] 6.2 `app/media/service.py`：upload（先 save 后 insert + 补偿 delete）、delete、get_file_stream、can_read
-- [ ] 6.3 跑 `tests/unit/media/test_visibility.py` 至全绿
+- [x] 6.1 `app/media/schemas.py` `MediaSummary`；`app/media/deps.py` storage/service 依赖
+- [x] 6.2 `app/media/service.py`：upload（先 save 后 insert + 补偿 delete）、delete、get_file_stream、can_read
+- [x] 6.3 跑 `tests/unit/media/test_visibility.py` 至全绿
 
 ## 7. HTTP 路由（绿）
 
