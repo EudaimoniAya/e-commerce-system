@@ -23,15 +23,15 @@
 
 ## 3. StorageBackend（绿）
 
-- [ ] 3.1 `app/media/storage/protocol.py` 定义 `StorageBackend`
-- [ ] 3.2 `app/media/storage/local.py` 实现 `LocalFilesystemBackend`
-- [ ] 3.3 `app/media/storage/memory.py` 实现 `InMemoryBackend`
-- [ ] 3.4 跑 `tests/unit/media/test_storage_local.py` 至全绿
+- [x] 3.1 `app/media/storage/protocol.py` 定义 `StorageBackend`
+- [x] 3.2 `app/media/storage/local.py` 实现 `LocalFilesystemBackend`
+- [x] 3.3 `app/media/storage/memory.py` 实现 `InMemoryBackend`
+- [x] 3.4 跑 `tests/unit/media/test_storage_local.py` 至全绿
 
 ## 4. 魔数与校验（绿）
 
-- [ ] 4.1 `app/media/validation.py`（或等效模块）：流式大小计数、MIME 白名单、魔数检测
-- [ ] 4.2 跑 `tests/unit/media/test_magic_bytes.py` 至全绿
+- [x] 4.1 `app/media/validation.py`（或等效模块）：流式大小计数、MIME 白名单、魔数检测
+- [x] 4.2 跑 `tests/unit/media/test_magic_bytes.py` 至全绿
 
 ## 5. 迁移与 ORM（绿 · 基础）
 
