@@ -26,6 +26,9 @@ env:
   BROWSE_HISTORY_MAX_PER_USER: "3"
   BROWSE_HISTORY_RETENTION_DAYS: "30"
   BROWSE_DEBOUNCE_SECONDS: "5"
+  # media 域：integration 测试强制进程内 backend（SAVEPOINT 不回滚文件 IO）
+  MEDIA_STORAGE_BACKEND: memory
+  MEDIA_STORAGE_ROOT: /tmp/runner-media
 
 jobs:
   # ── filter：路径筛选，仅 code 变更时运行 lint + test ─────────────────

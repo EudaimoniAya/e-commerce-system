@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.catalog.router import router as catalog_router
 from app.engagement.router import router as engagement_router
 from app.infra.config import get_settings
+from app.media.router import router as media_router
 from app.infra.errors.register import register_exception_handlers
 from app.infra.health.router import router as health_router
 from app.infra.logging.middleware import RequestIDMiddleware
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(ordering_router)
     app.include_router(engagement_router)
     app.include_router(support_router)
+    app.include_router(media_router)
 
     return app
 

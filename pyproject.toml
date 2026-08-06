@@ -15,6 +15,7 @@ dependencies = [
     "email-validator",
     "loguru",
     "redis>=5.2",
+    "python-multipart>=0.0.32",
 ]
 
 [dependency-groups]

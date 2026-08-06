@@ -14,6 +14,7 @@ from app.infra.database import Base
 import app.catalog.models  # noqa: F401
 import app.engagement.models  # noqa: F401
 import app.infra.models  # noqa: F401
+import app.media.models  # noqa: F401
 import app.ordering.models  # noqa: F401
 import app.support.models  # noqa: F401
 import app.user.models  # noqa: F401
