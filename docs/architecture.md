@@ -61,6 +61,7 @@
 | `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
 | `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **Phase 2（收藏 + 浏览已实现）** |
 | `support` | 店铺客服会话（shop 管辖、lazy create、inbox、product ref；预留 AI） | SupportConversation、SupportMessage | **Phase 2（已实现）** |
+| `media` | 媒体文件上传/下载/删除、所有权与可见性控制、本地存储抽象（双 backend） | MediaAsset | **Phase 3（已实现，见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md)）** |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -172,6 +173,19 @@ e-commerce-system/
 │       ├── models.py             # support_conversations、support_messages
 │       ├── schemas.py
 │       └── deps.py
+│   └── media/                    # 媒体平台域（上传/下载/删除已实现，见 media-storage spec）
+│       ├── router.py             # POST /media、GET /media/{id}/file、DELETE /media/{id}
+│       ├── service.py            # upload、delete、get_file_stream、can_read
+│       ├── repository.py         # MediaRepository（insert/get_by_id/delete_by_id）
+│       ├── models.py             # media_assets（8 列）
+│       ├── schemas.py            # MediaSummary
+│       ├── deps.py               # get_storage_backend、get_media_service
+│       ├── rate_limit.py         # Redis 固定窗口上传限速
+│       ├── validation.py         # 魔数检测 + MIME 白名单 + 大小校验
+│       └── storage/
+│           ├── protocol.py       # StorageBackend 协议
+│           ├── local.py          # LocalFilesystemBackend（落盘）
+│           └── memory.py         # InMemoryBackend（进程内，测试用）
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
@@ -185,6 +199,7 @@ e-commerce-system/
 │       ├── 009_engagement_favorites.py  # user_favorites
 │       ├── 010_engagement_browse.py     # user_browse_history
 │       └── 011_support_conversations.py # support_conversations、support_messages
+│       └── b4fffd14db3c_012_media_assets.py  # media_assets
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -197,6 +212,9 @@ e-commerce-system/
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
 │   ├── ordering/                 # 买家订单 + 购物车 integration
 │   ├── engagement/               # 用户收藏 + 浏览 integration
+│   ├── media/                     # media 域 integration（17 测例）
+│   ├── unit/
+│   │   └── media/                  # media 域单元测试（29 测例）
 │   └── support/                  # 店铺客服会话 integration
 ├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
 │   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
@@ -253,6 +271,8 @@ e-commerce-system/
 **support 读路径（买家）**：`GET .../conversation` 有会话 200 / 无 404；`GET .../messages` 分页 ASC / 无会话 404。非 buyer 且非店主 → **404**。
 
 **support 店主路径（`GET /support/inbox*`、`POST .../inbox/{id}/messages`）**：`get_current_shop` 鉴权；inbox 按 `updated_at DESC` 含 `last_message_preview`；非本店会话 404；closed 店仍允许回复已有会话。support **不得** import catalog / ordering ORM；商品校验走 `ShopSupportContext` + `validate_product_refs_for_shop`（catalog service，见 `catalog-products` spec）。
+
+**`media_assets` 表（media 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`）、`visibility`（`owner_only` | `public`，默认 `owner_only`）、`content_type`（魔数检测后的 MIME）、`size_bytes`、`storage_key`（两级分片路径 `{hex[:2]}/{hex[2:4]}/{hex}`）、`original_filename`（客户端上传名）、`created_at`。字节由 `StorageBackend` 管理（`LocalFilesystemBackend` 落盘 / `InMemoryBackend` 测试用）；API URL 用 `id` 而非 `storage_key`。上传校验链：`file.size` 预检（413）→ MIME 白名单 → 魔数检测 → 禁 SVG。限速：Redis 固定窗口每用户计数。media **不得** import 业务域 ORM/repository。**不实现**：attach、`mark_public`、DELETE 引用 409、`GET /media/{id}` JSON 元数据（留给 `media-wire`）。见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md)。
 
 ### 5.2 规划中的完整结构
 
@@ -311,6 +331,19 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
+├── media/                        # 媒体平台域（上传/下载/删除已实现）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── deps.py
+│   ├── rate_limit.py
+│   ├── validation.py
+│   └── storage/
+│       ├── protocol.py
+│       ├── local.py
+│       └── memory.py
 ├── events/                       # 后期
 └── ai/                           # 后期
 ```

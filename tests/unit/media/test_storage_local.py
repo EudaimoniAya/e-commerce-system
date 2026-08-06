@@ -4,6 +4,7 @@
 """
 
 import uuid
+from pathlib import Path
 
 import allure
 import pytest
@@ -21,7 +22,7 @@ def _rand_key() -> str:
 @allure.epic("media")
 @allure.feature("storage_local")
 @allure.title("save 后 open 返回相同字节（round-trip）")
-async def test_save_open_roundtrip(tmp_path) -> None:
+async def test_save_open_roundtrip(tmp_path: Path) -> None:
     """save 后 open 应返回完全相同的字节。"""
     backend = LocalFilesystemBackend(root=tmp_path)
     key = _rand_key()
@@ -37,7 +38,7 @@ async def test_save_open_roundtrip(tmp_path) -> None:
 @allure.epic("media")
 @allure.feature("storage_local")
 @allure.title("open 不存在的 key 抛出 FileNotFoundError")
-async def test_open_nonexistent_raises(tmp_path) -> None:
+async def test_open_nonexistent_raises(tmp_path: Path) -> None:
     """open 从未 save 过的 key 应抛出 FileNotFoundError。"""
     backend = LocalFilesystemBackend(root=tmp_path)
     key = _rand_key()
@@ -50,7 +51,7 @@ async def test_open_nonexistent_raises(tmp_path) -> None:
 @allure.epic("media")
 @allure.feature("storage_local")
 @allure.title("delete 后 open 抛出 FileNotFoundError")
-async def test_delete_then_open_raises(tmp_path) -> None:
+async def test_delete_then_open_raises(tmp_path: Path) -> None:
     """delete 已保存的 key 后 open 应抛出 FileNotFoundError。"""
     backend = LocalFilesystemBackend(root=tmp_path)
     key = _rand_key()
@@ -67,7 +68,7 @@ async def test_delete_then_open_raises(tmp_path) -> None:
 @allure.epic("media")
 @allure.feature("storage_local")
 @allure.title("delete 不存在的 key 静默成功（幂等）")
-async def test_delete_nonexistent_noop(tmp_path) -> None:
+async def test_delete_nonexistent_noop(tmp_path: Path) -> None:
     """delete 不存在的 key 应静默成功，不抛异常。"""
     backend = LocalFilesystemBackend(root=tmp_path)
     key = _rand_key()
@@ -80,7 +81,7 @@ async def test_delete_nonexistent_noop(tmp_path) -> None:
 @allure.epic("media")
 @allure.feature("storage_local")
 @allure.title("storage_key 两级分片路径正确（{hex[:2]}/{hex[2:4]}/{id}）")
-async def test_shard_path_structure(tmp_path) -> None:
+async def test_shard_path_structure(tmp_path: Path) -> None:
     """save 后文件应位于预期的分片路径下。"""
     backend = LocalFilesystemBackend(root=tmp_path)
     id_ = uuid.uuid4().hex
@@ -98,7 +99,7 @@ async def test_shard_path_structure(tmp_path) -> None:
 @allure.epic("media")
 @allure.feature("storage_local")
 @allure.title("同一 key 重复 save 覆盖旧内容")
-async def test_save_overwrites_existing(tmp_path) -> None:
+async def test_save_overwrites_existing(tmp_path: Path) -> None:
     """同一 key save 两次，后一次覆盖前一次内容。"""
     backend = LocalFilesystemBackend(root=tmp_path)
     key = _rand_key()

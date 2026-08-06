@@ -85,7 +85,7 @@ async def upload_media(
     raw = await file.read()
 
     # 校验链（大小 → MIME 白名单 → 魔数检测 → 声明一致性）
-    content_type = validate_media_upload(
+    _content_type = validate_media_upload(
         data=raw,
         declared_content_type=file.content_type or "application/octet-stream",
         max_size_bytes=settings.media_max_size_bytes,

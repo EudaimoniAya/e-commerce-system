@@ -58,11 +58,11 @@
 
 ## 9. 文档与 CI
 
-- [ ] 9.1 `docs/architecture.md` 补充平台域 `media/`（一行 + 指向 spec）
-- [ ] 9.2 CI workflow env：`MEDIA_STORAGE_ROOT=/tmp/runner-media`（若需）
-- [ ] 9.3 `devbox run -- task ci` 全绿；手动验证 upload → `/media/{id}/file` → delete
+- [x] 9.1 `docs/architecture.md` 补充平台域 `media/`（一行 + 指向 spec）
+- [x] 9.2 CI workflow env：`MEDIA_STORAGE_ROOT=/tmp/runner-media`（若需）
+- [x] 9.3 `devbox run -- task ci` 全绿；手动验证 upload → `/media/{id}/file` → delete
 
 ## 10. 确认 Non-goals
 
-- [ ] 10.1 确认 user / catalog / ordering / engagement / support 无 schema / API 变更
-- [ ] 10.2 确认未实现 attach、`mark_public`、DELETE 引用 409、`GET /media/{id}` JSON 元数据
+- [x] 10.1 确认 user / catalog / ordering / engagement / support 无 schema / API 变更
+- [x] 10.2 确认未实现 attach、`mark_public`、DELETE 引用 409、`GET /media/{id}` JSON 元数据
