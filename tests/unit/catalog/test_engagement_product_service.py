@@ -2,7 +2,10 @@
 
 对齐 spec（catalog-products "Batch product lookup for engagement"）中字段相关的
 scenario：完整字段映射、不过滤上架/店状态、不存在 id 不在返回列表。
-使用 AsyncMock 注入 ``product_repository``，不触碰数据库（沿用 test_sms_service.py 先例）。
+使用 AsyncMock 注入 ``product_repository`` 与 ``media_service``，不触碰数据库。
+
+media-attach 变更：row 中 ``image_url`` 改为 ``primary_media_id``；
+``image_url`` 由 ``media.service.resolve_urls`` 批量 resolve 填充。
 """
 
 from decimal import Decimal
@@ -16,7 +19,10 @@ from app.catalog.service import ShopService
 
 
 def _full_row(**overrides: object) -> dict:
-    """构造 repository 返回的完整行 dict（fetch_products_with_shop_by_ids 的契约）。"""
+    """构造 repository 返回的完整行 dict（fetch_products_with_shop_by_ids 的契约）。
+
+    media-attach 后 image_url 列已被 primary_media_id 取代。
+    """
     row: dict = {
         "id": "11111111-1111-4111-8111-111111111111",
         "shop_id": "22222222-2222-4222-8222-222222222222",
@@ -24,7 +30,7 @@ def _full_row(**overrides: object) -> dict:
         "price": Decimal("99.00"),
         "stock": 10,
         "is_published": True,
-        "image_url": "https://cdn.example.com/a.jpg",
+        "primary_media_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "shop_name": "测试店铺",
         "shop_status": "active",
         "owner_user_id": "33333333-3333-4333-8333-333333333333",
@@ -39,12 +45,27 @@ def mock_product_repository() -> AsyncMock:
 
 
 @pytest.fixture
-def shop_service(mock_product_repository: AsyncMock) -> ShopService:
-    """注入 mock 的 product_repository；其余 repository 不参与本方法。"""
+def mock_media_service() -> AsyncMock:
+    """Mock media service：resolve_urls 返回 id→url 映射。"""
+    ms = AsyncMock()
+    ms.resolve_urls = AsyncMock(
+        return_value={
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa": "/media/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/file",
+        }
+    )
+    return ms
+
+
+@pytest.fixture
+def shop_service(
+    mock_product_repository: AsyncMock, mock_media_service: AsyncMock
+) -> ShopService:
+    """注入 mock 的 product_repository 与 media_service。"""
     return ShopService(
         repository=AsyncMock(),
         category_repository=AsyncMock(),
         product_repository=mock_product_repository,
+        media_service=mock_media_service,
     )
 
 
@@ -70,7 +91,7 @@ async def test_maps_all_engagement_fields(
     assert product.shop_name == row["shop_name"]
     assert product.name == row["name"]
     assert product.price == "99.00"  # Decimal 字符串化（两位小数）
-    assert product.image_url == row["image_url"]
+    assert product.image_url == "/media/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/file"
     assert product.is_published is True
     assert product.shop_active is True
 
@@ -94,14 +115,14 @@ async def test_price_formatted_as_two_decimal_string(
 
 @allure.epic("catalog")
 @allure.feature("engagement_product_service")
-@allure.title("image_url 为空时保持 None。")
+@allure.title("primary_media_id 为 None 时 image_url 保持 None。")
 @pytest.mark.asyncio
 async def test_image_url_none_preserved(
     shop_service: ShopService,
     mock_product_repository: AsyncMock,
 ) -> None:
-    """可空 image_url 保留 None，不做占位填充。"""
-    row = _full_row(image_url=None)
+    """primary_media_id=None → image_url=None（不做占位填充）。"""
+    row = _full_row(primary_media_id=None)
     mock_product_repository.fetch_products_with_shop_by_ids.return_value = [row]
 
     products = await shop_service.get_products_for_engagement([row["id"]])

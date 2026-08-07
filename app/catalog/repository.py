@@ -40,7 +40,7 @@ class ShopRepository:
         owner_user_id: uuid.UUID,
         name: str,
         description: str | None,
-        logo_url: str | None,
+        logo_media_id: str | None,
     ) -> Shop:
         """创建店铺并提交事务。"""
         shop = Shop(
@@ -48,7 +48,7 @@ class ShopRepository:
             owner_user_id=str(owner_user_id),
             name=name,
             description=description,
-            logo_url=logo_url,
+            logo_media_id=logo_media_id,
             status="active",
         )
         self._session.add(shop)
@@ -156,7 +156,7 @@ class ProductRepository:
         price: Decimal,
         stock: int,
         is_published: bool,
-        image_url: str | None,
+        primary_media_id: str | None,
         category_ids: list[uuid.UUID],
         primary_category_id: uuid.UUID,
     ) -> Product:
@@ -169,7 +169,7 @@ class ProductRepository:
             price=price,
             stock=stock,
             is_published=is_published,
-            image_url=image_url,
+            primary_media_id=primary_media_id,
         )
         self._session.add(product)
         await self._session.flush()
@@ -300,7 +300,7 @@ class ProductRepository:
                 Product.price,
                 Product.stock,
                 Product.is_published,
-                Product.image_url,
+                Product.primary_media_id,
                 Shop.name.label("shop_name"),
                 Shop.status.label("shop_status"),
                 Shop.owner_user_id,
@@ -316,7 +316,7 @@ class ProductRepository:
                 "price": row.price,
                 "stock": row.stock,
                 "is_published": row.is_published,
-                "image_url": row.image_url,
+                "primary_media_id": row.primary_media_id,
                 "shop_name": row.shop_name,
                 "shop_status": row.shop_status,
                 "owner_user_id": str(row.owner_user_id),

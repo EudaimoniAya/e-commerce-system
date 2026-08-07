@@ -1,8 +1,13 @@
 """media 域 HTTP helper 与 fixture bytes。"""
 
+import uuid
+
 from httpx import AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.results import MediaResult
+from tests.support.utils import decode_jwt_sub
 
 # ── Fixture bytes ────────────────────────────────────────────────────────────
 
@@ -70,3 +75,28 @@ async def upload_media(
         except Exception:
             body = None
     return MediaResult(status_code=response.status_code, body=body)
+
+
+async def insert_non_image_media(db_session: AsyncSession, token: str) -> str:
+    """直接插入一条 ``content_type=text/plain`` 的 media 行（非 image）并返回 media_id。
+
+    media-storage upload 校验仅收 ``image/*``，非 image media 无法经 ``POST /media``
+    创建；attach 的 422 场景需绕过 HTTP、直接写库模拟一条非 image 记录（owner 为
+    ``token`` 对应用户）。
+    """
+    user_id = decode_jwt_sub(token)
+    media_id = str(uuid.uuid4())
+    await db_session.execute(
+        text(
+            "INSERT INTO media_assets "
+            "(id, owner_user_id, visibility, content_type, size_bytes, storage_key, original_filename) "
+            "VALUES (:id, :owner, 'owner_only', 'text/plain', 4, :key, 'doc.txt')"
+        ),
+        {
+            "id": media_id,
+            "owner": user_id,
+            "key": f"{media_id[:2]}/{media_id[2:4]}/{media_id}",
+        },
+    )
+    await db_session.commit()
+    return media_id

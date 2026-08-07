@@ -39,13 +39,13 @@ async def create_shop(
     headers: dict[str, str],
     name: str | None = None,
     description: str | None = None,
-    logo_url: str | None = None,
+    logo_media_id: str | None = None,
 ) -> ShopResult:
     """调用 POST /shops，返回 ShopResult。"""
     request = build_shop_create(
         name=name,
         description=description,
-        logo_url=logo_url,
+        logo_media_id=logo_media_id,
     )
     response: Response = await client.post(
         "/shops",
@@ -66,7 +66,7 @@ async def register_and_open_shop(
     password: str = "password123",
     shop_name: str | None = None,
     description: str | None = None,
-    logo_url: str | None = None,
+    logo_media_id: str | None = None,
 ) -> tuple[SmsRegisterResult, ShopResult | None]:
     """注册用户并调用 POST /shops，返回 ``(SmsRegisterResult, ShopResult)``。
 
@@ -84,7 +84,7 @@ async def register_and_open_shop(
         headers=bearer_headers(registered.body.access_token),
         name=shop_name,
         description=description,
-        logo_url=logo_url,
+        logo_media_id=logo_media_id,
     )
     return (registered, shop_result)
 
@@ -119,7 +119,7 @@ async def create_product(
     price: str | Decimal = "99.00",
     stock: int = 10,
     description: str | None = None,
-    image_url: str | None = None,
+    primary_media_id: str | None = None,
     is_published: bool = False,
 ) -> ProductResult:
     """调用 POST /products，返回 ProductResult（不 assert 成功状态码）。
@@ -135,7 +135,7 @@ async def create_product(
         price=price,
         stock=stock,
         description=description,
-        image_url=image_url,
+        primary_media_id=primary_media_id,
         is_published=is_published,
         category_ids=[category_id],
         primary_category_id=category_id,

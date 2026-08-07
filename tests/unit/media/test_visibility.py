@@ -21,6 +21,7 @@ async def _upload_and_get_id(
         file_bytes=MINI_PNG_BYTES,
         original_filename="test.png",
         owner_user_id=owner_user_id,
+        content_type="image/png",
         visibility=visibility,
     )
     return result.id

@@ -38,7 +38,11 @@ class Shop(Base):
     )
     name: Mapped[str] = mapped_column(String(128), unique=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    logo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    logo_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        String(36),
+        ForeignKey("media_assets.id"),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(
         String(16),
         default="active",
@@ -112,7 +116,11 @@ class Product(Base):
         default=False,
         server_default="0",
     )
-    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    primary_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        String(36),
+        ForeignKey("media_assets.id"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
