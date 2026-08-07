@@ -15,9 +15,14 @@ BDD 场景覆盖（对应 specs/user-auth/spec.md MODIFIED/ADDED Requirements）
 import allure
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.helper.auth import auth_headers, register_user_via_otp
-from tests.support.helper.media import MINI_PNG_BYTES, TEXT_BYTES, upload_media
+from tests.support.helper.media import (
+    MINI_PNG_BYTES,
+    insert_non_image_media,
+    upload_media,
+)
 from tests.support.contexts import AuthContext
 from tests.support.utils import bearer_headers
 
@@ -33,20 +38,6 @@ async def _upload_png(client: AsyncClient, token: str) -> str:
         file_bytes=MINI_PNG_BYTES,
         filename="avatar.png",
         content_type="image/png",
-    )
-    assert result.status_code == 201
-    assert result.body is not None
-    return result.body["id"]
-
-
-async def _upload_text(client: AsyncClient, token: str) -> str:
-    """上传文本文件并返回 media_id。"""
-    result = await upload_media(
-        client,
-        headers=auth_headers(token),
-        file_bytes=TEXT_BYTES,
-        filename="doc.txt",
-        content_type="text/plain",
     )
     assert result.status_code == 201
     assert result.body is not None
@@ -164,11 +155,13 @@ async def test_attach_others_media_returns_403(
 @allure.feature("avatar_attach")
 @allure.title("非 image/* media attach 返回 422 且含 media_id")
 async def test_attach_non_image_returns_422(
-    integration_client: AsyncClient, authenticated_user: AuthContext
+    integration_client: AsyncClient,
+    authenticated_user: AuthContext,
+    db_session: AsyncSession,
 ) -> None:
     """PATCH 非 image 类型的 media → 422 + media_id。"""
-    text_media_id = await _upload_text(
-        integration_client, authenticated_user.access_token
+    text_media_id = await insert_non_image_media(
+        db_session, authenticated_user.access_token
     )
 
     response = await integration_client.patch(

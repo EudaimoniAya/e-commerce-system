@@ -193,7 +193,8 @@ class MediaService:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={
                     "code": "INVALID_MEDIA_TYPE",
-                    "message": f"Media {media_id} content_type must be image/*",
+                    # message 须含 media_id 字面量 + 值，便于客户端定位（spec 要求）
+                    "message": f"Media media_id={media_id} content_type must be image/*",
                 },
             )
 

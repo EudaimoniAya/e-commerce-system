@@ -14,6 +14,8 @@ from app.catalog.repository import (
 from app.catalog.service import ShopService
 from app.infra.auth import get_current_user_id
 from app.infra.database import get_db
+from app.media.deps import get_media_service
+from app.media.service import MediaService
 
 _SHOP_NOT_FOUND_MSG = "Shop not found"
 
@@ -43,9 +45,15 @@ def get_shop_service(
     repository: ShopRepository = Depends(get_shop_repository),
     category_repository: CategoryRepository = Depends(get_category_repository),
     product_repository: ProductRepository = Depends(get_product_repository),
+    media_service: MediaService = Depends(get_media_service),
 ) -> ShopService:
     """注入 catalog 服务。"""
-    return ShopService(repository, category_repository, product_repository)
+    return ShopService(
+        repository,
+        category_repository,
+        product_repository,
+        media_service,
+    )
 
 
 async def get_current_shop(

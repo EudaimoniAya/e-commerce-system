@@ -39,6 +39,7 @@ def shop_service(
         repository=mock_repository,
         category_repository=AsyncMock(),
         product_repository=mock_product_repository,
+        media_service=AsyncMock(),
     )
 
 

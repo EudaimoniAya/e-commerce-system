@@ -23,8 +23,12 @@ from tests.support.db.user import seed_active_user, seed_inactive_user
 
 
 def _user_service(repo: UserRepository) -> UserService:
-    """纯 DB 测试用 UserService（SMS 依赖占位）。"""
-    return UserService(repo, SmsOtpService(AsyncMock()))
+    """纯 DB 测试用 UserService（SMS / media 依赖占位）。"""
+    return UserService(
+        repo,
+        SmsOtpService(AsyncMock()),
+        media_service=AsyncMock(),
+    )
 
 
 @allure.epic("user")

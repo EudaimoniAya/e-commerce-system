@@ -16,10 +16,10 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.helper.auth import auth_headers, register_user_via_otp
-from tests.support.helper.catalog import create_category, create_shop
+from tests.support.helper.auth import auth_headers
+from tests.support.helper.catalog import create_category
 from tests.support.helper.media import MINI_PNG_BYTES, upload_media
-from tests.support.contexts import AuthContext, ShopOwnerContext
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.utils import bearer_headers
 
 
@@ -117,6 +117,7 @@ async def test_delete_media_referenced_by_logo_returns_409(
 @allure.title("primary_media_id 引用 → DELETE 409")
 async def test_delete_media_referenced_by_product_returns_409(
     integration_client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     db_session: AsyncSession,
 ) -> None:
@@ -124,11 +125,13 @@ async def test_delete_media_referenced_by_product_returns_409(
     media_id = await _upload_for_owner(
         integration_client, shop_owner.access_token
     )
-    # 创建商品并模拟 attach
-    list_resp = await integration_client.get("/categories")
-    if not list_resp.json():
-        pytest.skip("需要 seed 类目")
-    cid = list_resp.json()[0]["id"]
+    # 创建商品并模拟 attach：先 seed 一个类目（products 无 category 行不可存在）
+    category = await create_category(
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
+    )
+    assert category.status_code == 201 and category.body is not None
+    cid = category.body.id
     import uuid as _uuid
     pid = str(_uuid.uuid4())
     await db_session.execute(

@@ -18,8 +18,8 @@ from httpx import AsyncClient
 from tests.support.builders import build_product_create
 from tests.support.helper.auth import auth_headers, register_user_via_otp
 from tests.support.helper.catalog import create_category, create_product
-from tests.support.helper.media import MINI_PNG_BYTES, TEXT_BYTES, upload_media
-from tests.support.contexts import ShopOwnerContext
+from tests.support.helper.media import MINI_PNG_BYTES, upload_media
+from tests.support.contexts import AdminAuthContext, ShopOwnerContext
 from tests.support.utils import bearer_headers
 
 
@@ -45,29 +45,20 @@ async def _upload_png(client: AsyncClient, token: str) -> str:
 @allure.feature("product_media")
 @allure.title("POST /products 带 primary_media_id 返回 201 且 image_url resolve")
 async def test_create_product_with_primary_media_id(
-    integration_client: AsyncClient, shop_owner: ShopOwnerContext
+    integration_client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """POST /products 带合法 primary_media_id → 201 + image_url。"""
     media_id = await _upload_png(integration_client, shop_owner.access_token)
 
-    admin_headers = {"Authorization": f"Bearer {shop_owner.access_token}"}
-    # 需要 admin 创建 category（或 seed 已存在）
-    # 这里使用已有类目；若无则跳过
-    # 创建类目需要 admin 权限，改用公开类目列表或 seed 类目
-    cat_result = await create_category(
-        integration_client, headers=auth_headers(shop_owner.access_token)
+    # 类目创建仅 admin 可操作（seed 管理员登录见 admin_auth_headers fixture）
+    category = await create_category(
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
     )
-    if cat_result.status_code != 201:
-        # 非 admin 无法创建类目，使用已有类目
-        list_resp = await integration_client.get("/categories")
-        if list_resp.status_code == 200 and list_resp.json():
-            cid = list_resp.json()[0]["id"]
-        else:
-            pytest.skip("需要 seed 类目或 admin 创建类目")
-    else:
-        cid = cat_result.body.id if cat_result.body else None
-        if cid is None:
-            pytest.skip("类目创建失败")
+    assert category.status_code == 201 and category.body is not None
+    cid = category.body.id
 
     product_request = build_product_create(
         primary_media_id=media_id,
@@ -94,28 +85,22 @@ async def test_create_product_with_primary_media_id(
 @allure.feature("product_media")
 @allure.title("PATCH /products/{id} 更新 primary_media_id 返回 200")
 async def test_update_product_primary_media_id(
-    integration_client: AsyncClient, shop_owner: ShopOwnerContext
+    integration_client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """PATCH /products/{id} 更新 primary_media_id → 200 + image_url resolve。"""
     # 先创建无主图商品
-    cat_result = await create_category(
-        integration_client, headers=auth_headers(shop_owner.access_token)
+    category = await create_category(
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
     )
-    if cat_result.status_code != 201:
-        list_resp = await integration_client.get("/categories")
-        if list_resp.status_code == 200 and list_resp.json():
-            cid = list_resp.json()[0]["id"]
-        else:
-            pytest.skip("需要 seed 类目")
-    else:
-        cid = cat_result.body.id if cat_result.body else None
-        if cid is None:
-            pytest.skip("类目创建失败")
+    assert category.status_code == 201 and category.body is not None
 
     product_result = await create_product(
         integration_client,
         shop_owner_token=shop_owner.access_token,
-        category=cat_result if cat_result.status_code == 201 else cat_result,
+        category=category,
     )
     if product_result.status_code != 201:
         pytest.skip("创建商品失败，无法继续测试")
@@ -145,7 +130,9 @@ async def test_update_product_primary_media_id(
 @allure.feature("product_media")
 @allure.title("绑他人 media 返回 403")
 async def test_attach_others_primary_media_returns_403(
-    integration_client: AsyncClient, shop_owner: ShopOwnerContext
+    integration_client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """POST /products 带他人 media_id → 403。"""
     other_user = await register_user_via_otp(integration_client)
@@ -154,10 +141,12 @@ async def test_attach_others_primary_media_returns_403(
         integration_client, other_user.body.access_token
     )
 
-    list_resp = await integration_client.get("/categories")
-    if not list_resp.json():
-        pytest.skip("需要 seed 类目")
-    cid = list_resp.json()[0]["id"]
+    category = await create_category(
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
+    )
+    assert category.status_code == 201 and category.body is not None
+    cid = category.body.id
 
     product_request = build_product_create(
         primary_media_id=others_media_id,
@@ -182,13 +171,17 @@ async def test_attach_others_primary_media_returns_403(
 @allure.feature("product_media")
 @allure.title("清空 primary_media_id 后 image_url 为 null")
 async def test_clear_primary_media_id(
-    integration_client: AsyncClient, shop_owner: ShopOwnerContext
+    integration_client: AsyncClient,
+    admin_auth_headers: AdminAuthContext,
+    shop_owner: ShopOwnerContext,
 ) -> None:
     """PATCH primary_media_id=null → 200 + image_url=null。"""
-    list_resp = await integration_client.get("/categories")
-    if not list_resp.json():
-        pytest.skip("需要 seed 类目")
-    cid = list_resp.json()[0]["id"]
+    category = await create_category(
+        integration_client,
+        headers=bearer_headers(admin_auth_headers.access_token),
+    )
+    assert category.status_code == 201 and category.body is not None
+    cid = category.body.id
 
     # 先创建带主图的商品
     media_id = await _upload_png(integration_client, shop_owner.access_token)

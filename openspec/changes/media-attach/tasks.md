@@ -25,22 +25,21 @@
 - [x] 3.3 新增 `MediaDetail` schema；实现 `get_detail` 与 `GET /media/{id}` 路由
 - [x] 3.4 实现 `assert_owned_by`、`assert_image_content_type`、`mark_public`、`resolve_urls`、`count_references`
 - [x] 3.5 `DELETE /media/{id}` 引用检查 → 409
-- [ ] 3.6 跑 `tests/media/test_delete_media.py`、`test_get_media_metadata.py`、`test_delete_referenced.py` 至全绿
-  - media 套件 **53/55 绿**；`test_delete_media.py`、`test_get_media_metadata.py`、avatar 409 全绿
-  - 阻塞：logo/product 409 依赖 `shop_owner` → `POST /shops`，但 catalog service 仍访问已删除的 `logo_url`
-    （`catalog/service.py:396,424`）→ 500；属 **§5.1** 范围，非 media 域缺陷
+- [x] 3.6 跑 `tests/media/test_delete_media.py`、`test_get_media_metadata.py`、`test_delete_referenced.py` 至全绿
+  - avatar/logo/product 三个 409 全绿（logo/product 依赖 §5.1/§5.2 wire，随 5.1–5.4 完成解锁）
+  - product 409 测试原因「无 seed 类目」skip → 改为 `admin_auth_headers` + `create_category` 前置 seed
 
 ## 4. user wire（绿）
 
-- [ ] 4.1 `user` schemas/service/router：`avatar_media_id` 写、`avatar_url` 读
-- [ ] 4.2 跑 `tests/user/test_avatar_attach.py` 至全绿
+- [x] 4.1 `user` schemas/service/router：`avatar_media_id` 写、`avatar_url` 读
+- [x] 4.2 跑 `tests/user/test_avatar_attach.py` 至全绿
 
 ## 5. catalog wire（绿）
 
-- [ ] 5.1 shop：create/patch `logo_media_id`；响应 `logo_url` resolve
-- [ ] 5.2 product：create/patch `primary_media_id`；响应 `image_url` resolve；列表/公开路径 batch resolve
-- [ ] 5.3 `get_products_for_engagement` 内部 resolve
-- [ ] 5.4 跑 catalog 相关测例 + `test_engagement_product_service` 至全绿
+- [x] 5.1 shop：create/patch `logo_media_id`；响应 `logo_url` resolve
+- [x] 5.2 product：create/patch `primary_media_id`；响应 `image_url` resolve；列表/公开路径 batch resolve
+- [x] 5.3 `get_products_for_engagement` 内部 resolve
+- [x] 5.4 跑 catalog 相关测例 + `test_engagement_product_service` 至全绿
 
 ## 6. 回归与文档
 
