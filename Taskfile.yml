@@ -11,6 +11,16 @@ tasks:
     cmds:
       - uv run ruff check .
 
+  format:
+    desc: 用 ruff formatter 格式化全库 Python
+    cmds:
+      - uv run ruff format .
+
+  format:check:
+    desc: 校验全库 Python 是否已 ruff 格式化（CI 门禁）
+    cmds:
+      - uv run ruff format --check .
+
   check-test-imports:
     desc: 禁止 tests 域内 test_ 模块互 import
     cmds:
@@ -41,8 +51,9 @@ tasks:
       - bash scripts/allure_open_report.sh
 
   ci:
-    desc: 本地 CI（ruff + test-import 检查 + test）
+    desc: 本地 CI（format check + ruff + test-import 检查 + test）
     cmds:
+      - task: format:check
       - task: ruff
       - task: check-test-imports
       - task: test

@@ -1,15 +1,15 @@
 ## 1. 文档与分支
 
-- [ ] 1.1 从 `dev` 切分支 `style/infra-ruff-style`（**非** `feature/*`；与 ADR-008 新增 `style/*` 定义一致）
-- [ ] 1.2 更新 `docs/decision/ADR-008-Git分支生命周期与提交工作流规范.md`：commit type 增加 `style`；分支前缀增加 `style/*` 定义及与 `feature/*`、`docs/*` 对照；短标签示例增加 `infra-ruff-style` → `[ruff-style]`
+- [x] 1.1 从 `dev` 切分支 `style/infra-ruff-style`（**非** `feature/*`；与 ADR-008 新增 `style/*` 定义一致）
+- [x] 1.2 更新 `docs/decision/ADR-008-Git分支生命周期与提交工作流规范.md`：commit type 增加 `style`；分支前缀增加 `style/*` 定义及与 `feature/*`、`docs/*` 对照；短标签示例增加 `infra-ruff-style` → `[ruff-style]`
 
 ## 2. Ruff 配置与 Taskfile
 
-- [ ] 2.1 更新 `pyproject.toml`：`extend-select` 增加 `I`、`UP`、`B006`、`B007`、`B904`（**不**整包 `B`；不启用 B008/B905，理由见 design.md）；保留 ANN 与 `app/**`、`alembic/**` per-file-ignores；isort `known-first-party` **apply 时验证后再定**（见 design M1）
-- [ ] 2.2 更新 `Taskfile.yml`：新增 `format`（`ruff format .`）、`format:check`（`ruff format --check .`）；`ci` 增加 `format:check` 于 `ruff` 之前
-- [ ] 2.3 更新 `.github/workflows/test.yaml` lint job：在 `task ruff` 前增加 `task format:check`
-- [ ] 2.4 更新 `README.md`：Task 表补充 `format` / `format:check`；`task ci` 描述含 format check；说明仓库根 `.git-blame-ignore-revs` 及 `git config blame.ignoreRevsFile .git-blame-ignore-revs`
-- [ ] 2.5 新增仓库根 `.git-blame-ignore-revs`（stub：注释 + 占位说明，**尚无 SHA**；格式见 design.md §4）
+- [x] 2.1 更新 `pyproject.toml`：`extend-select` 增加 `I`、`UP`、`B006`、`B007`、`B904`（**不**整包 `B`；不启用 B008/B905，理由见 design.md）；保留 ANN 与 `app/**`、`alembic/**` per-file-ignores；isort `known-first-party` **已验证**：Ruff 默认 `src` 含项目根、`app`/`tests` 自动识别为 first-party（抽查 isort diff 分组正确），**不配**
+- [x] 2.2 更新 `Taskfile.yml`：新增 `format`（`ruff format .`）、`format:check`（`ruff format --check .`）；`ci` 增加 `format:check` 于 `ruff` 之前
+- [x] 2.3 更新 `.github/workflows/test.yaml` lint job：在 `task ruff` 前增加 `task format:check`
+- [x] 2.4 更新 `README.md`：Task 表补充 `format` / `format:check`；`task ci` 描述含 format check；说明仓库根 `.git-blame-ignore-revs` 及 `git config blame.ignoreRevsFile .git-blame-ignore-revs`
+- [x] 2.5 新增仓库根 `.git-blame-ignore-revs`（stub：注释 + 占位说明，**尚无 SHA**；格式见 design.md §4）
 
 ## 3. 全库 mechanical fix（单独 commit，type `style`）
 
