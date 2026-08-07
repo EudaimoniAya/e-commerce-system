@@ -20,12 +20,15 @@
 
 > **前置 bugfix**（media-storage 遗留，attach 前必须修）：DELETE 所有权、`content_type` 硬编码。
 
-- [ ] 3.1 **bugfix**：`DELETE /media/{id}` 改为比较 `owner_user_id == current_user_id`（**禁止**用 `can_read` 做所有权校验）
-- [ ] 3.2 **bugfix**：`MediaService.upload()` 接受 router 传入的 `content_type`（`validate_media_upload` 返回值，禁止硬编码 `image/png`）
-- [ ] 3.3 新增 `MediaDetail` schema；实现 `get_detail` 与 `GET /media/{id}` 路由
-- [ ] 3.4 实现 `assert_owned_by`、`assert_image_content_type`、`mark_public`、`resolve_urls`、`count_references`
-- [ ] 3.5 `DELETE /media/{id}` 引用检查 → 409
+- [x] 3.1 **bugfix**：`DELETE /media/{id}` 改为比较 `owner_user_id == current_user_id`（**禁止**用 `can_read` 做所有权校验）
+- [x] 3.2 **bugfix**：`MediaService.upload()` 接受 router 传入的 `content_type`（`validate_media_upload` 返回值，禁止硬编码 `image/png`）
+- [x] 3.3 新增 `MediaDetail` schema；实现 `get_detail` 与 `GET /media/{id}` 路由
+- [x] 3.4 实现 `assert_owned_by`、`assert_image_content_type`、`mark_public`、`resolve_urls`、`count_references`
+- [x] 3.5 `DELETE /media/{id}` 引用检查 → 409
 - [ ] 3.6 跑 `tests/media/test_delete_media.py`、`test_get_media_metadata.py`、`test_delete_referenced.py` 至全绿
+  - media 套件 **53/55 绿**；`test_delete_media.py`、`test_get_media_metadata.py`、avatar 409 全绿
+  - 阻塞：logo/product 409 依赖 `shop_owner` → `POST /shops`，但 catalog service 仍访问已删除的 `logo_url`
+    （`catalog/service.py:396,424`）→ 500；属 **§5.1** 范围，非 media 域缺陷
 
 ## 4. user wire（绿）
 

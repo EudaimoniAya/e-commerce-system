@@ -1,8 +1,9 @@
-"""media 域 HTTP 路由：POST /media、GET /media/{id}/file、DELETE /media/{id}。
+"""media 域 HTTP 路由：POST /media、GET /media/{id}、GET /media/{id}/file、DELETE /media/{id}。
 
 - POST /media：multipart/form-data，JWT 必选 → 201 MediaSummary
+- GET /media/{id}：JWT 可选 → JSON 元数据 MediaDetail（读权限同 /file）
 - GET /media/{id}/file：JWT 可选 → 二进制流，``X-Content-Type-Options: nosniff``
-- DELETE /media/{id}：JWT 必选，仅 owner → 204
+- DELETE /media/{id}：JWT 必选，仅 owner → 204；被业务 FK 引用 → 409
 """
 
 import uuid
@@ -15,7 +16,7 @@ from app.infra.auth import decode_access_token
 from app.infra.config import Settings, get_settings
 from app.media.deps import get_media_service
 from app.media.rate_limit import check_upload_rate_limit
-from app.media.schemas import MediaSummary
+from app.media.schemas import MediaDetail, MediaSummary
 from app.media.service import MediaService
 from app.media.validation import validate_media_upload
 
@@ -95,6 +96,7 @@ async def upload_media(
         file_bytes=raw,
         original_filename=file.filename,
         owner_user_id=str(user_id),
+        content_type=_content_type,  # 魔数检测真实 MIME（spec 禁止 service 硬编码）
     )
 
 
@@ -142,6 +144,22 @@ async def download_media(
     )
 
 
+@router.get("/{media_id}", response_model=MediaDetail)
+async def get_media_detail(
+    media_id: str,
+    user_id: uuid.UUID | None = Depends(_optional_user_id),
+    service: MediaService = Depends(get_media_service),
+) -> MediaDetail:
+    """返回媒体元数据 JSON（非二进制）。
+
+    - ``public`` → 匿名/任意用户可读
+    - ``owner_only`` → 仅 owner（匿名 → 403）
+    - 不存在 → 404
+    """
+    user_id_str = str(user_id) if user_id is not None else None
+    return await service.get_detail(media_id=media_id, user_id=user_id_str)
+
+
 @router.delete("/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
 @router.delete("/{media_id}/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_media(
@@ -151,23 +169,21 @@ async def delete_media(
 ) -> StarletteResponse:
     """删除媒体资产。
 
-    仅 ``owner_user_id`` 匹配者可删（非 owner → 403）。
-    不检查业务表 FK 引用（留给 ``media-wire`` change）。
+    流程：
+    1. 所有权：``owner_user_id == current_user_id``（**禁止**用 can_read——
+       public 会让任意用户读权限通过，误判为非 owner 可删）
+    2. 引用检查：被 users/shops/products FK 引用 → 409
+    3. 删 DB 行 + storage 字节 → 204
     """
-    # 所有权校验
-    can_read = await service.can_read(media_id=media_id, user_id=str(user_id))
-    if not can_read:
-        # 区分 403 vs 404
-        try:
-            _, _ = await service.get_file_stream(media_id)
-        except FileNotFoundError:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="媒体文件不存在",
-            )
+    # 所有权校验（不存在 → 404；非 owner → 403）
+    await service.assert_owned_by(media_id=media_id, user_id=str(user_id))
+
+    # 引用检查 → 409（先于删除，避免破坏业务 FK）
+    ref_count = await service.count_references(media_id)
+    if ref_count > 0:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="无权删除该文件",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="媒体文件被业务记录引用，无法删除",
         )
 
     try:
