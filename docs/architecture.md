@@ -61,7 +61,7 @@
 | `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
 | `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **Phase 2（收藏 + 浏览已实现）** |
 | `support` | 店铺客服会话（shop 管辖、lazy create、inbox、product ref；预留 AI） | SupportConversation、SupportMessage | **Phase 2（已实现）** |
-| `media` | 媒体文件上传/下载/删除、所有权与可见性控制、本地存储抽象（双 backend） | MediaAsset | **Phase 3（已实现，见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md)）** |
+| `media` | 媒体文件上传/下载/删除、**业务 attach（`*_media_id` FK + mark_public）**、元数据查询、所有权与可见性控制、本地存储抽象（双 backend） | MediaAsset | **Phase 3（已实现，见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md) 与 [media-attach change](../../openspec/changes/media-attach/specs/media-storage/spec.md)）** |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -173,12 +173,12 @@ e-commerce-system/
 │       ├── models.py             # support_conversations、support_messages
 │       ├── schemas.py
 │       └── deps.py
-│   └── media/                    # 媒体平台域（上传/下载/删除已实现，见 media-storage spec）
-│       ├── router.py             # POST /media、GET /media/{id}/file、DELETE /media/{id}
-│       ├── service.py            # upload、delete、get_file_stream、can_read
-│       ├── repository.py         # MediaRepository（insert/get_by_id/delete_by_id）
+│   └── media/                    # 媒体平台域（上传/下载/删除/attach 已实现，见 media-storage spec）
+│       ├── router.py             # POST /media、GET /media/{id}（元数据）、GET /media/{id}/file、DELETE /media/{id}（引用 409）
+│       ├── service.py            # upload、delete、get_file_stream、can_read、get_detail、assert_owned_by、assert_image_content_type、mark_public、resolve_urls、count_references
+│       ├── repository.py         # MediaRepository（insert/get_by_id/get_many_by_ids/count_references/delete_by_id）
 │       ├── models.py             # media_assets（8 列）
-│       ├── schemas.py            # MediaSummary
+│       ├── schemas.py            # MediaSummary、MediaDetail
 │       ├── deps.py               # get_storage_backend、get_media_service
 │       ├── rate_limit.py         # Redis 固定窗口上传限速
 │       ├── validation.py         # 魔数检测 + MIME 白名单 + 大小校验
@@ -228,13 +228,13 @@ e-commerce-system/
 
 **应用入口（`create_app`）**：按序组装 `setup_logging(settings)` → `RequestIDMiddleware`（纯 ASGI，`X-Request-ID` 透传/生成）→ `register_exception_handlers(app)` → 各域 router。错误响应统一为 `{"error": {"code", "message", "request_id"}}`（详见 `infra-api-errors` spec）。日志经 loguru 输出至 stderr 与 `logs/app.log`（development/production；test 仅 stderr 且 level=WARNING）。详见 [中间件栈与异常处理架构决策（ADR-004）](./decision/ADR-004-中间件栈与异常处理架构决策.md)。
 
-**`users` 表（user 域）**：`id`（UUID PK，JWT `sub` 锚点）、`phone`（VARCHAR 20，UNIQUE，业务主标识）、`email`（可空，仅资料）、`password_hash`（可空，SMS 注册用户须设密码）、`nickname`、`is_active`、`is_admin`（不对外暴露）、`created_at`、`updated_at`。SMS OTP 存 Redis（`sms:otp:{phone}`、`sms:verify_fail:{phone}`、`sms:daily:{phone}:{date}`），见 `user/sms_service.py`。
+**`users` 表（user 域）**：`id`（UUID PK，JWT `sub` 锚点）、`phone`（VARCHAR 20，UNIQUE，业务主标识）、`email`（可空，仅资料）、`password_hash`（可空，SMS 注册用户须设密码）、`nickname`、`is_active`、`is_admin`（不对外暴露）、`avatar_media_id`（可空 FK → `media_assets.id`，attach 头像后写；响应 resolve 为 `avatar_url`）、`created_at`、`updated_at`。SMS OTP 存 Redis（`sms:otp:{phone}`、`sms:verify_fail:{phone}`、`sms:daily:{phone}:{date}`），见 `user/sms_service.py`。
 
-**`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_url`、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
+**`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_media_id`（可空 FK → `media_assets.id`；响应 resolve 为 `logo_url`）、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
 
 **`categories` 表（catalog 域）**：`id`（UUID PK）、`parent_id`（FK → `categories.id`，NULL 为根）、`name`（VARCHAR 64）、`created_at`、`updated_at`；`UNIQUE(parent_id, name)` 同级不重名；**无 seed**，空库起步。
 
-**`products` 表（catalog 域）**：`id`（UUID PK）、`shop_id`（FK → `shops.id`）、`name`、`description`、`price`（DECIMAL 10,2，CNY）、`stock`、`is_published`（默认 false）、`image_url`、`created_at`、`updated_at`；索引 `ix_products_shop_id`、`ix_products_is_published`。
+**`products` 表（catalog 域）**：`id`（UUID PK）、`shop_id`（FK → `shops.id`）、`name`、`description`、`price`（DECIMAL 10,2，CNY）、`stock`、`is_published`（默认 false）、`primary_media_id`（可空 FK → `media_assets.id`，主图；响应 resolve 为 `image_url`）、`created_at`、`updated_at`；索引 `ix_products_shop_id`、`ix_products_is_published`。
 
 **`product_categories` 表（catalog 域）**：`(product_id, category_id)` 复合 PK、`is_primary`（BOOLEAN）；service 保证每个商品至多一个主类目；`primary_category_id` 必须 ∈ `category_ids`。
 
@@ -272,7 +272,9 @@ e-commerce-system/
 
 **support 店主路径（`GET /support/inbox*`、`POST .../inbox/{id}/messages`）**：`get_current_shop` 鉴权；inbox 按 `updated_at DESC` 含 `last_message_preview`；非本店会话 404；closed 店仍允许回复已有会话。support **不得** import catalog / ordering ORM；商品校验走 `ShopSupportContext` + `validate_product_refs_for_shop`（catalog service，见 `catalog-products` spec）。
 
-**`media_assets` 表（media 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`）、`visibility`（`owner_only` | `public`，默认 `owner_only`）、`content_type`（魔数检测后的 MIME）、`size_bytes`、`storage_key`（两级分片路径 `{hex[:2]}/{hex[2:4]}/{hex}`）、`original_filename`（客户端上传名）、`created_at`。字节由 `StorageBackend` 管理（`LocalFilesystemBackend` 落盘 / `InMemoryBackend` 测试用）；API URL 用 `id` 而非 `storage_key`。上传校验链：`file.size` 预检（413）→ MIME 白名单 → 魔数检测 → 禁 SVG。限速：Redis 固定窗口每用户计数。media **不得** import 业务域 ORM/repository。**不实现**：attach、`mark_public`、DELETE 引用 409、`GET /media/{id}` JSON 元数据（留给 `media-wire`）。见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md)。
+**`media_assets` 表（media 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`）、`visibility`（`owner_only` | `public`，默认 `owner_only`）、`content_type`（魔数检测后的 MIME）、`size_bytes`、`storage_key`（两级分片路径 `{hex[:2]}/{hex[2:4]}/{hex}`）、`original_filename`（客户端上传名）、`created_at`。字节由 `StorageBackend` 管理（`LocalFilesystemBackend` 落盘 / `InMemoryBackend` 测试用）；API URL 用 `id` 而非 `storage_key`。上传校验链：`file.size` 预检（413）→ MIME 白名单 → 魔数检测 → 禁 SVG。限速：Redis 固定窗口每用户计数。media **不得** import 业务域 ORM/repository。
+
+**attach（`media-attach` change 已交付）**：user/catalog 写路径存 `*_media_id` FK（`users.avatar_media_id` / `shops.logo_media_id` / `products.primary_media_id`）；attach 时 `assert_owned_by`（非本人 → 403）+ `assert_image_content_type`（非 `image/*` → 422，message 含 media_id）+ 同事务 `mark_public`；读路径 `resolve_urls(ids)` 批量把 FK 翻译为 `/media/{id}/file`，缺失行 → 对应 url 字段 `null`（列表批量防 N+1）；`GET /media/{id}` 返回 `MediaDetail` 元数据（读权限同 `/file`）；DELETE 前 `count_references` > 0 → 409（DB FK `ON DELETE RESTRICT` 为第二道保险）。URL 拼写规则仅存于 media 域；user/catalog 只调 `media.service` + schema，不 import media ORM/repository。见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md)。
 
 ### 5.2 规划中的完整结构
 
@@ -331,7 +333,7 @@ app/
 │   ├── models.py
 │   ├── schemas.py
 │   └── deps.py
-├── media/                        # 媒体平台域（上传/下载/删除已实现）
+├── media/                        # 媒体平台域（上传/下载/删除/attach 已实现）
 │   ├── router.py
 │   ├── service.py
 │   ├── repository.py

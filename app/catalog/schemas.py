@@ -177,7 +177,7 @@ class EngagementProduct(BaseModel):
     shop_name: str
     name: str
     price: str
-    image_url: str | None  # 过渡期；media 域完成后重构
+    image_url: str | None  # 保留字段名（engagement 零改动）；值由 primary_media_id 经 media.service.resolve_urls 填充
     is_published: bool
     shop_active: bool
 

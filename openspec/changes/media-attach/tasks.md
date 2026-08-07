@@ -43,11 +43,13 @@
 
 ## 6. 回归与文档
 
-- [ ] 6.1 跑全量 `tests/engagement/` 确认 favorites/browse enrichment 仍绿
-- [ ] 6.2 更新 `docs/architecture.md`（业务表 media FK + attach 摘要）
-- [ ] 6.3 `devbox run -- task ci` 全绿
+- [x] 6.1 跑全量 `tests/engagement/` 确认 favorites/browse enrichment 仍绿（38 passed）
+- [x] 6.2 更新 `docs/architecture.md`（业务表 media FK + attach 摘要）
+- [x] 6.3 `devbox run -- task ci` 全绿（ruff + check-test-imports + test；406 passed）
 
 ## 7. 确认 Non-goals
 
-- [ ] 7.1 确认无 `product_media` 表、无 `EngagementProduct` 字段改名
-- [ ] 7.2 确认无 RAG / GC
+- [x] 7.1 确认无 `product_media` 表、无 `EngagementProduct` 字段改名
+  - `EngagementProduct.image_url` 保留字段名（spec 决策 7：engagement 零改动），值由 `primary_media_id` 经 resolve 填充
+  - 顺手清掉 `schemas.py:180` 过时注释「过渡期；media 域完成后重构」
+- [x] 7.2 确认无 RAG / GC（proposal Non-goals 原样保持）
