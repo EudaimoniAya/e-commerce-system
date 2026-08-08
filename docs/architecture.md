@@ -1,10 +1,10 @@
 # 项目架构设计
 
-> 本文档描述 AI 赋能电商个人项目的整体架构。详细的设计决策见 [docs/decision/](./decision/)（ADR）；个人学习笔记见 [docs/notes/](./notes/)。
+> 本文档描述 AI 赋能电商后端服务的整体架构。详细的设计决策见 [docs/decision/](./decision/)（ADR）；内部笔记见 [docs/notes/](./notes/)。
 
 ## 1. 项目概述
 
-本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
+本项目是一个 **AI 赋能的电商平台**。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
 - **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览**、**support 域店铺客服会话** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`；买家 `/support/shops/{shop_id}/*` lazy create 发消息、店主 `/support/inbox/*` inbox 与回复、可引用本店商品）
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署

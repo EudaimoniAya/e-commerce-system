@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**support**（店铺客服会话、inbox、product ref），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `011`（support.conversations）；本地与 CI 全量 pytest **335 项**。
+AI 赋能的电商后端服务。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**media**（媒体资产 attach：头像 / 店铺 logo / 商品主图 + URL 解析）、**support**（店铺客服会话、inbox、product ref），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针、Ruff format/lint 门禁）。Alembic 至 migration `013`（media attach FK）；本地与 CI 全量 pytest **406 项**。
 
 ## 前置条件
 

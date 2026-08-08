@@ -1,3 +1,14 @@
+## ADDED Requirements
+
+### Requirement: Local ci task includes format check
+
+`task ci` SHALL 在 `task ruff` 之前（或等价顺序）执行 **`task format:check`**，随后 `task ruff`、`task check-test-imports`、`task test`，与远程 lint + test 行为对齐（format + lint 本地一次跑完；test 仍不自动 `db:up`/`redis:up`）。
+
+#### Scenario: 本地 ci 含 format check
+
+- **WHEN** 开发者执行 `task ci` 且存在未格式化 Python 文件
+- **THEN** `task ci` SHALL 在 pytest 之前因 `format:check` 失败而退出
+
 ## MODIFIED Requirements
 
 ### Requirement: CI lint job separation
@@ -20,12 +31,3 @@ GitHub Actions workflow SHALL 提供独立 `lint` job，执行 **`task format:ch
 - **WHEN** PR 引入未运行 `ruff format` 的 Python 变更
 - **THEN** `lint` job 中 `task format:check` SHALL 失败
 - **AND** `test` job MAY 仍并行运行直至自身完成或 workflow 取消
-
-### Requirement: Local ci task includes format check
-
-`task ci` SHALL 在 `task ruff` 之前（或等价顺序）执行 **`task format:check`**，随后 `task ruff`、`task check-test-imports`、`task test`，与远程 lint + test 行为对齐（format + lint 本地一次跑完；test 仍不自动 `db:up`/`redis:up`）。
-
-#### Scenario: 本地 ci 含 format check
-
-- **WHEN** 开发者执行 `task ci` 且存在未格式化 Python 文件
-- **THEN** `task ci` SHALL 在 pytest 之前因 `format:check` 失败而退出

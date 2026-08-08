@@ -30,4 +30,4 @@
 
 ## 6. 收尾
 
-- [ ] 6.1 archive change 并 sync `openspec/specs/infra-ci/spec.md`、`openspec/specs/infra-toolchain/spec.md`
+- [x] 6.1 archive change 并 sync `openspec/specs/infra-ci/spec.md`、`openspec/specs/infra-toolchain/spec.md`
