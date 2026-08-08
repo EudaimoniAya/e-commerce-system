@@ -16,10 +16,10 @@ import pytest
 from httpx import AsyncClient
 
 from tests.support.builders import build_product_create
+from tests.support.contexts import AdminAuthContext, ShopOwnerContext
 from tests.support.helper.auth import auth_headers, register_user_via_otp
 from tests.support.helper.catalog import create_category, create_product
 from tests.support.helper.media import MINI_PNG_BYTES, upload_media
-from tests.support.contexts import AdminAuthContext, ShopOwnerContext
 from tests.support.utils import bearer_headers
 
 

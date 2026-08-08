@@ -17,9 +17,9 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.support.contexts import AuthContext
 from tests.support.helper.auth import auth_headers, register_user_via_otp
 from tests.support.helper.media import MINI_PNG_BYTES, upload_media
-from tests.support.contexts import AuthContext
 
 
 async def _upload_for_owner(client: AsyncClient, token: str) -> str:

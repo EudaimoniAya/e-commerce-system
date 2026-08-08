@@ -3,12 +3,8 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from app.infra.config import get_settings
-from app.infra.database import Base
 
 # 导入模型以注册 metadata（autogenerate 用）
 import app.catalog.models  # noqa: F401
@@ -18,6 +14,9 @@ import app.media.models  # noqa: F401
 import app.ordering.models  # noqa: F401
 import app.support.models  # noqa: F401
 import app.user.models  # noqa: F401
+from alembic import context
+from app.infra.config import get_settings
+from app.infra.database import Base
 
 config = context.config
 

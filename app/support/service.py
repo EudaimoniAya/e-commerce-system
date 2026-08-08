@@ -115,9 +115,7 @@ class SupportService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=_CONVERSATION_NOT_FOUND_MSG,
             )
-        return await self._list_messages(
-            conversation.id, limit=limit, offset=offset
-        )
+        return await self._list_messages(conversation.id, limit=limit, offset=offset)
 
     async def send_buyer_message(
         self,
@@ -195,9 +193,7 @@ class SupportService:
     ) -> PaginatedMessages:
         """店主拉取会话消息（created_at ASC）：非本店会话 404。"""
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
-        return await self._list_messages(
-            conversation.id, limit=limit, offset=offset
-        )
+        return await self._list_messages(conversation.id, limit=limit, offset=offset)
 
     async def send_shop_message(
         self,
@@ -207,9 +203,7 @@ class SupportService:
     ) -> MessageResponse:
         """店主回复：closed 店铺仍允许（售后收尾）。"""
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
-        refs = await self._validate_message(
-            data, uuid.UUID(str(conversation.shop_id))
-        )
+        refs = await self._validate_message(data, uuid.UUID(str(conversation.shop_id)))
         message = await self._persist_message(
             conversation,
             sender_role="shop",
@@ -220,9 +214,7 @@ class SupportService:
 
     # ── 私有内核 ──────────────────────────────────────────────
 
-    def _ensure_not_owner(
-        self, buyer_user_id: uuid.UUID, owner_user_id: str
-    ) -> None:
+    def _ensure_not_owner(self, buyer_user_id: uuid.UUID, owner_user_id: str) -> None:
         """买家 == 店主（禁自购延伸）→ 403。"""
         if str(buyer_user_id) == owner_user_id:
             raise HTTPException(
@@ -237,10 +229,7 @@ class SupportService:
     ) -> SupportConversation:
         """按 ID 定位会话并校验属于本店；不存在或非本店 → 404（不暴露存在性）。"""
         conversation = await self._conversation_repo.get_by_id(conversation_id)
-        if (
-            conversation is None
-            or str(conversation.shop_id) != str(shop_id)
-        ):
+        if conversation is None or str(conversation.shop_id) != str(shop_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=_CONVERSATION_NOT_FOUND_MSG,
@@ -289,9 +278,7 @@ class SupportService:
             product_ids.append(uuid.UUID(ref["ref_id"]))
 
         if product_ids:
-            await self._catalog.validate_product_refs_for_shop(
-                shop_id, product_ids
-            )
+            await self._catalog.validate_product_refs_for_shop(shop_id, product_ids)
         return deduped
 
     async def _persist_message(

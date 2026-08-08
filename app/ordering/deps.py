@@ -121,7 +121,7 @@ async def get_order_for_buyer_or_shop(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=_NOT_FOUND_MSG,
-        )
+        ) from None
     if str(shop.id) == str(order.shop_id):
         return order
 

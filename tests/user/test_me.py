@@ -11,8 +11,8 @@ import pytest
 from httpx import AsyncClient
 
 from app.user.schemas import UserResponse
-from tests.support.helper.auth import auth_headers
 from tests.support.contexts import AuthContext
+from tests.support.helper.auth import auth_headers
 from tests.support.utils import bearer_headers
 
 

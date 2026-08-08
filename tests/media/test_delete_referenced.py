@@ -16,10 +16,10 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.helper.auth import auth_headers
 from tests.support.helper.catalog import create_category
 from tests.support.helper.media import MINI_PNG_BYTES, upload_media
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.utils import bearer_headers
 
 
@@ -60,6 +60,7 @@ async def test_delete_media_referenced_by_avatar_returns_409(
     )
     # 使用当前用户的 id
     from tests.support.utils import decode_jwt_sub
+
     user_id = decode_jwt_sub(authenticated_user.access_token)
     await db_session.execute(
         text("UPDATE users SET avatar_media_id=:mid WHERE id=:uid"),
@@ -89,9 +90,7 @@ async def test_delete_media_referenced_by_logo_returns_409(
     db_session: AsyncSession,
 ) -> None:
     """media 被 shops.logo_media_id 引用时 DELETE → 409。"""
-    media_id = await _upload_for_owner(
-        integration_client, shop_owner.access_token
-    )
+    media_id = await _upload_for_owner(integration_client, shop_owner.access_token)
     # 模拟 attach：直接写 FK
     await db_session.execute(
         text("UPDATE shops SET logo_media_id=:mid WHERE id=:sid"),
@@ -122,9 +121,7 @@ async def test_delete_media_referenced_by_product_returns_409(
     db_session: AsyncSession,
 ) -> None:
     """media 被 products.primary_media_id 引用时 DELETE → 409。"""
-    media_id = await _upload_for_owner(
-        integration_client, shop_owner.access_token
-    )
+    media_id = await _upload_for_owner(integration_client, shop_owner.access_token)
     # 创建商品并模拟 attach：先 seed 一个类目（products 无 category 行不可存在）
     category = await create_category(
         integration_client,
@@ -133,6 +130,7 @@ async def test_delete_media_referenced_by_product_returns_409(
     assert category.status_code == 201 and category.body is not None
     cid = category.body.id
     import uuid as _uuid
+
     pid = str(_uuid.uuid4())
     await db_session.execute(
         text(

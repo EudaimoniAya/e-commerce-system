@@ -1,7 +1,7 @@
 """ordering 域 POST /orders/{id}/pay integration 测试（TDD 红阶段）。"""
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -87,7 +87,9 @@ async def create_product(
     return await service.create_product(shop, body)
 
 
-@router.patch("/products/{product_id}", response_model=ProductResponse, tags=["products"])
+@router.patch(
+    "/products/{product_id}", response_model=ProductResponse, tags=["products"]
+)
 async def update_product(
     product_id: uuid.UUID,
     body: ProductUpdate,
@@ -133,7 +135,9 @@ async def list_my_products(
     service: ShopService = Depends(get_shop_service),
 ) -> PaginatedProducts:
     """店主分页返回本店全部商品（含未上架）。"""
-    return await service.list_my_products(shop, limit=params.limit, offset=params.offset)
+    return await service.list_my_products(
+        shop, limit=params.limit, offset=params.offset
+    )
 
 
 @router.patch("/shops/me", response_model=ShopResponse, tags=["shops"])

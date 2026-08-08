@@ -17,13 +17,13 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.support.builders import build_shop_create
+from tests.support.contexts import AuthContext, ShopOwnerContext
 from tests.support.helper.auth import auth_headers, register_user_via_otp
 from tests.support.helper.media import (
     MINI_PNG_BYTES,
     insert_non_image_media,
     upload_media,
 )
-from tests.support.contexts import AuthContext, ShopOwnerContext
 from tests.support.utils import bearer_headers
 
 
@@ -131,9 +131,7 @@ async def test_attach_non_image_logo_returns_422(
     db_session: AsyncSession,
 ) -> None:
     """PATCH 非 image 类型 media → 422。"""
-    text_media_id = await insert_non_image_media(
-        db_session, shop_owner.access_token
-    )
+    text_media_id = await insert_non_image_media(db_session, shop_owner.access_token)
 
     response = await integration_client.patch(
         "/shops/me",

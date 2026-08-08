@@ -15,10 +15,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.helper.auth import login_user_via_otp, register_user_via_otp
-from tests.support.builders import build_sms_login_request
+from tests.support.builders import build_sms_login_request, unique_phone
 from tests.support.db.user import seed_inactive_user
-from tests.support.builders import unique_phone
+from tests.support.helper.auth import login_user_via_otp, register_user_via_otp
 
 
 @allure.epic("user")
@@ -57,7 +56,8 @@ async def test_login_nonexistent_phone_returns_422(
     """不存在手机号返回 422（与 OTP 错误同文案，防枚举）。"""
     body = build_sms_login_request(phone="13800138000")
     response = await integration_client.post(
-        "/auth/sms/login", json=body.model_dump(mode="json"),
+        "/auth/sms/login",
+        json=body.model_dump(mode="json"),
     )
     assert response.status_code == 422
     err = response.json()
@@ -78,7 +78,8 @@ async def test_login_wrong_otp_returns_422(
 
     body = build_sms_login_request(phone=registered.phone, code="000000")
     response = await integration_client.post(
-        "/auth/sms/login", json=body.model_dump(mode="json"),
+        "/auth/sms/login",
+        json=body.model_dump(mode="json"),
     )
     assert response.status_code == 422
     err = response.json()
@@ -122,11 +123,13 @@ async def test_login_exceed_fail_limit_returns_429(
     for _ in range(5):
         body = build_sms_login_request(phone=phone, code="000000")
         await integration_client.post(
-            "/auth/sms/login", json=body.model_dump(mode="json"),
+            "/auth/sms/login",
+            json=body.model_dump(mode="json"),
         )
 
     final = build_sms_login_request(phone=phone, code="000000")
     response = await integration_client.post(
-        "/auth/sms/login", json=final.model_dump(mode="json"),
+        "/auth/sms/login",
+        json=final.model_dump(mode="json"),
     )
     assert response.status_code == 429

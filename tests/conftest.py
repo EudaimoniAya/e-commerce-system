@@ -7,26 +7,25 @@ from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from tests.support.helper.auth import (
-    _ADMIN_SEED_PHONE,
-    _ADMIN_SEED_PASSWORD,
-    auth_headers,
-    login_user,
-    register_user_via_otp,
-)
 from tests.support.builders import (
     unique_category_name,
     unique_email,
     unique_phone,
     unique_shop_name,
 )
+from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.support.helper.auth import (
+    _ADMIN_SEED_PASSWORD,
+    _ADMIN_SEED_PHONE,
+    auth_headers,
+    login_user,
+    register_user_via_otp,
+)
 from tests.support.helper.catalog import (
     create_category,
     create_product,
     create_shop,
 )
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.utils import bootstrap_test_env
 from tests.support.results import (
     BatchDeleteFavoritesResult,
     BatchPayResult,
@@ -45,6 +44,7 @@ from tests.support.results import (
     SmsRegisterResult,
     SmsSendResult,
 )
+from tests.support.utils import bootstrap_test_env
 
 # 公开 re-export（fixture + support 符号；Case 亦可直接 from tests.support.*）
 __all__ = [

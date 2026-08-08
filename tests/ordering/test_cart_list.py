@@ -1,7 +1,7 @@
 """ordering 域 GET /cart integration 测试（TDD 红阶段）。"""
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,9 +138,9 @@ async def test_cart_list_invalid_items_unpublished_product(
     assert len(result.body["shops"]) == 0
     invalid = result.body["invalid_items"]
     assert len(invalid) >= 1
-    assert any(
-        i["product_id"] == product_id for i in invalid
-    ), f"product {product_id} should be in invalid_items"
+    assert any(i["product_id"] == product_id for i in invalid), (
+        f"product {product_id} should be in invalid_items"
+    )
 
 
 @pytest.mark.integration
@@ -173,12 +173,11 @@ async def test_cart_list_invalid_items_closed_shop(
 
     # 关闭店铺（DB 直写）
     from sqlalchemy import update
+
     from app.catalog.models import Shop
 
     await db_session.execute(
-        update(Shop)
-        .where(Shop.id == shop_owner.shop_id)
-        .values(status="closed")
+        update(Shop).where(Shop.id == shop_owner.shop_id).values(status="closed")
     )
     await db_session.flush()
 
@@ -224,14 +223,14 @@ async def test_cart_list_real_time_price(
     )
 
     # 改价
-    from sqlalchemy import update
-    from app.catalog.models import Product
     from decimal import Decimal
 
+    from sqlalchemy import update
+
+    from app.catalog.models import Product
+
     await db_session.execute(
-        update(Product)
-        .where(Product.id == product_id)
-        .values(price=Decimal("149.00"))
+        update(Product).where(Product.id == product_id).values(price=Decimal("149.00"))
     )
     await db_session.flush()
 

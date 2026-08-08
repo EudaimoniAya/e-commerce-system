@@ -8,7 +8,7 @@ mark_public / resolve_urls / count_references。
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 
@@ -83,7 +83,7 @@ class MediaService:
             size_bytes=asset.size_bytes,
             # 注意：不使用 asset.created_at——flush 后该 server_default 属性未加载，
             # async 下访问会触发 MissingGreenlet（见 media-storage 遗留备注）。
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
     async def get_file_stream(self, media_id: str) -> tuple[bytes, str]:

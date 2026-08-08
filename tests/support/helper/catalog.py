@@ -6,10 +6,19 @@ from decimal import Decimal
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import CategoryResponse, ProductResponse, ShopResponse
+from tests.support.builders import (
+    build_category_create,
+    build_product_create,
+    build_shop_create,
+)
 from tests.support.helper.auth import register_user_via_otp
-from tests.support.builders import build_category_create, build_product_create, build_shop_create
+from tests.support.results import (
+    CategoryResult,
+    ProductResult,
+    ShopResult,
+    SmsRegisterResult,
+)
 from tests.support.utils import bearer_headers
-from tests.support.results import CategoryResult, ProductResult, ShopResult, SmsRegisterResult
 
 
 def _parse_shop_body(response: Response) -> ShopResponse | None:
@@ -127,9 +136,7 @@ async def create_product(
     扇入前置 ``shop_owner_token`` / ``category`` 须由 Case 或 fixture 持有；
     ``category.body`` 为 None 时使用占位 UUID，由 API 如实返回错误。
     """
-    category_id = (
-        category.body.id if category.body is not None else str(uuid.uuid4())
-    )
+    category_id = category.body.id if category.body is not None else str(uuid.uuid4())
     request = build_product_create(
         name=name,
         price=price,

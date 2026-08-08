@@ -17,7 +17,6 @@ from tests.support.helper.engagement import add_favorite, delete_favorite
 from tests.support.helper.ordering import arrange_purchasable_product
 from tests.support.utils import bearer_headers, decode_jwt_sub
 
-
 # ── POST /favorites ──────────────────────────────────────────
 
 

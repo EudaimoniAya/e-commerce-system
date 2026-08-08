@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**support**（店铺客服会话、inbox、product ref），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `011`（support.conversations）；本地与 CI 全量 pytest **335 项**。
+AI 赋能的电商后端服务。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**media**（媒体资产 attach：头像 / 店铺 logo / 商品主图 + URL 解析）、**support**（店铺客服会话、inbox、product ref），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针、Ruff format/lint 门禁）。Alembic 至 migration `013`（media attach FK）；本地与 CI 全量 pytest **406 项**。
 
 ## 前置条件
 
@@ -279,12 +279,24 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 |------|------|
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
+| `task format` | 用 ruff formatter 格式化全库 Python |
+| `task format:check` | 校验全库是否已 ruff 格式化（CI 门禁） |
 | `task test` | 运行全量 pytest（自动 `APP_ENV_FILE=.env.test`） |
-| `task ci` | 本地 CI：`ruff` + test-import 检查（**依赖 `rg`/ripgrep**）+ `test`（**不**自动 `db:up` / `redis:up`） |
+| `task ci` | 本地 CI：format check + `ruff` + test-import 检查（**依赖 `rg`/ripgrep`）+ `test`（**不**自动 `db:up` / `redis:up`） |
 | `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
 | `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up`） |
 | `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |
+
+### Git blame 忽略机械格式化提交
+
+仓库根目录 `.git-blame-ignore-revs` 记录全库 `ruff format` / lint fix 的 mechanical commit（无业务逻辑变更）。本地 blame 时跳过这些提交：
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+GitHub Web blame 对默认分支上的该文件自动生效。
 
 ### 数据库（本地 devbox）
 
@@ -365,7 +377,7 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 - 本地连接：**unix socket**（非 TCP 3306），见 `.env.example` 与 `devbox.d/mysql80/my.cnf`
 - CI 使用 **TCP** `127.0.0.1:3306`（GitHub Actions mysql service container）
 
-本地与远程 CI 均执行 `task ci`（ruff + pytest）。本地须先 `task db:up` 与 `task redis:up`；CI 在 workflow 内自动启动 mysql + redis service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
+本地与远程 CI 均执行 `task ci`（format check + ruff + pytest）。本地须先 `task db:up` 与 `task redis:up`；CI 在 workflow 内自动启动 mysql + redis service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
 
 ## 本地 Redis 与逻辑库
 
@@ -421,7 +433,7 @@ Workflow：`.github/workflows/test.yaml`（name: `Run Tests`）
 
 ```text
 filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
-lint:   （code 变更或 workflow_dispatch）ruff + check-test-imports（无 services，显式 apt install ripgrep）
+lint:   （code 变更或 workflow_dispatch）format check + ruff + check-test-imports（无 services，显式 apt install ripgrep）
 test:   （code 变更或 workflow_dispatch）单 job 全量 task test
         mysql + redis services → migrate → task test → upload artifact
 test-failure-alert:  上游 failure/cancelled 时 exit 1

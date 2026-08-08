@@ -1,17 +1,18 @@
 """catalog-shop：users.is_admin、shops 表与 seed 管理员。"""
 
 import uuid
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from pwdlib import PasswordHash
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "003"
-down_revision: Union[str, None] = "002"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "002"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 # migration seed 管理员凭据（仅开发/CI，见 design.md）
 _ADMIN_SEED_EMAIL = "114514yyut@qq.com"

@@ -2,8 +2,8 @@
 
 import uuid
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -104,7 +104,11 @@ async def test_batch_pay_cross_batch_and_immediate(
         db_session, shop_id=shop_owner.shop_id, stock=10, price="20.00", name="cross-b"
     )
     _, product_c = await arrange_purchasable_product(
-        db_session, shop_id=second_shop_owner.shop_id, stock=10, price="30.00", name="cross-c"
+        db_session,
+        shop_id=second_shop_owner.shop_id,
+        stock=10,
+        price="30.00",
+        name="cross-c",
     )
 
     user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
@@ -156,6 +160,7 @@ async def test_batch_pay_cross_batch_and_immediate(
 
     # batch2 子单未被付，仍为 awaiting_payment
     from tests.support.db.ordering import get_order_status
+
     assert await get_order_status(db_session, batch2_order_id) == "awaiting_payment"
 
 
@@ -177,20 +182,32 @@ async def test_batch_pay_subset(
         db_session, shop_id=shop_owner.shop_id, stock=10, price="10.00", name="sub-a1"
     )
     _, prod_b1 = await arrange_purchasable_product(
-        db_session, shop_id=second_shop_owner.shop_id, stock=10, price="10.00", name="sub-b1"
+        db_session,
+        shop_id=second_shop_owner.shop_id,
+        stock=10,
+        price="10.00",
+        name="sub-b1",
     )
     _, prod_a2 = await arrange_purchasable_product(
         db_session, shop_id=shop_owner.shop_id, stock=10, price="10.00", name="sub-a2"
     )
     _, prod_b2 = await arrange_purchasable_product(
-        db_session, shop_id=second_shop_owner.shop_id, stock=10, price="10.00", name="sub-b2"
+        db_session,
+        shop_id=second_shop_owner.shop_id,
+        stock=10,
+        price="10.00",
+        name="sub-b2",
     )
 
     user_id_placeholder = decode_jwt_sub(authenticated_user.access_token)
 
     # Checkout batch 1：跨店 cart → 2 orders（shop A + shop B）
-    c_a1 = await seed_cart_item(db_session, user_id=user_id_placeholder, product_id=prod_a1, qty=1)
-    c_b1 = await seed_cart_item(db_session, user_id=user_id_placeholder, product_id=prod_b1, qty=1)
+    c_a1 = await seed_cart_item(
+        db_session, user_id=user_id_placeholder, product_id=prod_a1, qty=1
+    )
+    c_b1 = await seed_cart_item(
+        db_session, user_id=user_id_placeholder, product_id=prod_b1, qty=1
+    )
     co1 = await checkout_cart(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
@@ -201,8 +218,12 @@ async def test_batch_pay_subset(
     assert len(orders1) == 2
 
     # Checkout batch 2：跨店 cart → 2 orders（shop A + shop B）
-    c_a2 = await seed_cart_item(db_session, user_id=user_id_placeholder, product_id=prod_a2, qty=1)
-    c_b2 = await seed_cart_item(db_session, user_id=user_id_placeholder, product_id=prod_b2, qty=1)
+    c_a2 = await seed_cart_item(
+        db_session, user_id=user_id_placeholder, product_id=prod_a2, qty=1
+    )
+    c_b2 = await seed_cart_item(
+        db_session, user_id=user_id_placeholder, product_id=prod_b2, qty=1
+    )
     co2 = await checkout_cart(
         integration_client,
         headers=bearer_headers(authenticated_user.access_token),
@@ -227,6 +248,7 @@ async def test_batch_pay_subset(
 
     # 未付的仍为 awaiting_payment
     from tests.support.db.ordering import get_order_status
+
     assert await get_order_status(db_session, orders1[1]["id"]) == "awaiting_payment"
     assert await get_order_status(db_session, orders2[0]["id"]) == "awaiting_payment"
 
@@ -275,6 +297,7 @@ async def test_batch_pay_partial_expired_returns_409_zero_confirmed(
 
     # 两个都未被确认（order2 虽然是合法的，但因为全有或全无，也被拒绝）
     from tests.support.db.ordering import get_order_status
+
     assert await get_order_status(db_session, order1.body.id) != "confirmed"
     assert await get_order_status(db_session, order2.body.id) != "confirmed"
 
@@ -329,6 +352,7 @@ async def test_batch_pay_illegal_state_returns_409(
 
     # order1 仍为 awaiting_payment（未被部分确认）
     from tests.support.db.ordering import get_order_status
+
     assert await get_order_status(db_session, order1.body.id) == "awaiting_payment"
 
 

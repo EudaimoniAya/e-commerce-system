@@ -61,7 +61,8 @@ class CartService:
 
         # 查重：已存在则累加数量
         existing = await self._cart_repo.get_by_user_and_product(
-            user_id, product_id,
+            user_id,
+            product_id,
         )
         if existing is not None:
             existing.qty += qty
@@ -295,7 +296,9 @@ class CartService:
                     initiated_by=o.initiated_by,  # type: ignore[arg-type]
                     status=o.status,  # type: ignore[arg-type]
                     cancel_reason=o.cancel_reason,
-                    checkout_batch_id=str(o.checkout_batch_id) if o.checkout_batch_id else None,
+                    checkout_batch_id=str(o.checkout_batch_id)
+                    if o.checkout_batch_id
+                    else None,
                     total_amount=str(o.total_amount),
                     expires_at=o.expires_at,
                     items=items_data,

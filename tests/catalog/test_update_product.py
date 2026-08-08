@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.catalog.schemas import ProductResponse
 from tests.support.builders import unique_category_name
 from tests.support.contexts import ShopOwnerContext
-from tests.support.helper.catalog import register_and_open_shop
 from tests.support.db.catalog import seed_category, seed_product, seed_product_category
+from tests.support.helper.catalog import register_and_open_shop
 from tests.support.utils import bearer_headers
 
 
@@ -229,7 +229,5 @@ async def test_patch_product_delist_sets_is_published_false(
     assert patch_response.status_code == 200
     assert ProductResponse.model_validate(patch_response.json()).is_published is False
 
-    public_response: Response = await integration_client.get(
-        f"/products/{product_id}"
-    )
+    public_response: Response = await integration_client.get(f"/products/{product_id}")
     assert public_response.status_code == 404

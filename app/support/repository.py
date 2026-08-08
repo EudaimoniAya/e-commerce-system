@@ -23,7 +23,8 @@ class ConversationRepository:
         self._session.add(conversation)
 
     async def get_by_id(
-        self, conversation_id: uuid.UUID,
+        self,
+        conversation_id: uuid.UUID,
     ) -> SupportConversation | None:
         """按主键查询会话。"""
         return await self._session.get(SupportConversation, conversation_id)
@@ -93,9 +94,7 @@ class MessageRepository:
         total = int(count_result.scalar_one())
 
         result = await self._session.execute(
-            base.order_by(SupportMessage.created_at.asc())
-            .limit(limit)
-            .offset(offset)
+            base.order_by(SupportMessage.created_at.asc()).limit(limit).offset(offset)
         )
         rows: Sequence[SupportMessage] = result.scalars().all()
         return list(rows), total

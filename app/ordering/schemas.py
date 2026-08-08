@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.infra.pagination.schemas import Paginated
 
-
 # ── Cart ───────────────────────────────────────────────────────
 
 
@@ -92,7 +91,7 @@ class CheckoutResponse(BaseModel):
     """结算成功响应。"""
 
     checkout_batch_id: str
-    orders: list["OrderResponse"]
+    orders: list[OrderResponse]
 
 
 class BatchPayRequest(BaseModel):
@@ -104,7 +103,7 @@ class BatchPayRequest(BaseModel):
 class BatchPayResponse(BaseModel):
     """批量支付成功响应。"""
 
-    orders: list["OrderResponse"]
+    orders: list[OrderResponse]
 
 
 # ── Checkout Batch Detail ──────────────────────────────────────

@@ -10,6 +10,7 @@
 
 import logging
 import random
+from datetime import UTC
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException, status
@@ -27,9 +28,9 @@ def _otp_key(phone: str) -> str:
 
 def _daily_key(phone: str) -> str:
     """日发送计数 key（按 UTC 日期轮转）。"""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    date_str = datetime.now(UTC).strftime("%Y%m%d")
     return f"sms:daily:{phone}:{date_str}"
 
 
@@ -56,9 +57,7 @@ class MockSmsProvider:
 class SmsOtpService:
     """SMS OTP 服务：发送验证码、原子消费、日发送限流与验证失败计数。"""
 
-    def __init__(
-        self, redis: aioredis.Redis, settings: Settings | None = None
-    ) -> None:
+    def __init__(self, redis: aioredis.Redis, settings: Settings | None = None) -> None:
         self._redis = redis
         self._settings = settings
 

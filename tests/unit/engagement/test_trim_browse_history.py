@@ -33,9 +33,9 @@ def _row(uid: str, last_viewed_at: datetime, row_id: str) -> BrowseTrimRow:
 def test_trim_keeps_rows_within_top_n_even_if_old() -> None:
     """行数不超 MAX 时，最旧行（超 retention）不被删除。"""
     rows = [
-        _row("A", _NOW - timedelta(days=40), "old"),       # 超 retention
-        _row("A", _NOW - timedelta(days=1), "mid"),        # retention 内
-        _row("A", _NOW, "new"),                            # 最近
+        _row("A", _NOW - timedelta(days=40), "old"),  # 超 retention
+        _row("A", _NOW - timedelta(days=1), "mid"),  # retention 内
+        _row("A", _NOW, "new"),  # 最近
     ]
 
     to_delete = plan_browse_trim_deletes(
@@ -54,11 +54,11 @@ def test_trim_deletes_rows_outside_top_n_older_than_retention() -> None:
     """超过 top N 且 last_viewed_at 早于 retention cutoff 的行被删除。"""
     # 插入顺序最旧在前：若实现按插入顺序而非 last_viewed_at DESC 选 top N，本测试会失败。
     rows = [
-        _row("A", _NOW - timedelta(days=40), "r-old-1"),   # 超 retention
-        _row("A", _NOW - timedelta(days=35), "r-old-2"),   # 超 retention
-        _row("A", _NOW - timedelta(hours=2), "r-mid"),     # retention 内
-        _row("A", _NOW - timedelta(hours=1), "r-new-1"),   # retention 内
-        _row("A", _NOW, "r-new-2"),                        # retention 内
+        _row("A", _NOW - timedelta(days=40), "r-old-1"),  # 超 retention
+        _row("A", _NOW - timedelta(days=35), "r-old-2"),  # 超 retention
+        _row("A", _NOW - timedelta(hours=2), "r-mid"),  # retention 内
+        _row("A", _NOW - timedelta(hours=1), "r-new-1"),  # retention 内
+        _row("A", _NOW, "r-new-2"),  # retention 内
     ]
 
     to_delete = plan_browse_trim_deletes(
@@ -78,7 +78,9 @@ def test_trim_deletes_rows_outside_top_n_older_than_retention() -> None:
 def test_trim_keeps_rows_outside_top_n_but_recent() -> None:
     """超出 top N 但 last_viewed_at 仍 ≥ retention cutoff 的行不删除。"""
     rows = [
-        _row("A", _NOW - timedelta(hours=3), "beyond-top-n"),  # 第 4 行，但 retention 内
+        _row(
+            "A", _NOW - timedelta(hours=3), "beyond-top-n"
+        ),  # 第 4 行，但 retention 内
         _row("A", _NOW - timedelta(hours=2), "r3"),
         _row("A", _NOW - timedelta(hours=1), "r2"),
         _row("A", _NOW, "r1"),
@@ -106,7 +108,7 @@ def test_trim_groups_by_user_independently() -> None:
         _row("A", _NOW - timedelta(hours=1), "a-r2"),
         _row("A", _NOW, "a-r1"),
         # user B：2 行（均在 top 2 内）
-        _row("B", _NOW - timedelta(days=40), "b-old"),   # 虽超期但仍在 top 2 内
+        _row("B", _NOW - timedelta(days=40), "b-old"),  # 虽超期但仍在 top 2 内
         _row("B", _NOW, "b-new"),
     ]
 
@@ -130,7 +132,9 @@ def test_trim_applies_small_config_max_per_user() -> None:
     assert 0 < max_per_user <= 5  # .env.test 小 MAX，杜绝硬编码 50
 
     # 用配置值构造：MAX 行最近 + 1 行超 retention 超 MAX
-    recent = [_row("A", _NOW - timedelta(hours=1), f"recent-{i}") for i in range(max_per_user)]
+    recent = [
+        _row("A", _NOW - timedelta(hours=1), f"recent-{i}") for i in range(max_per_user)
+    ]
     stale_extra = _row("A", _NOW - timedelta(days=40), "stale-extra")
     rows = recent + [stale_extra]
 

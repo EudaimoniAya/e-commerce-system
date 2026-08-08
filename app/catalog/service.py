@@ -8,7 +8,6 @@ from sqlalchemy.exc import IntegrityError
 
 from app.catalog.models import Category, Product, Shop
 from app.catalog.repository import CategoryRepository, ProductRepository, ShopRepository
-from app.media.service import MediaService
 from app.catalog.schemas import (
     CategoryCreate,
     CategoryResponse,
@@ -24,6 +23,7 @@ from app.catalog.schemas import (
     ShopSupportContext,
     ShopUpdate,
 )
+from app.media.service import MediaService
 
 _USER_ALREADY_HAS_SHOP_MSG = "User already has a shop"
 _SHOP_NAME_TAKEN_MSG = "Shop name already taken"
@@ -305,22 +305,16 @@ class ShopService:
             limit=limit,
             offset=offset,
         )
-        urls = await self._resolve_urls_batch(
-            [p.primary_media_id for p in products]
-        )
+        urls = await self._resolve_urls_batch([p.primary_media_id for p in products])
         items: list[ProductResponse] = []
         for product in products:
-            categories = await self._load_product_categories(
-                uuid.UUID(str(product.id))
-            )
+            categories = await self._load_product_categories(uuid.UUID(str(product.id)))
             image_url = (
                 urls.get(str(product.primary_media_id))
                 if product.primary_media_id is not None
                 else None
             )
-            items.append(
-                _to_product_response(product, categories, image_url=image_url)
-            )
+            items.append(_to_product_response(product, categories, image_url=image_url))
         return PaginatedProducts(
             items=items,
             total=total,
@@ -341,22 +335,16 @@ class ShopService:
             limit=limit,
             offset=offset,
         )
-        urls = await self._resolve_urls_batch(
-            [p.primary_media_id for p in products]
-        )
+        urls = await self._resolve_urls_batch([p.primary_media_id for p in products])
         items: list[ProductResponse] = []
         for product in products:
-            categories = await self._load_product_categories(
-                uuid.UUID(str(product.id))
-            )
+            categories = await self._load_product_categories(uuid.UUID(str(product.id)))
             image_url = (
                 urls.get(str(product.primary_media_id))
                 if product.primary_media_id is not None
                 else None
             )
-            items.append(
-                _to_product_response(product, categories, image_url=image_url)
-            )
+            items.append(_to_product_response(product, categories, image_url=image_url))
         return PaginatedProducts(
             items=items,
             total=total,
@@ -408,9 +396,7 @@ class ShopService:
         )
         if not rows:
             return []
-        urls = await self._resolve_urls_batch(
-            [row["primary_media_id"] for row in rows]
-        )
+        urls = await self._resolve_urls_batch([row["primary_media_id"] for row in rows])
         return [
             EngagementProduct(
                 id=row["id"],
@@ -437,7 +423,7 @@ class ShopService:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=str(exc),
-            )
+            ) from exc
 
     async def release_stock(self, items: list[tuple[str, int]]) -> None:
         """释放库存（供 ordering 域取消/过期时调用）。"""

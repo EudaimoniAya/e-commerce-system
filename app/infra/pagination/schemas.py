@@ -4,11 +4,7 @@
 - ``Paginated[TResponse]``：泛型分页响应壳（items / total / limit / offset）
 """
 
-from typing import Generic, TypeVar
-
 from pydantic import BaseModel
-
-TResponse = TypeVar("TResponse")
 
 
 class PaginationParams(BaseModel):
@@ -22,7 +18,7 @@ class PaginationParams(BaseModel):
     offset: int
 
 
-class Paginated(BaseModel, Generic[TResponse]):
+class Paginated[TResponse](BaseModel):
     """泛型分页响应壳。
 
     字段与命名 SHALL 在所有已迁移端点间保持一致。

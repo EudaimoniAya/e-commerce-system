@@ -82,6 +82,9 @@ jobs:
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
+      - name: Format check (ruff)
+        run: task format:check
+
       - name: Lint (ruff)
         run: task ruff
 

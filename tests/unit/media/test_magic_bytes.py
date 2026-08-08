@@ -15,7 +15,6 @@ from tests.support.helper.media import (
     TEXT_BYTES,
 )
 
-
 # ── detect_content_type（魔数 → MIME）─────────────────────────────────────────
 
 

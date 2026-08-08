@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ordering.models import Order, OrderItem
 
-
 # ── Seed（Arrange：直写 SAVEPOINT session，不经 HTTP）──────────
+
 
 async def seed_order(
     session: AsyncSession,
@@ -71,6 +71,7 @@ async def seed_order_item(
 
 # ── Manipulate（Arrange：修改已有行，模拟边界状态）────────────
 
+
 async def backdate_order_expires_at(
     session: AsyncSession,
     order_id: str,
@@ -87,16 +88,13 @@ async def backdate_order_expires_at(
     if seconds <= 0:
         seconds = 1
     new_expires = datetime.now(UTC) - timedelta(seconds=seconds)
-    stmt = (
-        update(Order)
-        .where(Order.id == str(order_id))
-        .values(expires_at=new_expires)
-    )
+    stmt = update(Order).where(Order.id == str(order_id)).values(expires_at=new_expires)
     await session.execute(stmt)
     await session.flush()
 
 
 # ── Assert（HTTP Act 后查表验证副作用）────────────────────────
+
 
 async def seed_cart_item(
     session: AsyncSession,

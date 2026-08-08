@@ -1,0 +1,5 @@
+# git blame 忽略纯机械提交（无业务逻辑变更）
+# 本地启用：git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# infra-ruff-style: 全库 ruff format + I/UP/B006/B007/B904 lint fix
+c59030eff691dfee0309614b61c0d7698a5b973a

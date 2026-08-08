@@ -19,15 +19,9 @@ class User(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    phone: Mapped[str | None] = mapped_column(
-        String(20), unique=True, nullable=True
-    )
-    email: Mapped[str | None] = mapped_column(
-        String(255), unique=True, nullable=True
-    )
-    password_hash: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
+    phone: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     avatar_media_id: Mapped[uuid.UUID | None] = mapped_column(
         String(36),
         ForeignKey("media_assets.id"),

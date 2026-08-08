@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.models import Category, Product, ProductCategory, Shop
 
-
 # ── Seed（Arrange：直写 SAVEPOINT session，不经 HTTP）──────────
+
 
 async def seed_shop(
     session: AsyncSession,
@@ -95,6 +95,7 @@ async def seed_product_category(
 
 
 # ── Assert（HTTP Act 后查表验证副作用）────────────────────────
+
 
 async def get_product_stock(
     session: AsyncSession,
