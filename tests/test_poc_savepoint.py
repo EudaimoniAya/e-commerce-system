@@ -15,8 +15,8 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from tests.support.helper.auth import login_admin, register_user_via_otp
-from tests.support.helper.catalog import create_shop
+from tests.testkit.helper.auth import login_admin, register_user_via_otp
+from tests.testkit.helper.catalog import create_shop
 
 pytestmark = pytest.mark.integration
 

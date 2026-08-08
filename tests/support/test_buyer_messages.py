@@ -8,13 +8,13 @@ import allure
 import pytest
 from httpx import AsyncClient
 
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.helper.support import (
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.helper.support import (
     get_buyer_conversation,
     list_buyer_messages,
     post_buyer_message,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 
 async def _close_shop(integration_client: AsyncClient, token: str) -> None:

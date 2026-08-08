@@ -7,8 +7,8 @@ import pytest
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ShopResponse
-from tests.support.contexts import ShopOwnerContext
-from tests.support.utils import bearer_headers
+from tests.testkit.contexts import ShopOwnerContext
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration

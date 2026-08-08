@@ -19,22 +19,22 @@ from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.auth import decode_access_token
-from tests.support.builders import unique_category_name, unique_email
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.db.catalog import (
+from tests.testkit.builders import unique_category_name, unique_email
+from tests.testkit.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.testkit.db.catalog import (
     get_product_stock,
     seed_category,
     seed_product,
     seed_product_category,
 )
-from tests.support.db.user import seed_inactive_user
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.helper.catalog import register_and_open_shop
-from tests.support.helper.ordering import (
+from tests.testkit.db.user import seed_inactive_user
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.helper.catalog import register_and_open_shop
+from tests.testkit.helper.ordering import (
     arrange_purchasable_product,
     create_order_by_seller,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration

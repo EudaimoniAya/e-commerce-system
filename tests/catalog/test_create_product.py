@@ -7,11 +7,11 @@ import pytest
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ProductResponse
-from tests.support.builders import build_product_create, unique_category_name
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.helper.catalog import create_category
-from tests.support.results import CategoryResult
-from tests.support.utils import bearer_headers
+from tests.testkit.builders import build_product_create, unique_category_name
+from tests.testkit.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.testkit.helper.catalog import create_category
+from tests.testkit.results import CategoryResult
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration

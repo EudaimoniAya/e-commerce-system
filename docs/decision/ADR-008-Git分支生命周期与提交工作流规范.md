@@ -166,7 +166,7 @@ dev/main 双线永久增长；back-merge 是让两条永久分支尖端收敛的
 test(engagement) [browse]: Task 1 TDD 红
 
 - helper: record/list/delete_browse + Browse*Result
-- tests/engagement/test_browse_*.py；tests/support/db/engagement.py
+- tests/engagement/test_browse_*.py；tests/testkit/db/engagement.py
 ```
 
 ```text

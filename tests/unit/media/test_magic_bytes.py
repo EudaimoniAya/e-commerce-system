@@ -7,7 +7,7 @@ from app.media.validation import (
     detect_content_type,
     validate_media_upload,
 )
-from tests.support.helper.media import (
+from tests.testkit.helper.media import (
     MINI_JPEG_BYTES,
     MINI_PNG_BYTES,
     MINI_WEBP_BYTES,

@@ -6,19 +6,19 @@ from decimal import Decimal
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import CategoryResponse, ProductResponse, ShopResponse
-from tests.support.builders import (
+from tests.testkit.builders import (
     build_category_create,
     build_product_create,
     build_shop_create,
 )
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.results import (
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.results import (
     CategoryResult,
     ProductResult,
     ShopResult,
     SmsRegisterResult,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 
 def _parse_shop_body(response: Response) -> ShopResponse | None:

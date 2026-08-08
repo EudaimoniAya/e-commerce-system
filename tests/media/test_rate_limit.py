@@ -7,9 +7,9 @@ import allure
 import pytest
 from httpx import AsyncClient
 
-from tests.support.contexts import AuthContext
-from tests.support.helper.auth import auth_headers
-from tests.support.helper.media import MINI_PNG_BYTES, upload_media
+from tests.testkit.contexts import AuthContext
+from tests.testkit.helper.auth import auth_headers
+from tests.testkit.helper.media import MINI_PNG_BYTES, upload_media
 
 
 @pytest.mark.integration

@@ -10,8 +10,8 @@ import allure
 import pytest
 from httpx import AsyncClient
 
-from tests.support.builders import build_sms_send_request
-from tests.support.helper.auth import send_sms_otp
+from tests.testkit.builders import build_sms_send_request
+from tests.testkit.helper.auth import send_sms_otp
 
 
 @allure.epic("user")

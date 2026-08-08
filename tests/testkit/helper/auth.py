@@ -8,13 +8,13 @@
 from httpx import AsyncClient, Response
 
 from app.user.schemas import TokenResponse
-from tests.support.builders import (
+from tests.testkit.builders import (
     build_login_request,
     build_sms_login_request,
     build_sms_register_request,
     build_sms_send_request,
 )
-from tests.support.results import (
+from tests.testkit.results import (
     LoginResult,
     SmsLoginResult,
     SmsRegisterResult,

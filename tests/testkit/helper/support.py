@@ -5,7 +5,7 @@
 
 from httpx import AsyncClient, Response
 
-from tests.support.results import (
+from tests.testkit.results import (
     ConversationResult,
     InboxListResult,
     MessageListResult,

@@ -6,8 +6,8 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.results import MediaResult
-from tests.support.utils import decode_jwt_sub
+from tests.testkit.results import MediaResult
+from tests.testkit.utils import decode_jwt_sub
 
 # ── Fixture bytes ────────────────────────────────────────────────────────────
 

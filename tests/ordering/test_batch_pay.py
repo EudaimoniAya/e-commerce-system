@@ -7,17 +7,17 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.ordering import backdate_order_expires_at, seed_cart_item
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.helper.ordering import (
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.ordering import backdate_order_expires_at, seed_cart_item
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.helper.ordering import (
     arrange_purchasable_product,
     batch_pay_orders,
     checkout_cart,
     create_order,
     pay_order,
 )
-from tests.support.utils import bearer_headers, decode_jwt_sub
+from tests.testkit.utils import bearer_headers, decode_jwt_sub
 
 
 @pytest.mark.integration
@@ -159,7 +159,7 @@ async def test_batch_pay_cross_batch_and_immediate(
     assert statuses.get(batch1_order_id) == "confirmed"
 
     # batch2 子单未被付，仍为 awaiting_payment
-    from tests.support.db.ordering import get_order_status
+    from tests.testkit.db.ordering import get_order_status
 
     assert await get_order_status(db_session, batch2_order_id) == "awaiting_payment"
 
@@ -247,7 +247,7 @@ async def test_batch_pay_subset(
     assert statuses.get(orders2[1]["id"]) == "confirmed"
 
     # 未付的仍为 awaiting_payment
-    from tests.support.db.ordering import get_order_status
+    from tests.testkit.db.ordering import get_order_status
 
     assert await get_order_status(db_session, orders1[1]["id"]) == "awaiting_payment"
     assert await get_order_status(db_session, orders2[0]["id"]) == "awaiting_payment"
@@ -296,7 +296,7 @@ async def test_batch_pay_partial_expired_returns_409_zero_confirmed(
     assert result.status_code == 409
 
     # 两个都未被确认（order2 虽然是合法的，但因为全有或全无，也被拒绝）
-    from tests.support.db.ordering import get_order_status
+    from tests.testkit.db.ordering import get_order_status
 
     assert await get_order_status(db_session, order1.body.id) != "confirmed"
     assert await get_order_status(db_session, order2.body.id) != "confirmed"
@@ -351,7 +351,7 @@ async def test_batch_pay_illegal_state_returns_409(
     assert result.status_code == 409
 
     # order1 仍为 awaiting_payment（未被部分确认）
-    from tests.support.db.ordering import get_order_status
+    from tests.testkit.db.ordering import get_order_status
 
     assert await get_order_status(db_session, order1.body.id) == "awaiting_payment"
 

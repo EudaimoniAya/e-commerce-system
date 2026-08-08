@@ -1,4 +1,4 @@
-"""tests/support 纯函数工具：请求头投影 + JWT 解码 + 测试环境 bootstrap。
+"""tests/testkit 纯函数工具：请求头投影 + JWT 解码 + 测试环境 bootstrap。
 
 无 HTTP/DB 依赖，不 import 任何业务域模块。
 

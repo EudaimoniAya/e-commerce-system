@@ -5,13 +5,13 @@ import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import (
+from tests.testkit.contexts import (
     AdminAuthContext,
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.db.catalog import get_product_stock
-from tests.support.helper.ordering import (
+from tests.testkit.db.catalog import get_product_stock
+from tests.testkit.helper.ordering import (
     arrange_confirmed_order,
     arrange_purchasable_product,
     cancel_order,
@@ -19,7 +19,7 @@ from tests.support.helper.ordering import (
     create_order,
     create_shipment,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration
