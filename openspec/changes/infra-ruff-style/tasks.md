@@ -19,8 +19,8 @@
 
 ## 4. Git blame ignore（SHA 写入文件内）
 
-- [ ] 4.1 Commit B（§3 mechanical）完成后，在 `.git-blame-ignore-revs` **内**追加该 commit 完整 SHA（保留文件头注释；附 `infra-ruff-style` 说明）
-- [ ] 4.2 README 已含 blame ignore 配置说明（可与 2.4 合并完成）
+- [x] 4.1 Commit B（§3 mechanical）完成后，在 `.git-blame-ignore-revs` **内**追加该 commit 完整 SHA（保留文件头注释；附 `infra-ruff-style` 说明）
+- [x] 4.2 README 已含 blame ignore 配置说明（可与 2.4 合并完成）
 
 ## 5. 本地与远程 CI 验证
 
