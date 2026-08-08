@@ -24,9 +24,9 @@
 
 ## 5. 本地与远程 CI 验证
 
-- [ ] 5.1 本地：`devbox run -- task ci` 全绿（format:check + ruff + check-test-imports + test；须先 `db:up` + `redis:up`）
-- [ ] 5.2 远程：push 后确认 GitHub Actions `Run Tests` lint + test 全绿（或 `workflow_dispatch` on feature branch）
-- [ ] 5.3 勾选 tasks.md 全部项；准备 archive
+- [x] 5.1 本地：`devbox run -- task ci` 全绿（format:check + ruff + check-test-imports + test；须先 `db:up` + `redis:up`）→ 406 passed in 42.50s
+- [x] 5.2 远程：push 后确认 GitHub Actions `Run Tests` lint + test 全绿（workflow_dispatch run 31233815035 on `style/infra-ruff-style`；lint 31s / test 1m45s）
+- [x] 5.3 勾选 tasks.md 全部项；准备 archive
 
 ## 6. 收尾
 
