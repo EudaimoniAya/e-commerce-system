@@ -2,13 +2,13 @@
 
 ## Purpose
 
-测试代码四层架构与数据流纪律：Case（Assert-First）、Fixture（fail-fast 瘦身 Context + fixture 依赖链）、Support（helper + builders/results + db 断言/seed）、Utilities（纯函数）。HTTP 集成测通过 SAVEPOINT 单事务隔离；持久状态经 `tests/support/db` 查询与 Arrange，无需 PipelineResult 传递 ID。
+测试代码四层架构与数据流纪律：Case（Assert-First）、Fixture（fail-fast 瘦身 Context + fixture 依赖链）、Support（helper + builders/results + db 断言/seed）、Utilities（纯函数）。HTTP 集成测通过 SAVEPOINT 单事务隔离；持久状态经 `tests/testkit/db` 查询与 Arrange，无需 PipelineResult 传递 ID。
 
 ## Requirements
 
 ### Requirement: Four-layer test architecture
 
-测试代码 SHALL 分为 Case、Fixture、Support、Utilities 四层。Case 层位于 `tests/**/test_*.py`；Fixture 层位于 `tests/conftest.py`；Support 层位于 `tests/support/`（含 `tests/support/db/`、`tests/support/helper/`）；Utilities 为 Support 内无 HTTP/DB 的纯函数。
+测试代码 SHALL 分为 Case、Fixture、Support、Utilities 四层。Case 层位于 `tests/**/test_*.py`（含各业务域目录；`tests/support/` 仅 **app/support 域** Case，与 Support 层无关）；Fixture 层位于 `tests/conftest.py`；Support 层位于 `tests/testkit/`（含 `tests/testkit/db/`、`tests/testkit/helper/`）；Utilities 为 testkit 内无 HTTP/DB 的纯函数。
 
 #### Scenario: Case layer contains only test functions
 
@@ -19,13 +19,13 @@
 #### Scenario: Support layer owns HTTP and DB helpers
 
 - **WHEN** 测试需要可复用 HTTP 调用或 DB 状态查询/seed
-- **THEN** HTTP helper SHALL 位于 `tests/support/helper/` 域子模块（如 `auth.py`、`catalog.py`、`ordering.py`）
-- **AND** DB 断言与 seed helper SHALL 位于 `tests/support/db/`
+- **THEN** HTTP helper SHALL 位于 `tests/testkit/helper/` 域子模块（如 `auth.py`、`catalog.py`、`ordering.py`）
+- **AND** DB 断言与 seed helper SHALL 位于 `tests/testkit/db/`
 - **AND** SHALL NOT 位于 `test_*.py` 或跨 test 文件 import
 
 ### Requirement: Case layer import discipline
 
-Case 文件 SHALL NOT import 其他 test 模块（`from tests.<domain>.test_* import ...`）。Case MAY import `tests.support.*` 与 `tests.conftest` re-export 的符号。`tests/unit/**` SHALL NOT import `tests.support` 或 `tests.conftest`。
+Case 文件 SHALL NOT import 其他 test 模块（`from tests.<domain>.test_* import ...`）。Case MAY import `tests.testkit.*` 与 `tests.conftest` re-export 的符号。`tests/unit/**` SHALL NOT import `tests.testkit` 或 `tests.conftest`。
 
 #### Scenario: no cross-test-module imports
 
@@ -71,7 +71,7 @@ Integration Case SHALL 以断言为主。被测 HTTP 行为（Act）SHALL 在 Ca
 
 - **WHEN** 调用 `create_product(integration_client, shop_token=..., category=...)`
 - **THEN** Case 或 fixture SHALL 仍持有 `shop_owner` / `admin_auth_headers` 等 Context
-- **AND** 持久 ID（如 `product_id`）MAY 来自 Act 的 `*Result.body` 或 `tests/support/db` 查询
+- **AND** 持久 ID（如 `product_id`）MAY 来自 Act 的 `*Result.body` 或 `tests/testkit/db` 查询
 
 ### Requirement: Setup fixture fail-fast
 
@@ -136,7 +136,7 @@ Health、readiness、migration smoke 探针 SHALL 位于 `tests/ops/`。纯 JWT/
 
 ### Requirement: No redundant curl smoke scripts in scripts/
 
-项目 **SHALL NOT** 在 `scripts/` 下新增与 pytest integration 重复的 `*_curl_smoke.sh` 或等价 bash HTTP 编排脚本。业务 API 主流程与回归 SHALL 由 `tests/{domain}/` integration Case + `tests/support/helper/` 覆盖，并经 `task ci` / 域测试任务在 CI 与本地执行。
+项目 **SHALL NOT** 在 `scripts/` 下新增与 pytest integration 重复的 `*_curl_smoke.sh` 或等价 bash HTTP 编排脚本。业务 API 主流程与回归 SHALL 由 `tests/{domain}/` integration Case + `tests/testkit/helper/` 覆盖，并经 `task ci` / 域测试任务在 CI 与本地执行。
 
 README MAY 保留零散的 curl 示例供手动调试，但 **SHALL NOT** 维护「一键烟雾」类 shell 脚本作为第二套自动化测试。
 
@@ -189,12 +189,12 @@ refactor 前 SHALL 在 `docs/troubleshooting/测试架构-旧模式反模式记�
 
 #### Scenario: helpers do not duplicate jwt constants
 
-- **WHEN** grep `tests/support/` 中硬编码 `JWT_SECRET_KEY` 或 `configure_integration_test_env` duplicate 常量
+- **WHEN** grep `tests/testkit/` 中硬编码 `JWT_SECRET_KEY` 或 `configure_integration_test_env` duplicate 常量
 - **THEN** SHALL 无匹配（env 加载迁出）
 
 ### Requirement: Settings cache lifecycle
 
-`get_settings.cache_clear()` SHALL 仅出现在 `tests/support/utils.py`（或文档化的 env 模块）及 mutating fixture teardown。HTTP helper 与 atomic orchestrator SHALL NOT 调用 `cache_clear` 或 `ensure_integration_auth_env`。
+`get_settings.cache_clear()` SHALL 仅出现在 `tests/testkit/utils.py`（或文档化的 env 模块）及 mutating fixture teardown。HTTP helper 与 atomic orchestrator SHALL NOT 调用 `cache_clear` 或 `ensure_integration_auth_env`。
 
 #### Scenario: no cache clear in register helper
 
@@ -208,7 +208,7 @@ refactor 前 SHALL 在 `docs/troubleshooting/测试架构-旧模式反模式记�
 
 ### Requirement: Integration transaction isolation via dependency override and SAVEPOINT
 
-带 `@pytest.mark.integration` 且使用 HTTP 写库的测试 SHALL 通过 `db_session` fixture 注册 `app.dependency_overrides[get_db]`，使 HTTP 与 `tests/support/db` 共用同一 `AsyncSession`。`db_session` SHALL 使用外层事务 + SAVEPOINT（如 `join_transaction_mode="create_savepoint"`），使 service 内 `session.commit()` 不提交外层事务。测试 teardown SHALL 对外层事务 `rollback`，实现零数据残留。
+带 `@pytest.mark.integration` 且使用 HTTP 写库的测试 SHALL 通过 `db_session` fixture 注册 `app.dependency_overrides[get_db]`，使 HTTP 与 `tests/testkit/db` 共用同一 `AsyncSession`。`db_session` SHALL 使用外层事务 + SAVEPOINT（如 `join_transaction_mode="create_savepoint"`），使 service 内 `session.commit()` 不提交外层事务。测试 teardown SHALL 对外层事务 `rollback`，实现零数据残留。
 
 #### Scenario: override registered in db session fixture
 
@@ -242,28 +242,28 @@ refactor 前 SHALL 在 `docs/troubleshooting/测试架构-旧模式反模式记�
 - **WHEN** 审查 `tests/ordering/` 下 `@integration` HTTP 用例
 - **THEN** SHALL 使用 `integration_client`（或依赖链等价）
 
-### Requirement: DB state assertion via tests support db
+### Requirement: DB state assertion via testkit db
 
-持久化状态断言（库存、订单 status 等）SHALL 经 `tests/support/db/` helper，使用与 override 相同的 `AsyncSession`。Case SHALL NOT 直接 import `app.*.repository`。SHALL NOT 为状态断言调用 service。
+持久化状态断言（库存、订单 status 等）SHALL 经 `tests/testkit/db/` helper，使用与 override 相同的 `AsyncSession`。Case SHALL NOT 直接 import `app.*.repository`。SHALL NOT 为状态断言调用 service。
 
 DB 断言是验证副作用的**主要路径**。HTTP GET SHALL 仅作为 Act（被测端点本身）保留，SHALL NOT 作为其他端点 Act 后的状态断言手段。同一事实的 HTTP GET 断言与 DB 断言 SHALL NOT 并存——DB 断言替代 HTTP GET，不追加。
 
 #### Scenario: stock change asserted via db helper not http get
 
 - **WHEN** 某测试的 Act 是 POST /orders 或 POST /orders/{id}/cancel 等写操作
-- **THEN** 库存变化的断言 SHALL 使用 `tests/support/db/catalog.py` 的 `get_product_stock`
+- **THEN** 库存变化的断言 SHALL 使用 `tests/testkit/db/catalog.py` 的 `get_product_stock`
 - **AND** SHALL NOT 再通过 `GET /products/{id}` 验证同一库存变化
 
 #### Scenario: order status change asserted via db helper not http get
 
 - **WHEN** 某测试的 Act 是 POST /orders/{id}/pay 或 POST /orders/{id}/cancel 等写操作
-- **THEN** 订单 status 变化的断言 SHALL 使用 `tests/support/db/ordering.py` 的 `get_order_status`
+- **THEN** 订单 status 变化的断言 SHALL 使用 `tests/testkit/db/ordering.py` 的 `get_order_status`
 - **AND** SHALL NOT 再通过 `GET /orders/{id}` 仅为验证 status 变化而发 HTTP 请求
 
 #### Scenario: lazy release asserts stock via db helper
 
 - **WHEN** 懒释放 integration 用例断言库存还原
-- **THEN** SHALL 使用 `tests/support/db/catalog.py` 的 `get_product_stock` 查询 stock
+- **THEN** SHALL 使用 `tests/testkit/db/catalog.py` 的 `get_product_stock` 查询 stock
 - **AND** SHALL NOT 附带 `GET /products/{id}` HTTP 调用做同一库存验证
 
 #### Scenario: case does not import app repository
@@ -273,24 +273,24 @@ DB 断言是验证副作用的**主要路径**。HTTP GET SHALL 仅作为 Act（
 
 ### Requirement: DB seed for domain data arrange
 
-Shop / Category / Product / Order 的 Arrange SHALL 经 `tests/support/db/` seed helper（直写 SAVEPOINT session，不经 HTTP）。例外：conftest fixture 中的 auth token 生成走 HTTP（身份逻辑不重复）。
+Shop / Category / Product / Order 的 Arrange SHALL 经 `tests/testkit/db/` seed helper（直写 SAVEPOINT session，不经 HTTP）。例外：conftest fixture 中的 auth token 生成走 HTTP（身份逻辑不重复）。
 
 #### Scenario: ordering test arranges shop and product via db seed
 
 - **WHEN** 审查 ordering 域 integration 测试的 Arrange 阶段
-- **THEN** shop / category / product 的创建 SHALL 使用 `tests/support/db/catalog.py` 的 `seed_shop`、`seed_category`、`seed_product`
+- **THEN** shop / category / product 的创建 SHALL 使用 `tests/testkit/db/catalog.py` 的 `seed_shop`、`seed_category`、`seed_product`
 - **AND** SHALL NOT 通过 `POST /shops`、`POST /categories`、`POST /products` HTTP 端点铺设 Arrange 数据
 
 #### Scenario: seed helpers use same session as integration client
 
-- **WHEN** 审查 `tests/support/db/` 下的 seed 函数签名
+- **WHEN** 审查 `tests/testkit/db/` 下的 seed 函数签名
 - **THEN** SHALL 接收 `AsyncSession` 参数（测试的 `db_session`）
 - **AND** SHALL 通过 `session.flush()` 使数据对同一事务内的 HTTP Act 可见
 - **AND** SHALL NOT 创建独立 engine 或 commit 到事务外
 
 ### Requirement: Lazy expire tests use backdate not ttl env override
 
-ordering 懒释放 integration 测 SHALL 通过 `tests/support/db` backdate `orders.expires_at` 到过去触发过期，SHALL NOT 依赖 `override_order_reservation_ttl`、`wait_past_order_expiry` 或修改 `ORDER_RESERVATION_TTL_SECONDS` 环境变量。生产 `ordering.service` SHALL NOT 含 `os.environ.get("ORDER_RESERVATION_TTL_SECONDS")` 分支。
+ordering 懒释放 integration 测 SHALL 通过 `tests/testkit/db` backdate `orders.expires_at` 到过去触发过期，SHALL NOT 依赖 `override_order_reservation_ttl`、`wait_past_order_expiry` 或修改 `ORDER_RESERVATION_TTL_SECONDS` 环境变量。生产 `ordering.service` SHALL NOT 含 `os.environ.get("ORDER_RESERVATION_TTL_SECONDS")` 分支。
 
 #### Scenario: no ttl or wait helpers after migration
 
@@ -309,7 +309,7 @@ ordering 懒释放 integration 测 SHALL 通过 `tests/support/db` backdate `ord
 
 #### Scenario: seed uses session not database url engine
 
-- **WHEN** 审查 `tests/support/seeds.py`
+- **WHEN** 审查 `tests/testkit/db/user.py` 中 `seed_inactive_user`
 - **THEN** `seed_inactive_user` SHALL NOT 调用 `create_async_engine(database_url)`
 
 #### Scenario: seed call sites use integration scope

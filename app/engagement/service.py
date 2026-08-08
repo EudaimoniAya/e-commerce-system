@@ -296,7 +296,7 @@ class BrowseService:
           ``gap = now - last_viewed_at``，必须用**一致的时间基准**比较。
         - MySQL ``DATETIME`` 列**不存时区**：落库即丢 tz，读回（raw SQL 与 ORM）
           必为 **naive**（无 tzinfo）。已实证。
-        - 测试 seed（``tests/support/db/engagement.py::seed_browse_history``）用
+        - 测试 seed（``tests/testkit/db/engagement.py::seed_browse_history``）用
           ``datetime.now(UTC)``（aware）直插，asyncmy 按 **UTC 墙钟 naive** 存储。
         - 故 ``now`` 必须取 ``datetime.now(UTC).replace(tzinfo=None)``（UTC 墙钟
           naive），才能与 DB / 测试对齐，``gap`` 相减正确。
