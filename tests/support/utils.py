@@ -16,8 +16,8 @@ import os
 
 from app.infra.config import get_settings
 
-
 # ── bearer 请求头投影 ──────────────────────────────────────────
+
 
 def bearer_headers(access_token: str) -> dict[str, str]:
     """从 access_token 字符串投影 Bearer Authorization 请求头。"""
@@ -25,6 +25,7 @@ def bearer_headers(access_token: str) -> dict[str, str]:
 
 
 # ── JWT 工具 ───────────────────────────────────────────────────
+
 
 def decode_jwt_sub(access_token: str) -> str:
     """从 JWT access_token 中提取 ``sub`` claim（user_id），不验证签名。"""
@@ -35,6 +36,7 @@ def decode_jwt_sub(access_token: str) -> str:
 
 
 # ── 测试环境 bootstrap ─────────────────────────────────────────
+
 
 def bootstrap_test_env() -> None:
     """在 import app 之前调用，确保 Settings 从 ``.env.test`` 加载。

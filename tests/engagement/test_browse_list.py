@@ -19,7 +19,6 @@ from tests.support.helper.engagement import list_browse
 from tests.support.helper.ordering import arrange_purchasable_product
 from tests.support.utils import bearer_headers, decode_jwt_sub
 
-
 # ── GET /browse ───────────────────────────────────────────────
 
 
@@ -163,9 +162,7 @@ async def test_browse_list_closed_shop_in_unavailable(
 
     # 关闭店铺（DB 直写）
     await db_session.execute(
-        update(Shop)
-        .where(Shop.id == shop_owner.shop_id)
-        .values(status="closed")
+        update(Shop).where(Shop.id == shop_owner.shop_id).values(status="closed")
     )
     await db_session.flush()
 

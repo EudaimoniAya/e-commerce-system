@@ -5,12 +5,12 @@ from fastapi import FastAPI
 from app.catalog.router import router as catalog_router
 from app.engagement.router import router as engagement_router
 from app.infra.config import get_settings
-from app.media.router import router as media_router
 from app.infra.errors.register import register_exception_handlers
 from app.infra.health.router import router as health_router
 from app.infra.logging.middleware import RequestIDMiddleware
 from app.infra.logging.setup import setup_logging
 from app.infra.readiness.router import router as readiness_router
+from app.media.router import router as media_router
 from app.ordering.cart_router import router as cart_router
 from app.ordering.router import router as ordering_router
 from app.support.router import router as support_router

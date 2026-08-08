@@ -29,7 +29,9 @@ async def test_readiness_returns_200_when_mysql_ok(client: AsyncClient) -> None:
 @allure.epic("ops")
 @allure.feature("readiness")
 @allure.title("MySQL 不可用时 /health/ready 返回 503")
-async def test_readiness_returns_503_when_mysql_unavailable(client: AsyncClient) -> None:
+async def test_readiness_returns_503_when_mysql_unavailable(
+    client: AsyncClient,
+) -> None:
     """MySQL 不可用时 GET /health/ready 返回 503 与 not_ready（checks 仍含 redis）。"""
     with (
         patch("app.infra.readiness.service.is_mysql_ready", return_value=False),

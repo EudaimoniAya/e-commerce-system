@@ -232,9 +232,7 @@ class UserService:
 
         # attach 校验 + mark_public 须在 commit 前（与 FK 写同事务）
         if avatar_media_id is not None:
-            await self._media_service.assert_owned_by(
-                avatar_media_id, str(user_id)
-            )
+            await self._media_service.assert_owned_by(avatar_media_id, str(user_id))
             await self._media_service.assert_image_content_type(avatar_media_id)
             await self._media_service.mark_public(avatar_media_id)
 

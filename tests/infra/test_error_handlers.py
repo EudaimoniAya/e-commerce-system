@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
 
-
 # ── 测试用 Pydantic model ─────────────────────────────────────────
 
 
@@ -352,9 +351,9 @@ class TestErrorRequestId:
         header_id = response.headers.get("x-request-id")
         body_id = body["error"]["request_id"]
         assert header_id is not None, "响应头应包含 X-Request-ID"
-        assert (
-            body_id == header_id
-        ), f"body request_id ({body_id}) 应与 header ({header_id}) 一致"
+        assert body_id == header_id, (
+            f"body request_id ({body_id}) 应与 header ({header_id}) 一致"
+        )
 
     @pytest.mark.asyncio
     @allure.epic("infra")

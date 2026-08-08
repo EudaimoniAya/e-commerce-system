@@ -5,7 +5,12 @@ from decimal import Decimal
 
 from app.catalog.schemas import CategoryCreate, ProductCreate, ShopCreate
 from app.ordering.schemas import OrderCreate, OrderItemCreate
-from app.user.schemas import LoginRequest, SmsLoginRequest, SmsRegisterRequest, SmsSendRequest
+from app.user.schemas import (
+    LoginRequest,
+    SmsLoginRequest,
+    SmsRegisterRequest,
+    SmsSendRequest,
+)
 
 # integration 测试默认密码（符合 8–32 位规则）
 _DEFAULT_TEST_PASSWORD = "password123"

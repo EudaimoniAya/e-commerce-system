@@ -36,6 +36,4 @@ async def test_rate_limit_exceeded_returns_429(
         if last_status == 429:
             break
 
-    assert last_status == 429, (
-        f"预期多次请求后返回 429，但实际为 {last_status}"
-    )
+    assert last_status == 429, f"预期多次请求后返回 429，但实际为 {last_status}"

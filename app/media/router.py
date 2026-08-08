@@ -10,6 +10,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
+from fastapi.security import OAuth2PasswordBearer
 from starlette.responses import Response as StarletteResponse
 
 from app.infra.auth import decode_access_token
@@ -19,8 +20,6 @@ from app.media.rate_limit import check_upload_rate_limit
 from app.media.schemas import MediaDetail, MediaSummary
 from app.media.service import MediaService
 from app.media.validation import validate_media_upload
-
-from fastapi.security import OAuth2PasswordBearer
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -123,7 +122,7 @@ async def download_media(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="媒体文件不存在",
-            )
+            ) from None
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问该文件",
@@ -135,7 +134,7 @@ async def download_media(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="媒体文件不存在",
-        )
+        ) from None
 
     return StreamingResponse(
         content=iter([data]),
@@ -192,6 +191,6 @@ async def delete_media(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="媒体文件不存在",
-        )
+        ) from None
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

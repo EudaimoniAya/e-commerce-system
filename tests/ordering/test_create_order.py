@@ -3,8 +3,8 @@
 import uuid
 from decimal import Decimal
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,11 @@ from tests.support.contexts import (
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.db.catalog import get_product_stock, seed_product, seed_product_category
+from tests.support.db.catalog import (
+    get_product_stock,
+    seed_product,
+    seed_product_category,
+)
 from tests.support.helper.catalog import register_and_open_shop
 from tests.support.helper.ordering import arrange_purchasable_product, create_order
 from tests.support.utils import bearer_headers

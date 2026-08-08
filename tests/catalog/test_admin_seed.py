@@ -22,7 +22,9 @@ _hasher = PasswordHash.recommended()
 @pytest.mark.asyncio
 @allure.epic("catalog")
 @allure.feature("admin_seed")
-@allure.title("upgrade head 后存在 is_admin=true 的 seed 管理员且 password_hash 为 pwdlib 哈希")
+@allure.title(
+    "upgrade head 后存在 is_admin=true 的 seed 管理员且 password_hash 为 pwdlib 哈希"
+)
 async def test_migration_seed_admin_exists(database_url: str) -> None:
     """upgrade head 后存在 is_admin=true 的 seed 管理员且 password_hash 为 pwdlib 哈希。"""
     env = {**os.environ, "DATABASE_URL": database_url}
@@ -39,8 +41,7 @@ async def test_migration_seed_admin_exists(database_url: str) -> None:
     async with engine.connect() as conn:
         row = await conn.execute(
             text(
-                "SELECT email, is_admin, password_hash FROM users "
-                "WHERE email = :email"
+                "SELECT email, is_admin, password_hash FROM users WHERE email = :email"
             ),
             {"email": _ADMIN_SEED_EMAIL},
         )

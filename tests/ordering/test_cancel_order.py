@@ -1,7 +1,7 @@
 """ordering 域 POST /orders/{id}/cancel integration 测试（TDD 红阶段）。"""
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -186,6 +186,8 @@ async def test_cancel_order_unauthenticated_returns_401(
     assert created.status_code == 201
     assert created.body is not None
 
-    response: Response = await integration_client.post(f"/orders/{created.body.id}/cancel")
+    response: Response = await integration_client.post(
+        f"/orders/{created.body.id}/cancel"
+    )
 
     assert response.status_code == 401

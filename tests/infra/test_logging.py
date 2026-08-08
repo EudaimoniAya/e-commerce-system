@@ -32,9 +32,13 @@ class TestSetupLoggingByAppEnv:
 
         # 终端 sink：serialize 应为 False 或缺失（人类可读）
         stderr_calls = [
-            c for c in calls if c.kwargs.get("level") == "INFO" and not c.kwargs.get("serialize")
+            c
+            for c in calls
+            if c.kwargs.get("level") == "INFO" and not c.kwargs.get("serialize")
         ]
-        assert len(stderr_calls) >= 1, "development 终端 sink 应为人类可读 (serialize=False) 且 level=INFO"
+        assert len(stderr_calls) >= 1, (
+            "development 终端 sink 应为人类可读 (serialize=False) 且 level=INFO"
+        )
 
     def test_test_environment_json_warning_no_file(self) -> None:
         """test 环境终端 JSON、WARNING，不写文件。"""
@@ -53,13 +57,13 @@ class TestSetupLoggingByAppEnv:
             for c in calls
             if c.kwargs.get("level") == "WARNING" and c.kwargs.get("serialize") is True
         ]
-        assert len(stderr_calls) >= 1, "test 终端 sink 应为 JSON (serialize=True) 且 level=WARNING"
+        assert len(stderr_calls) >= 1, (
+            "test 终端 sink 应为 JSON (serialize=True) 且 level=WARNING"
+        )
 
         # 不应注册文件 sink
         file_calls = [
-            c
-            for c in calls
-            if isinstance(c.args[0], str) and "logs/" in str(c.args[0])
+            c for c in calls if isinstance(c.args[0], str) and "logs/" in str(c.args[0])
         ]
         assert len(file_calls) == 0, "test 环境不应注册文件 sink"
 
@@ -80,7 +84,9 @@ class TestSetupLoggingByAppEnv:
             for c in calls
             if c.kwargs.get("level") == "INFO" and c.kwargs.get("serialize") is True
         ]
-        assert len(stderr_calls) >= 1, "production 终端 sink 应为 JSON (serialize=True) 且 level=INFO"
+        assert len(stderr_calls) >= 1, (
+            "production 终端 sink 应为 JSON (serialize=True) 且 level=INFO"
+        )
 
         # 文件 sink
         file_calls = [
@@ -191,11 +197,14 @@ class TestRequestIdMiddleware:
     @allure.feature("logging")
     @allure.title("无 X-Request-ID 时服务端生成 UUID4")
     async def test_no_client_id_generates_request_id(
-        self, app_with_middleware: FastAPI,
+        self,
+        app_with_middleware: FastAPI,
     ) -> None:
         """无 X-Request-ID 时服务端生成 UUID4，响应头回传。"""
         transport = ASGITransport(app=app_with_middleware)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             response = await client.get("/ping")
 
         assert response.status_code == 200
@@ -214,7 +223,8 @@ class TestRequestIdMiddleware:
     @allure.feature("logging")
     @allure.title("客户端携带合法 X-Request-ID 时透传")
     async def test_client_provided_id_passed_through(
-        self, app_with_middleware: FastAPI,
+        self,
+        app_with_middleware: FastAPI,
     ) -> None:
         """客户端携带合法 X-Request-ID 时透传。"""
         client_id = "client-req-001"
@@ -236,11 +246,14 @@ class TestRequestIdMiddleware:
     @allure.feature("logging")
     @allure.title("任意请求的响应头都包含 X-Request-ID")
     async def test_response_always_has_request_id_header(
-        self, app_with_middleware: FastAPI,
+        self,
+        app_with_middleware: FastAPI,
     ) -> None:
         """任意请求的响应头都包含 X-Request-ID。"""
         transport = ASGITransport(app=app_with_middleware)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             response = await client.get("/ping")
 
         assert "x-request-id" in response.headers
@@ -308,4 +321,3 @@ class TestIsValidRequestId:
     def test_none_rejected(self) -> None:
         """None 不合法。"""
         assert self._call(None) is False
-

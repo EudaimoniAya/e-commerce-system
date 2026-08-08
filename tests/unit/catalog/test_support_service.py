@@ -113,9 +113,7 @@ async def test_validate_refs_all_in_shop_passes(
     products = [_fake_product(shop_id=shop_id) for _ in range(2)]
     mock_product_repository.get_by_ids.return_value = products
 
-    await shop_service.validate_product_refs_for_shop(
-        shop_id, [p.id for p in products]
-    )
+    await shop_service.validate_product_refs_for_shop(shop_id, [p.id for p in products])
 
 
 @allure.epic("catalog")

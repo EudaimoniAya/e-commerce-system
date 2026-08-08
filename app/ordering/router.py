@@ -39,7 +39,9 @@ def _to_response(order: Order) -> OrderResponse:
         initiated_by=order.initiated_by,  # type: ignore[arg-type]
         status=order.status,  # type: ignore[arg-type]
         cancel_reason=order.cancel_reason,
-        checkout_batch_id=str(order.checkout_batch_id) if order.checkout_batch_id else None,
+        checkout_batch_id=str(order.checkout_batch_id)
+        if order.checkout_batch_id
+        else None,
         total_amount=str(order.total_amount),
         expires_at=order.expires_at,
         items=[
@@ -75,6 +77,7 @@ def _parse_items_from_seller_create(
 
 # ── 创建订单 ─────────────────────────────────────────────
 
+
 @router.post(
     "/orders",
     response_model=OrderResponse,
@@ -94,6 +97,7 @@ async def create_order(
 
 # ── 卖家建单 ─────────────────────────────────────────────
 
+
 @router.post(
     "/shops/me/orders",
     response_model=OrderResponse,
@@ -110,12 +114,15 @@ async def create_order_by_seller(
     shop = await catalog_service.get_my_shop(user_id)
     buyer_user_id, items = _parse_items_from_seller_create(body)
     order = await service.create_order_by_seller(
-        uuid.UUID(shop.id), buyer_user_id, items,
+        uuid.UUID(shop.id),
+        buyer_user_id,
+        items,
     )
     return _to_response(order)
 
 
 # ── 买家列表 ─────────────────────────────────────────────
+
 
 @router.get(
     "/orders",
@@ -129,11 +136,14 @@ async def list_my_orders(
 ) -> PaginatedOrders:
     """买家分页查看自己的订单。"""
     return await service.list_buyer_orders(
-        user_id, limit=params.limit, offset=params.offset,
+        user_id,
+        limit=params.limit,
+        offset=params.offset,
     )
 
 
 # ── 订单详情 ─────────────────────────────────────────────
+
 
 @router.get(
     "/orders/{order_id}",
@@ -148,6 +158,7 @@ async def get_order(
 
 
 # ── 支付桩 ───────────────────────────────────────────────
+
 
 @router.post(
     "/orders/{order_id}/pay",
@@ -171,6 +182,7 @@ async def pay_order(
 
 # ── 发货 ─────────────────────────────────────────────────
 
+
 @router.post(
     "/orders/{order_id}/shipments",
     response_model=OrderResponse,
@@ -191,7 +203,7 @@ async def create_shipment(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not your shop's order",
-        )
+        ) from None
     if str(order.shop_id) != str(shop.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -202,6 +214,7 @@ async def create_shipment(
 
 
 # ── 确认收货 ─────────────────────────────────────────────
+
 
 @router.post(
     "/orders/{order_id}/confirm-receipt",
@@ -218,6 +231,7 @@ async def confirm_receipt(
 
 
 # ── 取消订单 ─────────────────────────────────────────────
+
 
 @router.post(
     "/orders/{order_id}/cancel",
@@ -238,6 +252,7 @@ async def cancel_order(
 
 # ── 店主订单列表 ─────────────────────────────────────────
 
+
 @router.get(
     "/shops/me/orders",
     response_model=PaginatedOrders,
@@ -252,7 +267,9 @@ async def list_shop_orders(
     """店主分页查看本店所有订单。"""
     shop = await catalog_service.get_my_shop(user_id)
     return await service.list_shop_orders(
-        uuid.UUID(shop.id), limit=params.limit, offset=params.offset,
+        uuid.UUID(shop.id),
+        limit=params.limit,
+        offset=params.offset,
     )
 
 

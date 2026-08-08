@@ -10,8 +10,8 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    Index,
     JSON,
+    Index,
     String,
     Text,
     UniqueConstraint,

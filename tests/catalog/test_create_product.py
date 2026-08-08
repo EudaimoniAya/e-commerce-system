@@ -10,8 +10,8 @@ from app.catalog.schemas import ProductResponse
 from tests.support.builders import build_product_create, unique_category_name
 from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
 from tests.support.helper.catalog import create_category
-from tests.support.utils import bearer_headers
 from tests.support.results import CategoryResult
+from tests.support.utils import bearer_headers
 
 
 @pytest.mark.integration

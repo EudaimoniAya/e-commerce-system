@@ -4,16 +4,18 @@
 - MODIFY ``users.email`` → NULL（初使 NOT NULL → NULL，MySQL 需 DROP → ADD）
 - MODIFY ``users.password_hash`` → NULL（同上）
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
 
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "008"
-down_revision: Union[str, None] = "ece9a7855313"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "ece9a7855313"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -77,8 +79,6 @@ def downgrade() -> None:
 def _seed_admin_phone(connection) -> None:
     """回填 seed 管理员 phone（migration 003 已插入的行）。"""
     connection.execute(
-        sa.text(
-            "UPDATE users SET phone = :phone WHERE email = :email"
-        ),
+        sa.text("UPDATE users SET phone = :phone WHERE email = :email"),
         {"phone": "13800000000", "email": "114514yyut@qq.com"},
     )

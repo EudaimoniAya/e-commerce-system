@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── Seed（Arrange：直写 SAVEPOINT session，不经 HTTP）──────────
 
+
 async def seed_favorite(
     session: AsyncSession,
     *,
@@ -90,6 +91,7 @@ async def seed_browse_history(
 
 
 # ── 断言读（Assert：Case 内经 db_session 读取 DB 状态）──────────
+
 
 async def get_browse_history(
     session: AsyncSession,

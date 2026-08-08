@@ -93,7 +93,9 @@ async def test_inbox_isolated_by_shop_with_preview(
     )
     assert shop_a_inbox.status_code == 200
     assert shop_a_inbox.body is not None
-    assert all(item["shop_id"] == shop_owner.shop_id for item in shop_a_inbox.body["items"])
+    assert all(
+        item["shop_id"] == shop_owner.shop_id for item in shop_a_inbox.body["items"]
+    )
     assert len(shop_a_inbox.body["items"]) == 1
     assert shop_a_inbox.body["items"][0]["last_message_preview"] == "给A店"
 
@@ -104,7 +106,8 @@ async def test_inbox_isolated_by_shop_with_preview(
     assert shop_b_inbox.status_code == 200
     assert shop_b_inbox.body is not None
     assert all(
-        item["shop_id"] == second_shop_owner.shop_id for item in shop_b_inbox.body["items"]
+        item["shop_id"] == second_shop_owner.shop_id
+        for item in shop_b_inbox.body["items"]
     )
     assert len(shop_b_inbox.body["items"]) == 1
 

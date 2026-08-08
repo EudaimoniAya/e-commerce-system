@@ -23,16 +23,12 @@ class UserRepository:
 
     async def get_by_email(self, email: str) -> User | None:
         """按邮箱查询用户。"""
-        result = await self._session.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self._session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def get_by_phone(self, phone: str) -> User | None:
         """按规范化手机号查询用户。"""
-        result = await self._session.execute(
-            select(User).where(User.phone == phone)
-        )
+        result = await self._session.execute(select(User).where(User.phone == phone))
         return result.scalar_one_or_none()
 
     async def create(

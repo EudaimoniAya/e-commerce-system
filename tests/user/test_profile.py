@@ -27,9 +27,7 @@ async def test_patch_profile_success_returns_200(
 ) -> None:
     """更新 email 与 nickname 返回 200。"""
     headers = bearer_headers(authenticated_user.access_token)
-    body = UserProfileUpdateRequest(
-        email="newemail@example.com", nickname="新昵称"
-    )
+    body = UserProfileUpdateRequest(email="newemail@example.com", nickname="新昵称")
     response = await integration_client.patch(
         "/users/me",
         json=body.model_dump(exclude_none=True),

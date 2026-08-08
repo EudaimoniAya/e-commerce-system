@@ -309,9 +309,7 @@ class BrowseService:
         retention = timedelta(days=settings.browse_history_retention_days)
         now = datetime.now(UTC).replace(tzinfo=None)
 
-        existing = await self._browse_repo.get_by_user_and_product(
-            user_id, product_id
-        )
+        existing = await self._browse_repo.get_by_user_and_product(user_id, product_id)
         if existing is None:
             self._session.add(
                 UserBrowseHistory(

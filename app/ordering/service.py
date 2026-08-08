@@ -43,7 +43,9 @@ def _to_order_response(order: Order) -> OrderResponse:
         initiated_by=order.initiated_by,  # type: ignore[arg-type]
         status=order.status,  # type: ignore[arg-type]
         cancel_reason=order.cancel_reason,
-        checkout_batch_id=str(order.checkout_batch_id) if order.checkout_batch_id else None,
+        checkout_batch_id=str(order.checkout_batch_id)
+        if order.checkout_batch_id
+        else None,
         total_amount=str(order.total_amount),
         expires_at=order.expires_at,
         items=[
@@ -105,9 +107,7 @@ class OrderService:
             return False  # 并发丢失，别人先抢了
 
         items = await self._item_repo.list_by_order_id(order.id)
-        release_items = [
-            (str(item.product_id), item.qty) for item in items
-        ]
+        release_items = [(str(item.product_id), item.qty) for item in items]
         await self._catalog.release_stock(release_items)
         # 立即提交：可能由 deps（读路径）触发，不依赖调用方 commit
         await self._session.commit()
@@ -213,8 +213,7 @@ class OrderService:
             buyer_user_id=buyer_user_id,
             shop_id=shop_id,
             total_amount=total,
-            expires_at=now
-            + timedelta(seconds=_get_reservation_ttl()),
+            expires_at=now + timedelta(seconds=_get_reservation_ttl()),
             initiated_by=initiated_by,
             checkout_batch_id=checkout_batch_id,
         )
@@ -351,7 +350,9 @@ class OrderService:
     # ── 发货 ────────────────────────────────────────────────
 
     async def create_shipment(
-        self, order: Order, note: str | None = None,
+        self,
+        order: Order,
+        note: str | None = None,
     ) -> Order:
         """卖家发货：条件迁移 confirmed → shipped。"""
         updated = await self._order_repo.update_status(
@@ -396,7 +397,9 @@ class OrderService:
     # ── 取消 ────────────────────────────────────────────────
 
     async def cancel_order(
-        self, order: Order, cancel_reason: str,
+        self,
+        order: Order,
+        cancel_reason: str,
     ) -> Order:
         """取消订单（买家/卖家）：条件迁移 → cancelled + 释放库存。"""
         updated = await self._order_repo.update_status(
@@ -412,9 +415,7 @@ class OrderService:
             )
 
         items = await self._item_repo.list_by_order_id(order.id)
-        release_items = [
-            (str(item.product_id), item.qty) for item in items
-        ]
+        release_items = [(str(item.product_id), item.qty) for item in items]
         await self._catalog.release_stock(release_items)
 
         await self._session.commit()
@@ -433,7 +434,9 @@ class OrderService:
     ) -> PaginatedOrders:
         """买家订单列表。"""
         orders, total = await self._order_repo.list_by_buyer(
-            buyer_user_id, limit=limit, offset=offset,
+            buyer_user_id,
+            limit=limit,
+            offset=offset,
         )
         items: list[OrderResponse] = []
         for order in orders:
@@ -451,7 +454,9 @@ class OrderService:
     ) -> PaginatedOrders:
         """店铺订单列表（店主查看本店订单）。"""
         orders, total = await self._order_repo.list_by_shop(
-            shop_id, limit=limit, offset=offset,
+            shop_id,
+            limit=limit,
+            offset=offset,
         )
         items: list[OrderResponse] = []
         for order in orders:
@@ -461,7 +466,8 @@ class OrderService:
         return PaginatedOrders(items=items, total=total, limit=limit, offset=offset)
 
     async def get_order_or_404(
-        self, order_id: uuid.UUID,
+        self,
+        order_id: uuid.UUID,
     ) -> Order:
         """按 ID 查询订单，不存在时 404。"""
         order = await self._order_repo.get_by_id(order_id)

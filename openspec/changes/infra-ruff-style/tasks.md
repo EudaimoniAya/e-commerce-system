@@ -13,9 +13,9 @@
 
 ## 3. 全库 mechanical fix（单独 commit，type `style`）
 
-- [ ] 3.1 运行 `uv run ruff format .` 格式化全库 Python
-- [ ] 3.2 运行 `uv run ruff check --fix .` 修复 I/UP/B 可自动修复项；剩余项手工修复直至 `ruff check .` 通过。**UP017**：全库仅 2 处（`app/media/service.py`、`app/user/sms_service.py`），为 `timezone.utc` → `datetime.UTC` **别名替换**，aware 语义不变，可 `--fix`；若未来出现 `utcnow()` 类 unsafe fix，须人工审查 naive/aware 与 DB 交互后再改
-- [ ] 3.3 确认 diff **无**业务逻辑变更（仅格式、import 顺序、类型语法现代化、B 类机械修复）
+- [x] 3.1 运行 `uv run ruff format .` 格式化全库 Python（61 reformatted / 135 unchanged）
+- [x] 3.2 运行 `uv run ruff check --fix .` 修复 I/UP/B 可自动修复项（140 fixed）；剩余 7 处手工修复：B904×6（`from exc`/`from None`）+ UP046×1（PEP 695 泛型）。**UP017** 2 处已被 `--fix` 安全自动修复（`timezone.utc` → `datetime.UTC` 别名，aware 语义不变）
+- [x] 3.3 确认 diff **无**业务逻辑变更（仅格式、import 顺序、UP 语法现代化、B904/UP046 机械修复）
 
 ## 4. Git blame ignore（SHA 写入文件内）
 

@@ -14,7 +14,6 @@ import allure
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # PaginationParams
 # ═══════════════════════════════════════════════════════════════════════
@@ -188,7 +187,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test?limit=20&offset=0")
         assert resp.status_code == 200
         assert resp.json() == {"limit": 20, "offset": 0}
@@ -202,7 +203,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test")
         assert resp.status_code == 200
         assert resp.json() == {"limit": 20, "offset": 0}
@@ -216,7 +219,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test?limit=101&offset=0")
         assert resp.status_code == 422
 
@@ -229,7 +234,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test?limit=0&offset=0")
         assert resp.status_code == 422
 
@@ -242,7 +249,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test?limit=20&offset=-1")
         assert resp.status_code == 422
 
@@ -255,7 +264,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test?limit=1&offset=0")
         assert resp.status_code == 200
         assert resp.json() == {"limit": 1, "offset": 0}
@@ -269,7 +280,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test?limit=100&offset=0")
         assert resp.status_code == 200
         assert resp.json() == {"limit": 100, "offset": 0}
@@ -283,7 +296,9 @@ class TestPaginationDependencyQueryValidation:
         from httpx import ASGITransport, AsyncClient
 
         app = self._build_test_app()
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             resp = await client.get("/test?limit=20&offset=99999")
         assert resp.status_code == 200
         assert resp.json() == {"limit": 20, "offset": 99999}

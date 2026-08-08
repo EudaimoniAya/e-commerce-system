@@ -2,8 +2,8 @@
 
 import uuid
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -253,7 +253,9 @@ async def test_get_order_triggers_lazy_release_after_expiry(
 @pytest.mark.asyncio
 @allure.epic("ordering")
 @allure.feature("list_orders")
-@allure.title("过期后 GET /orders 列表触发懒释放：响应体 status=cancelled、reason=expired。")
+@allure.title(
+    "过期后 GET /orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"
+)
 async def test_buyer_list_triggers_lazy_release_after_expiry(
     integration_client: AsyncClient,
     db_session: AsyncSession,
@@ -303,7 +305,9 @@ async def test_buyer_list_triggers_lazy_release_after_expiry(
 @pytest.mark.asyncio
 @allure.epic("ordering")
 @allure.feature("list_orders")
-@allure.title("过期后 GET /shops/me/orders 列表触发懒释放：响应体 status=cancelled、reason=expired。")
+@allure.title(
+    "过期后 GET /shops/me/orders 列表触发懒释放：响应体 status=cancelled、reason=expired。"
+)
 async def test_shop_owner_list_triggers_lazy_release_after_expiry(
     integration_client: AsyncClient,
     db_session: AsyncSession,

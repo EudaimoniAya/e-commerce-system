@@ -26,9 +26,7 @@ def get_message_repository(
 
 def get_support_service(
     session: AsyncSession = Depends(get_db),
-    conversation_repo: ConversationRepository = Depends(
-        get_conversation_repository
-    ),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository),
     message_repo: MessageRepository = Depends(get_message_repository),
     catalog_service: ShopService = Depends(get_shop_service),
 ) -> SupportService:
