@@ -12,11 +12,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.engagement import get_browse_history, seed_browse_history
-from tests.support.helper.engagement import record_browse
-from tests.support.helper.ordering import arrange_purchasable_product
-from tests.support.utils import bearer_headers, decode_jwt_sub
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.engagement import get_browse_history, seed_browse_history
+from tests.testkit.helper.engagement import record_browse
+from tests.testkit.helper.ordering import arrange_purchasable_product
+from tests.testkit.utils import bearer_headers, decode_jwt_sub
 
 # ── POST /browse ──────────────────────────────────────────────
 

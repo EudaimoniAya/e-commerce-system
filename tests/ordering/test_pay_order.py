@@ -5,21 +5,21 @@ import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import (
+from tests.testkit.contexts import (
     AdminAuthContext,
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.db.catalog import get_product_stock
-from tests.support.db.ordering import backdate_order_expires_at, get_order_status
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.helper.ordering import (
+from tests.testkit.db.catalog import get_product_stock
+from tests.testkit.db.ordering import backdate_order_expires_at, get_order_status
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.helper.ordering import (
     arrange_purchasable_product,
     create_order,
     create_order_by_seller,
     pay_order,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration

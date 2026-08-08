@@ -17,14 +17,14 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AuthContext
-from tests.support.helper.auth import auth_headers, register_user_via_otp
-from tests.support.helper.media import (
+from tests.testkit.contexts import AuthContext
+from tests.testkit.helper.auth import auth_headers, register_user_via_otp
+from tests.testkit.helper.media import (
     MINI_PNG_BYTES,
     insert_non_image_media,
     upload_media,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

@@ -10,7 +10,7 @@ import pytest
 
 from app.media.service import MediaService
 from app.media.storage.memory import InMemoryBackend
-from tests.support.helper.media import MINI_PNG_BYTES
+from tests.testkit.helper.media import MINI_PNG_BYTES
 
 
 async def _upload_and_get_id(

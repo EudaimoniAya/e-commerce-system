@@ -11,11 +11,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.catalog import seed_product
-from tests.support.helper.ordering import arrange_purchasable_product
-from tests.support.helper.support import post_buyer_message
-from tests.support.utils import bearer_headers
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.catalog import seed_product
+from tests.testkit.helper.ordering import arrange_purchasable_product
+from tests.testkit.helper.support import post_buyer_message
+from tests.testkit.utils import bearer_headers
 
 
 def _product_ref(product_id: str) -> dict[str, str]:

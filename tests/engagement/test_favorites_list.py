@@ -13,11 +13,11 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.models import Shop
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.engagement import seed_favorite
-from tests.support.helper.engagement import add_favorite, list_favorites
-from tests.support.helper.ordering import arrange_purchasable_product
-from tests.support.utils import bearer_headers, decode_jwt_sub
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.engagement import seed_favorite
+from tests.testkit.helper.engagement import add_favorite, list_favorites
+from tests.testkit.helper.ordering import arrange_purchasable_product
+from tests.testkit.utils import bearer_headers, decode_jwt_sub
 
 # ── GET /favorites ───────────────────────────────────────────
 

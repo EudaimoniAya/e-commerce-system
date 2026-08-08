@@ -7,11 +7,11 @@ import pytest
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ShopResponse
-from tests.support.builders import build_shop_create, unique_shop_name
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.helper.auth import auth_headers, register_user_via_otp
-from tests.support.helper.catalog import register_and_open_shop
-from tests.support.utils import bearer_headers
+from tests.testkit.builders import build_shop_create, unique_shop_name
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.helper.auth import auth_headers, register_user_via_otp
+from tests.testkit.helper.catalog import register_and_open_shop
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration

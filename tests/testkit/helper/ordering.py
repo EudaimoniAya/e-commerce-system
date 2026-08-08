@@ -6,9 +6,9 @@ from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ordering.schemas import OrderCreate, OrderResponse, ShipmentCreate
-from tests.support.builders import build_order_create, unique_category_name
-from tests.support.db.catalog import seed_category, seed_product, seed_product_category
-from tests.support.results import (
+from tests.testkit.builders import build_order_create, unique_category_name
+from tests.testkit.db.catalog import seed_category, seed_product, seed_product_category
+from tests.testkit.results import (
     BatchPayResult,
     CartItemResult,
     CartListResult,

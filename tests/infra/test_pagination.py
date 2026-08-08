@@ -5,7 +5,7 @@
 - Paginated[TResponse] 泛型分页响应壳序列化
 - FastAPI Query 边界校验（200 / 422）
 
-约束：无需 MySQL/Redis，不依赖 tests.support 或 HTTP client fixture。
+约束：无需 MySQL/Redis，不依赖 tests.testkit 或 HTTP client fixture。
 """
 
 from __future__ import annotations

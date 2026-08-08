@@ -16,8 +16,8 @@ import allure
 import pytest
 from httpx import AsyncClient
 
-from tests.support.builders import build_sms_register_request
-from tests.support.helper.auth import register_user_via_otp
+from tests.testkit.builders import build_sms_register_request
+from tests.testkit.helper.auth import register_user_via_otp
 
 _DEFAULT_NICKNAME_PATTERN = re.compile(r"^用户_\d{14,17}$")
 

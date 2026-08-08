@@ -15,9 +15,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.builders import build_sms_login_request, unique_phone
-from tests.support.db.user import seed_inactive_user
-from tests.support.helper.auth import login_user_via_otp, register_user_via_otp
+from tests.testkit.builders import build_sms_login_request, unique_phone
+from tests.testkit.db.user import seed_inactive_user
+from tests.testkit.helper.auth import login_user_via_otp, register_user_via_otp
 
 
 @allure.epic("user")

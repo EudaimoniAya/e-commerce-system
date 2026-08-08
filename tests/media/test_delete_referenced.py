@@ -16,11 +16,11 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.helper.auth import auth_headers
-from tests.support.helper.catalog import create_category
-from tests.support.helper.media import MINI_PNG_BYTES, upload_media
-from tests.support.utils import bearer_headers
+from tests.testkit.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.testkit.helper.auth import auth_headers
+from tests.testkit.helper.catalog import create_category
+from tests.testkit.helper.media import MINI_PNG_BYTES, upload_media
+from tests.testkit.utils import bearer_headers
 
 
 async def _upload_for_owner(client: AsyncClient, token: str) -> str:
@@ -59,7 +59,7 @@ async def test_delete_media_referenced_by_avatar_returns_409(
         {"mid": media_id, "uid": "does-not-exist-placeholder"},
     )
     # 使用当前用户的 id
-    from tests.support.utils import decode_jwt_sub
+    from tests.testkit.utils import decode_jwt_sub
 
     user_id = decode_jwt_sub(authenticated_user.access_token)
     await db_session.execute(

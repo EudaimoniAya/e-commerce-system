@@ -7,16 +7,16 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.catalog import get_product_stock
-from tests.support.db.ordering import seed_cart_item
-from tests.support.helper.catalog import register_and_open_shop
-from tests.support.helper.ordering import (
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.catalog import get_product_stock
+from tests.testkit.db.ordering import seed_cart_item
+from tests.testkit.helper.catalog import register_and_open_shop
+from tests.testkit.helper.ordering import (
     arrange_purchasable_product,
     checkout_cart,
     get_cart,
 )
-from tests.support.utils import bearer_headers, decode_jwt_sub
+from tests.testkit.utils import bearer_headers, decode_jwt_sub
 
 
 @pytest.mark.integration

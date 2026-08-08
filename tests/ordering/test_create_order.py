@@ -9,19 +9,19 @@ from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ordering.schemas import OrderResponse
-from tests.support.contexts import (
+from tests.testkit.contexts import (
     AdminAuthContext,
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.db.catalog import (
+from tests.testkit.db.catalog import (
     get_product_stock,
     seed_product,
     seed_product_category,
 )
-from tests.support.helper.catalog import register_and_open_shop
-from tests.support.helper.ordering import arrange_purchasable_product, create_order
-from tests.support.utils import bearer_headers
+from tests.testkit.helper.catalog import register_and_open_shop
+from tests.testkit.helper.ordering import arrange_purchasable_product, create_order
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration

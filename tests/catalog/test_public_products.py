@@ -8,10 +8,10 @@ from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.schemas import PaginatedProducts, ProductResponse
-from tests.support.builders import unique_category_name
-from tests.support.contexts import ShopOwnerContext
-from tests.support.db.catalog import seed_category, seed_product, seed_product_category
-from tests.support.utils import bearer_headers
+from tests.testkit.builders import unique_category_name
+from tests.testkit.contexts import ShopOwnerContext
+from tests.testkit.db.catalog import seed_category, seed_product, seed_product_category
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration
