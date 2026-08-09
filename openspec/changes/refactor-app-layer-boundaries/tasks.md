@@ -99,8 +99,8 @@
 
 ## 2. cart：checkout-batch 编排收编
 
-- [ ] Phase D Task 2.1 OrderService 暴露 `list_orders_by_checkout_batch(batch_id)`（含懒释放 + items；方案 A）；新增 `CartService.get_checkout_batch(batch_id, user_id)`（fetch/404/子订单/聚合/派生状态/build schema 全收编）
-- [ ] Phase D Task 2.2 `_derive_batch_status` 迁入 service；cart_router checkout-batch 端点一行化；移除 `order_service._item_repo` 私有访问
+- [x] Phase D Task 2.1 OrderService 暴露 `list_orders_by_checkout_batch(batch_id)`（含懒释放 + items；方案 A）；新增 `CartService.get_checkout_batch(batch_id, user_id)`（fetch/404/子订单/聚合/派生状态/build schema 全收编）
+- [x] Phase D Task 2.2 `_derive_batch_status` 迁入 service；cart_router checkout-batch 端点一行化；移除 `order_service._item_repo` 私有访问
 
 ## 3. cart：CRUD schema 收编
 

@@ -506,6 +506,27 @@ class OrderService:
             items.append(_to_order_response(order))
         return PaginatedOrders(items=items, total=total, limit=limit, offset=offset)
 
+    async def list_orders_by_checkout_batch(
+        self,
+        batch_id: uuid.UUID,
+    ) -> list[Order]:
+        """按结算批次返回子订单（懒释放 + 加载 items；方案 A：order 数据访问留在本 service）。
+
+        对每个子单执行懒释放（过期 awaiting_payment → cancelled + 释放库存），
+        随后重新加载以保证 status 反映最新终态，并加载 items，
+        供 CartService 聚合金额 / 派生状态 / 构建 batch schema。
+        """
+        orders = await self._order_repo.list_by_checkout_batch_id(batch_id)
+        result: list[Order] = []
+        for order in orders:
+            await self.expire_if_needed(order)
+            refreshed = await self._order_repo.get_by_id(order.id)
+            if refreshed is None:
+                continue
+            refreshed.items = await self._item_repo.list_by_order_id(refreshed.id)
+            result.append(refreshed)
+        return result
+
     async def get_order_or_404(
         self,
         order_id: uuid.UUID,

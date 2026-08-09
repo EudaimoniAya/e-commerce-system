@@ -2,6 +2,7 @@
 
 import uuid
 from collections import defaultdict
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,9 +17,24 @@ from app.ordering.schemas import (
     CartListResponse,
     CartShopGroup,
     CartShopItem,
+    CheckoutBatchOrder,
+    CheckoutBatchOrderItem,
+    CheckoutBatchResponse,
+    CheckoutBatchShopGroup,
     CheckoutResponse,
 )
 from app.ordering.service import OrderService
+
+
+def _derive_batch_status(statuses: set[str]) -> str:
+    """读时计算 batch 派生状态（随 get_checkout_batch 收进 service）。"""
+    has_awaiting = "awaiting_payment" in statuses
+    has_confirmed = "confirmed" in statuses
+    if has_awaiting and not has_confirmed:
+        return "pending_payment"
+    if has_awaiting and has_confirmed:
+        return "partially_paid"
+    return "closed"
 
 
 class CartService:
@@ -316,3 +332,77 @@ class CartService:
         await self._session.commit()
 
         return response
+
+    async def get_checkout_batch(
+        self,
+        batch_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> CheckoutBatchResponse:
+        """查看结算批次详情：fetch/404 → 子订单（懒释放+items）→ 聚合 → 派生状态 → build schema。
+
+        router 编排全收编：跨域上下文由 service 一步完成；schema 由 service 产出。
+        子订单数据经 OrderService.list_orders_by_checkout_batch（方案 A：order 数据访问留在 OrderService）。
+        """
+        batch = await self._batch_repo.get_by_id(batch_id)
+        if batch is None or str(batch.buyer_user_id) != str(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Checkout batch not found",
+            )
+
+        orders = await self._order_service.list_orders_by_checkout_batch(batch_id)
+
+        paid_total = Decimal("0.00")
+        remaining_total = Decimal("0.00")
+        statuses: set[str] = set()
+        shops_map: dict[str, list[CheckoutBatchOrder]] = {}
+
+        for order in orders:
+            statuses.add(order.status)
+
+            item_responses = [
+                CheckoutBatchOrderItem(
+                    id=str(i.id),
+                    product_id=str(i.product_id),
+                    product_name=i.product_name,
+                    unit_price=str(i.unit_price),
+                    qty=i.qty,
+                )
+                for i in order.items
+            ]
+
+            order_data = CheckoutBatchOrder(
+                id=str(order.id),
+                shop_id=str(order.shop_id),
+                status=order.status,
+                initiated_by=order.initiated_by,
+                total_amount=str(order.total_amount),
+                expires_at=order.expires_at,
+                items=item_responses,
+                created_at=order.created_at,
+            )
+
+            sid = str(order.shop_id)
+            if sid not in shops_map:
+                shops_map[sid] = []
+            shops_map[sid].append(order_data)
+
+            if order.status == "awaiting_payment":
+                remaining_total += order.total_amount
+            elif order.status == "confirmed":
+                paid_total += order.total_amount
+
+        shops = [
+            CheckoutBatchShopGroup(shop_id=sid, orders=ords)
+            for sid, ords in shops_map.items()
+        ]
+
+        return CheckoutBatchResponse(
+            id=str(batch.id),
+            buyer_user_id=str(batch.buyer_user_id),
+            created_at=batch.created_at,
+            shops=shops,
+            paid_total=str(paid_total),
+            remaining_total=str(remaining_total),
+            status=_derive_batch_status(statuses),
+        )
