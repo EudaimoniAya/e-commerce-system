@@ -81,8 +81,35 @@
 
 ## 3. Phase C 验证
 
-- [ ] Phase C Task 3.1 跑 catalog / ordering / engagement / support 相关 tests；`devbox run -- task ci` 全绿
-- [ ] Phase C Task 3.2 更新 `design.md` Changelog；准备 PR（scope: ordering + catalog + engagement + support）
+- [x] Phase C Task 3.1 跑 catalog / ordering / engagement / support 相关 tests；`devbox run -- task ci` 全绿
+- [x] Phase C Task 3.2 更新 `design.md` Changelog（Phase C 完成摘要 + 踩坑记录）
+
+---
+
+## Phase D — 跨域两步收编（反模式③ 精确定义）
+
+**核心原理**：同域 current-object deps（`get_current_shop`、`get_order_for_buyer_or_shop` 等）是合法 FastAPI 惯用法——deps 解析本域请求上下文（含鉴权），保留。真正的反模式是**跨域两步调用**：Phase B 禁跨域 deps 后，跨域上下文靠 router 两步串联（support `shop_id = await service.get_current_shop_id(user_id)` → `service.list_inbox(shop_id, ...)`）。跨域上下文必须由 service 业务方法自解析、一步完成；schema 由 service 产出。
+
+**DoD**：support 店主路径不再两步调用（`get_current_shop_id` 私有化）；cart checkout-batch 编排 + CRUD schema 收进 service（`_to_cart_item_response` 从 router 消失、无 `order_service._item_repo` 私有访问）；同域 deps（`get_current_shop` / `get_order_*`）与纯鉴权 gate 不动；全量 CI 绿。
+
+## 1. support：跨域两步收编
+
+- [ ] Phase D Task 1.1 `SupportService.list_inbox(user_id, ...)` / `get_inbox_conversation(user_id, conversation_id)` / `list_inbox_messages(user_id, ...)` / `send_shop_message(user_id, conversation_id, body)` 内部经 `_get_current_shop_id` 自解析本店
+- [ ] Phase D Task 1.2 `get_current_shop_id` 公开 → 私有 `_get_current_shop_id`；support router 4 店主端点删两步、一步调用
+
+## 2. cart：checkout-batch 编排收编
+
+- [ ] Phase D Task 2.1 OrderService 暴露 `list_orders_by_checkout_batch(batch_id)`（含懒释放 + items；方案 A）；新增 `CartService.get_checkout_batch(batch_id, user_id)`（fetch/404/子订单/聚合/派生状态/build schema 全收编）
+- [ ] Phase D Task 2.2 `_derive_batch_status` 迁入 service；cart_router checkout-batch 端点一行化；移除 `order_service._item_repo` 私有访问
+
+## 3. cart：CRUD schema 收编
+
+- [ ] Phase D Task 3.1 `_to_cart_item_response` 迁入 CartService；`add_item` 返回 `(CartItemResponse, created)`、`update_qty` 返回 `CartItemResponse`；删 router 映射函数
+
+## 4. Phase D 验证
+
+- [ ] Phase D Task 4.1 跑 support / cart / ordering 相关 tests；`devbox run -- task ci` 全绿
+- [ ] Phase D Task 4.2 更新 `design.md` Changelog（Phase D 完成摘要）
 
 ---
 
@@ -90,5 +117,5 @@
 
 > 独立于任何 Phase 的 change 级收尾；后续新增 Phase（D/E…）插在 Phase C 之后、本节之前。
 
-- [ ] 4.1 PR merge 到 `dev`；远程 CI 全绿
-- [ ] 4.2 archive change；sync `refactor-regression` delta 至主 spec（若采用）；**不**在本 change sync 工程纪律全文（留给 `docs-app-layer-discipline`）
+- [ ] 5.1 PR merge 到 `dev`；远程 CI 全绿
+- [ ] 5.2 archive change；sync `refactor-regression` delta 至主 spec（若采用）；**不**在本 change sync 工程纪律全文（留给 `docs-app-layer-discipline`）
