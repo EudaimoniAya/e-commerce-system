@@ -132,6 +132,7 @@
 | 日期 | Phase | 摘要 |
 |------|-------|------|
 | 2026-08-08 | — | propose：Phase A ordering + Phase B catalog 拆分 |
+| 2026-08-09 | Phase A | ordering 闭环：router 薄化 + OrderService 返 schema。跨域编排（`get_my_shop` 解析、buyer 校验、`cancel_reason` 角色分支）全部迁入 `OrderService`；写方法统一返回 `OrderResponse` / `BatchPayResponse`；读路径 `get_order` 经 schema deps `get_order_for_buyer_or_shop_response` 返 DTO（router 不再注入 service+ORM）。router 无任何 catalog import（DoD 达成）；`tests/ordering` 79 + 全量 CI 406 全绿。**命名决策**：映射统一为模块级私有 `_to_order_response`（与各域 `_to_*` 一致），deps 同域导入该私有函数（仿 `app/user/deps.py`）；读路径映射跨模块问题（Option C：鉴权收进 service 读方法）留待后续 change |
 
 ## Open Questions
 

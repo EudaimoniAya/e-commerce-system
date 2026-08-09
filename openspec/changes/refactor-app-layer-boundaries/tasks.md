@@ -28,8 +28,8 @@
 
 ## 3. Router 清理与 Phase A 验证
 
-- [ ] Phase A Task 3.1 清理 `app/ordering/router.py`：`rg` 确认无 `ShopService|get_shop_service|from app.catalog`；移除无用 import
-- [ ] Phase A Task 3.2 `devbox run -- task db:up` → `migrate` → `redis:up` → `devbox run -- task ci`；更新 `design.md` Changelog（Phase A 完成摘要）
+- [x] Phase A Task 3.1 清理 `app/ordering/router.py`：`rg` 确认无 `ShopService|get_shop_service|from app.catalog`；移除无用 import
+- [x] Phase A Task 3.2 `devbox run -- task db:up` → `migrate` → `redis:up` → `devbox run -- task ci`；更新 `design.md` Changelog（Phase A 完成摘要）
 
 ---
 
