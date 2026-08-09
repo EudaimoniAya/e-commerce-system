@@ -108,14 +108,16 @@
 
 ## 4. Phase D 验证
 
-- [ ] Phase D Task 4.1 跑 support / cart / ordering 相关 tests；`devbox run -- task ci` 全绿
-- [ ] Phase D Task 4.2 更新 `design.md` Changelog（Phase D 完成摘要）
+- [x] Phase D Task 4.1 跑 support / cart / ordering 相关 tests；`devbox run -- task ci` 全绿
+- [x] Phase D Task 4.2 更新 `design.md` Changelog（Phase D 完成摘要）
 
 ---
 
-## 收尾（所有 Phase 完成后，merge 后执行）
+## 收尾（所有 Phase 完成后执行）
 
 > 独立于任何 Phase 的 change 级收尾；后续新增 Phase（D/E…）插在 Phase C 之后、本节之前。
+> 收尾条件：**本地 `task ci` 全绿即可提交 / merge**，不等待远程 CI（尽量 PR 前解决，远程 CI 只作提交后确认）。
 
-- [ ] 5.1 PR merge 到 `dev`；远程 CI 全绿
-- [ ] 5.2 archive change；sync `refactor-regression` delta 至主 spec（若采用）；**不**在本 change sync 工程纪律全文（留给 `docs-app-layer-discipline`）
+- [x] 5.1 写踩坑记录：记录整个分支解决的 deps 两大反模式——跨域调用（反模式 ①②③：deps 建 schema / deps 跨域调用 / 跨域两步调用）与域内膨胀（反模式 ④：上帝 service → 上帝 deps）——规范缺失下 AI 引入的随机性；依据 design 决策（Decision 2/7）、doc sync 与各 Task 实施梳理 → `docs/troubleshooting/deps-跨域两步与上帝service反模式.md`
+- [x] 5.2 本地 `task ci` 全绿
+- [ ] 5.3 archive change；sync `refactor-regression` delta 至主 spec（若采用）；**不**在本 change sync 工程纪律全文（留给 `docs-app-layer-discipline`）

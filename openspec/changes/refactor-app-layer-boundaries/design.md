@@ -195,8 +195,15 @@
 | 2026-08-09 | Phase B | deps 规范化完成：反模式 ①（deps 建 schema）与 ②（deps 跨域）已清除。ordering `get_order_response(order_id, user_id)` / user `get_user_response(user_id)` 收读路径，`_to_*` 保持私有（`get_order_for_buyer_or_shop` 保留给 cancel_order）；support 店主路径经 `ShopService.get_my_shop` 解析本店，`get_current_shop` 退回 catalog 本域。反模式 ③（写路径收编 / 路由两步编排）与 ④（上帝 service → 上帝 deps）另立 Phase，④ 由 Phase C 执行。行为不变：406 全绿 |
 | 2026-08-09 | Phase C | catalog 上帝 service 拆分闭环：`ShopService` 拆为 `CategoryService` / `ProductService` / `ShopService` 三类（`_media.py` 共享 media 解析）；deps 分设三 `get_*_service`，router 按端点注入；跨域调用方（ordering / engagement / support）改 narrow 注入（`ProductService` + `ShopService`）；删上帝类 `service.py`。`ProductService.update_product` 经 `ShopService.get_shop_context` 校验（避免 product→shop ORM 泄漏）；`get_shop_for_support` 更名 `get_shop_context`（product / support 共用）。**踩坑记录**：上帝 service 拆开时 blast radius 全局——同一 deps 入口被多域复用，收窄一个 service 牵动所有调用方的注入与构造签名，Task 1.3 与 Task 2 物理上拆不开故合并执行。行为不变：406 全绿 |
 | 2026-08-09 | — | 追加 Phase D（反模式③ 精确定义 + 跨域两步收编）：用户拍板 FastAPI 偏好——同域 current-object deps（`get_current_shop` / `get_order_*`）合法保留；真正的反模式是**跨域两步调用**（Phase B workaround：service `get_xxx` + router 两步串联）。收编 support 店主路径（`get_current_shop_id` 私有化、一步调用）；cart checkout-batch 编排收进 `CartService.get_checkout_batch`（schema 归 service、修 `_item_repo` 私有访问）+ cart CRUD `_to_cart_item_response` 收编（补 Phase A 遗留）。方案 A：order 数据访问留在 OrderService |
+| 2026-08-09 | Phase D | 跨域两步收编闭环。Task 1（support）：`get_current_shop_id` 公开 → 私有 `_get_current_shop_id`，4 店主端点删两步、一步调用。Task 2（cart checkout-batch）：编排全收进 `CartService.get_checkout_batch(batch_id, user_id)`（fetch/404/子订单/聚合/派生状态/build schema）；OrderService 暴露 `list_orders_by_checkout_batch(batch_id)`（方案 A：懒释放 + 重载 + items）；`_derive_batch_status` 迁入 service；`order_service._item_repo` 私有访问消除；cart_router 端点一行化。Task 3（cart CRUD）：`_to_cart_item_response` 迁入 CartService（模块级私有 `_to_*`）；`add_item` 返回 `(CartItemResponse, created)`、`update_qty` 返回 `CartItemResponse`；router 删映射函数、零 ORM 映射（补 Phase A 遗留）。同域 deps（`get_current_shop` / `get_order_*`）与纯鉴权 gate 不动。行为不变：support 26 + ordering 79 + 全量 CI 406 全绿 |
 
 ## Open Questions
 
 - ~~Phase C 是否将 `app/catalog/service.py` 物理拆为多文件~~ → 已拆：`_media.py` + `category_service.py` / `product_service.py` / `shop_service.py`。
 - ~~`CartService` 的 `_to_*` 是否纳入 Phase A 最后一并迁移~~ → 已定：Phase D Task 2.2 收编（见 Decision 7）。
+
+## 踩坑记录（简介）
+
+> 完整记录见 `docs/troubleshooting/deps-跨域两步与上帝service反模式.md`。
+
+整个分支解决了两大类 deps 反模式：**跨域调用**（① deps 建 schema / ② deps 跨域调用 / ③ 跨域两步调用）与**域内膨胀**（④ 上帝 service → 上帝 deps）。它们是**规范缺失下 AI 引入的随机性**——工程纪律未成文前，AI 在 deps / service / router 分层边界上做了任意取舍，小违规悄然累积成架构侵蚀。修复方向见 Decision 2（deps 规范化）与 Decision 7（反模式③ 精确定义）；规范全文（MUST）留给 `docs-app-layer-discipline`。
