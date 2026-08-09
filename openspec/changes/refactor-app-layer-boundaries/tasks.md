@@ -46,8 +46,8 @@
 
 ## 2. user：读路径 schema 收进 service
 
-- [ ] Phase B Task 2.1 `UserService` 增加公开方法 `get_user_response(user_id)`（fetch → 404 → 解析 avatar → 私有 `_to_user_response`）；`update_profile` 复用 avatar/映射 helper
-- [ ] Phase B Task 2.2 删除 `get_current_user` deps 与 `_to_user_response` / `_resolve_avatar_url` import；`GET /users/me` 改用 `get_current_user_id` + `service.get_user_response(user_id)`
+- [x] Phase B Task 2.1 `UserService` 增加公开方法 `get_user_response(user_id)`（fetch → 404 → 解析 avatar → 私有 `_to_user_response`）；`update_profile` 复用 avatar/映射 helper
+- [x] Phase B Task 2.2 删除 `get_current_user` deps 与 `_to_user_response` / `_resolve_avatar_url` import；`GET /users/me` 改用 `get_current_user_id` + `service.get_user_response(user_id)`
 
 ## 3. catalog/support：消除跨域 current-object deps
 
