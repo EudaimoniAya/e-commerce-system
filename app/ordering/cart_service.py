@@ -6,8 +6,8 @@ from collections import defaultdict
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.product_service import ProductService
 from app.catalog.schemas import PurchasableProduct
-from app.catalog.service import ShopService
 from app.ordering.cart_repository import CartRepository
 from app.ordering.checkout_batch_repository import CheckoutBatchRepository
 from app.ordering.models import CartItem, CheckoutBatch
@@ -28,13 +28,13 @@ class CartService:
         self,
         session: AsyncSession,
         cart_repo: CartRepository,
-        catalog_service: ShopService,
+        product_service: ProductService,
         batch_repo: CheckoutBatchRepository,
         order_service: OrderService,
     ) -> None:
         self._session = session
         self._cart_repo = cart_repo
-        self._catalog = catalog_service
+        self._products = product_service
         self._batch_repo = batch_repo
         self._order_service = order_service
 
@@ -52,7 +52,7 @@ class CartService:
             (CartItem, created): ``created=True`` 表示新建行；``False`` 表示累加。
         """
         # 校验商品存在（通过可购查询）
-        products = await self._catalog.get_purchasable_products([str(product_id)])
+        products = await self._products.get_purchasable_products([str(product_id)])
         if not products:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -125,7 +125,7 @@ class CartService:
 
         # 批量查询商品信息（一次 SQL，避免 N+1）
         product_ids = [str(item.product_id) for item in cart_items]
-        products = await self._catalog.get_purchasable_products(product_ids)
+        products = await self._products.get_purchasable_products(product_ids)
         product_map: dict[str, PurchasableProduct] = {p.id: p for p in products}
 
         # 按 shop_id 分组
@@ -219,7 +219,7 @@ class CartService:
 
         # 2. 批量查询商品信息
         product_ids = [str(item.product_id) for item in cart_items]
-        products = await self._catalog.get_purchasable_products(product_ids)
+        products = await self._products.get_purchasable_products(product_ids)
         product_map: dict[str, PurchasableProduct] = {p.id: p for p in products}
 
         # 3. 校验每个商品可购、库存充足

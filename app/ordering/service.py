@@ -7,8 +7,9 @@ from decimal import Decimal
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.product_service import ProductService
 from app.catalog.schemas import PurchasableProduct
-from app.catalog.service import ShopService
+from app.catalog.shop_service import ShopService
 from app.infra.config import get_settings
 from app.ordering.models import Order, OrderItem
 from app.ordering.repository import OrderItemRepository, OrderRepository
@@ -73,13 +74,15 @@ class OrderService:
     def __init__(
         self,
         session: AsyncSession,
-        catalog_service: ShopService,
+        product_service: ProductService,
+        shop_service: ShopService,
         order_repo: OrderRepository,
         item_repo: OrderItemRepository,
         user_service: UserService,
     ) -> None:
         self._session = session
-        self._catalog = catalog_service
+        self._products = product_service
+        self._shops = shop_service
         self._order_repo = order_repo
         self._item_repo = item_repo
         self._user_service = user_service
@@ -112,7 +115,7 @@ class OrderService:
 
         items = await self._item_repo.list_by_order_id(order.id)
         release_items = [(str(item.product_id), item.qty) for item in items]
-        await self._catalog.release_stock(release_items)
+        await self._products.release_stock(release_items)
         # 立即提交：可能由 deps（读路径）触发，不依赖调用方 commit
         await self._session.commit()
         # 刷新 ORM，避免 commit 后访问 updated_at 等字段触发 sync 懒加载（MissingGreenlet）
@@ -148,7 +151,7 @@ class OrderService:
         product_ids = [d["product_id"] for d in item_dicts]
 
         # 1. 查询可购商品
-        products = await self._catalog.get_purchasable_products(product_ids)
+        products = await self._products.get_purchasable_products(product_ids)
         product_map: dict[str, PurchasableProduct] = {p.id: p for p in products}
 
         # 2. 校验每个商品存在且可购
@@ -201,7 +204,7 @@ class OrderService:
 
         # 6. 预留库存
         reserve_items = [(d["product_id"], d["qty"]) for d in item_dicts]
-        await self._catalog.reserve_stock(reserve_items)
+        await self._products.reserve_stock(reserve_items)
 
         # 7. 计算 total_amount
         total = Decimal("0.00")
@@ -283,13 +286,13 @@ class OrderService:
         本方法校验：买家存在且 active、非自购、所有商品属本店 → 建单。
         校验顺序：店铺解析 → 商品归属/可购 → 自购 → 买家存在 → 内核（库存+建单）。
         """
-        shop = await self._catalog.get_my_shop(owner_user_id)
+        shop = await self._shops.get_my_shop(owner_user_id)
         seller_shop_id = uuid.UUID(shop.id)
         item_dicts = _to_items_list(items)
         product_ids = [d["product_id"] for d in item_dicts]
 
         # 先做只读校验：商品可购、归属指定店铺（不涉及写操作）
-        products = await self._catalog.get_purchasable_products(product_ids)
+        products = await self._products.get_purchasable_products(product_ids)
         product_map: dict[str, PurchasableProduct] = {p.id: p for p in products}
 
         for d in item_dicts:
@@ -374,7 +377,7 @@ class OrderService:
         店铺归属由本方法经 catalog 解析（router 不再编排）。
         """
         try:
-            shop = await self._catalog.get_my_shop(user_id)
+            shop = await self._shops.get_my_shop(user_id)
         except HTTPException:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -452,7 +455,7 @@ class OrderService:
 
         items = await self._item_repo.list_by_order_id(order.id)
         release_items = [(str(item.product_id), item.qty) for item in items]
-        await self._catalog.release_stock(release_items)
+        await self._products.release_stock(release_items)
 
         await self._session.commit()
         await self._session.refresh(order)
@@ -489,7 +492,7 @@ class OrderService:
         offset: int = 0,
     ) -> PaginatedOrders:
         """店铺订单列表（店主查看本店订单）：先解析本店，再分页查订单。"""
-        shop = await self._catalog.get_my_shop(owner_user_id)
+        shop = await self._shops.get_my_shop(owner_user_id)
         shop_id = uuid.UUID(shop.id)
         orders, total = await self._order_repo.list_by_shop(
             shop_id,
@@ -537,7 +540,7 @@ class OrderService:
         # 买家或本店店主，否则 404
         if str(order.buyer_user_id) != str(user_id):
             try:
-                shop = await self._catalog.get_my_shop(user_id)
+                shop = await self._shops.get_my_shop(user_id)
             except HTTPException:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,

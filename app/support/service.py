@@ -1,7 +1,7 @@
 """support 域业务逻辑：买家会话/发消息、店主 inbox/回复、product ref 校验。
 
-跨域纪律：商品与店铺校验仅经 ``catalog.service`` 与 schema（``ShopSupportContext``），
-禁止 import catalog / ordering ORM 或 repository。
+跨域纪律：商品与店铺校验仅经 ``catalog.service``（ProductService / ShopService）
+与 schema（``ShopSupportContext``），禁止 import catalog / ordering ORM 或 repository。
 """
 
 import uuid
@@ -10,7 +10,8 @@ from typing import Literal
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.service import ShopService
+from app.catalog.product_service import ProductService
+from app.catalog.shop_service import ShopService
 from app.support.models import SupportConversation, SupportMessage
 from app.support.repository import ConversationRepository, MessageRepository
 from app.support.schemas import (
@@ -60,19 +61,21 @@ def _to_message_response(message: SupportMessage) -> MessageResponse:
 
 
 class SupportService:
-    """support 域编排服务（注入 catalog ShopService 做店铺/product ref 校验）。"""
+    """support 域编排服务（注入 catalog ShopService + ProductService 做店铺/product ref 校验）。"""
 
     def __init__(
         self,
         session: AsyncSession,
         conversation_repo: ConversationRepository,
         message_repo: MessageRepository,
-        catalog_service: ShopService,
+        shop_service: ShopService,
+        product_service: ProductService,
     ) -> None:
         self._session = session
         self._conversation_repo = conversation_repo
         self._message_repo = message_repo
-        self._catalog = catalog_service
+        self._shops = shop_service
+        self._products = product_service
 
     # ── 本店解析（店主路径）──────────────────────────────────
 
@@ -81,7 +84,7 @@ class SupportService:
 
         店主路径不再跨域 `Depends(get_current_shop)`——本域 service 经 catalog service 解析。
         """
-        shop = await self._catalog.get_my_shop(user_id)
+        shop = await self._shops.get_my_shop(user_id)
         return uuid.UUID(str(shop.id))
 
     # ── 买家路径 ──────────────────────────────────────────────
@@ -92,7 +95,7 @@ class SupportService:
         buyer_user_id: uuid.UUID,
     ) -> ConversationResponse:
         """买家查询会话：无会话 404；店主走买家路径 403；shop 不存在 404。"""
-        shop = await self._catalog.get_shop_for_support(shop_id)
+        shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
 
         conversation = await self._conversation_repo.get_by_shop_and_buyer(
@@ -114,7 +117,7 @@ class SupportService:
         offset: int = 0,
     ) -> PaginatedMessages:
         """买家拉取会话消息（created_at ASC）：无会话 404。"""
-        shop = await self._catalog.get_shop_for_support(shop_id)
+        shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
 
         conversation = await self._conversation_repo.get_by_shop_and_buyer(
@@ -134,7 +137,7 @@ class SupportService:
         data: MessageCreate,
     ) -> MessageResponse:
         """买家发消息：lazy create 会话（单事务）；closed 店任何 POST 422。"""
-        shop = await self._catalog.get_shop_for_support(shop_id)
+        shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
         if shop.status == "closed":
             raise HTTPException(
@@ -288,7 +291,7 @@ class SupportService:
             product_ids.append(uuid.UUID(ref["ref_id"]))
 
         if product_ids:
-            await self._catalog.validate_product_refs_for_shop(shop_id, product_ids)
+            await self._products.validate_product_refs_for_shop(shop_id, product_ids)
         return deduped
 
     async def _persist_message(

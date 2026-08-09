@@ -5,13 +5,15 @@ import uuid
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.category_service import CategoryService
 from app.catalog.models import Shop
+from app.catalog.product_service import ProductService
 from app.catalog.repository import (
     CategoryRepository,
     ProductRepository,
     ShopRepository,
 )
-from app.catalog.service import ShopService
+from app.catalog.shop_service import ShopService
 from app.infra.auth import get_current_user_id
 from app.infra.database import get_db
 from app.media.deps import get_media_service
@@ -41,18 +43,33 @@ def get_product_repository(
     return ProductRepository(session)
 
 
+def get_category_service(
+    repository: CategoryRepository = Depends(get_category_repository),
+) -> CategoryService:
+    """注入类目服务（仅 category repo；无 media）。"""
+    return CategoryService(repository)
+
+
 def get_shop_service(
     repository: ShopRepository = Depends(get_shop_repository),
-    category_repository: CategoryRepository = Depends(get_category_repository),
-    product_repository: ProductRepository = Depends(get_product_repository),
     media_service: MediaService = Depends(get_media_service),
 ) -> ShopService:
-    """注入 catalog 服务。"""
-    return ShopService(
-        repository,
-        category_repository,
+    """注入店铺服务（仅 shop repo + media）。"""
+    return ShopService(repository, media_service)
+
+
+def get_product_service(
+    product_repository: ProductRepository = Depends(get_product_repository),
+    category_repository: CategoryRepository = Depends(get_category_repository),
+    media_service: MediaService = Depends(get_media_service),
+    shop_service: ShopService = Depends(get_shop_service),
+) -> ProductService:
+    """注入商品服务（product + category repo + media；shop 校验经 ShopService）。"""
+    return ProductService(
         product_repository,
+        category_repository,
         media_service,
+        shop_service,
     )
 
 

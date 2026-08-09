@@ -1,16 +1,14 @@
-"""catalog 域业务逻辑（店铺、类目、商品）。"""
+"""catalog 域商品业务逻辑（ProductService）。"""
 
 import uuid
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
 
-from app.catalog.models import Category, Product, Shop
-from app.catalog.repository import CategoryRepository, ProductRepository, ShopRepository
+from app.catalog._media import resolve_single_url, resolve_urls_batch
+from app.catalog.models import Product, Shop
+from app.catalog.repository import CategoryRepository, ProductRepository
 from app.catalog.schemas import (
-    CategoryCreate,
-    CategoryResponse,
     EngagementProduct,
     PaginatedProducts,
     ProductCategoryItem,
@@ -18,51 +16,15 @@ from app.catalog.schemas import (
     ProductResponse,
     ProductUpdate,
     PurchasableProduct,
-    ShopCreate,
-    ShopResponse,
-    ShopSupportContext,
-    ShopUpdate,
 )
+from app.catalog.shop_service import ShopService
 from app.media.service import MediaService
 
-_USER_ALREADY_HAS_SHOP_MSG = "User already has a shop"
-_SHOP_NAME_TAKEN_MSG = "Shop name already taken"
-_SHOP_NOT_FOUND_MSG = "Shop not found"
 _PRODUCT_NOT_FOUND_MSG = "Product not found"
 _SHOP_CLOSED_MSG = "Shop is closed"
-_CATEGORY_DUPLICATE_MSG = "Category name already exists under this parent"
 _CATEGORY_NOT_FOUND_MSG = "One or more categories not found"
-_CATEGORY_PARENT_NOT_FOUND_MSG = "Parent category not found"
 _FORBIDDEN_PRODUCT_MSG = "Not allowed to modify this product"
 _PRODUCT_REF_INVALID_MSG = "Product ref not found or not in this shop"
-
-
-def _to_shop_response(
-    shop: Shop,
-    logo_url: str | None = None,
-) -> ShopResponse:
-    """ORM 店铺转对外 DTO（logo_url 由调用方经 media 域 resolve 后传入）。"""
-    return ShopResponse(
-        id=str(shop.id),
-        owner_user_id=str(shop.owner_user_id),
-        name=shop.name,
-        description=shop.description,
-        logo_url=logo_url,
-        status=shop.status,
-        created_at=shop.created_at,
-        updated_at=shop.updated_at,
-    )
-
-
-def _to_category_response(category: Category) -> CategoryResponse:
-    """ORM 类目转对外 DTO。"""
-    return CategoryResponse(
-        id=str(category.id),
-        parent_id=str(category.parent_id) if category.parent_id is not None else None,
-        name=category.name,
-        created_at=category.created_at,
-        updated_at=category.updated_at,
-    )
 
 
 def _format_price(price: Decimal) -> str:
@@ -96,35 +58,23 @@ def _parse_category_ids(category_ids: list[str]) -> list[uuid.UUID]:
     return [uuid.UUID(item) for item in category_ids]
 
 
-class ShopService:
-    """catalog 业务服务（店铺、类目、商品）。"""
+class ProductService:
+    """catalog 域商品业务服务（product + category repo + media）。
+
+    承载商品 CRUD/列表、库存预留/释放、可购/engagement 跨域读、product ref 校验。
+    """
 
     def __init__(
         self,
-        repository: ShopRepository,
-        category_repository: CategoryRepository,
         product_repository: ProductRepository,
+        category_repository: CategoryRepository,
         media_service: MediaService,
+        shop_service: ShopService,
     ) -> None:
-        self._repository = repository
-        self._category_repository = category_repository
         self._product_repository = product_repository
+        self._category_repository = category_repository
         self._media_service = media_service
-
-    async def _resolve_single_url(self, media_id) -> str | None:
-        """解析单个 media_id → ``/media/{id}/file``（缺失行 → None）。"""
-        if media_id is None:
-            return None
-        media_id_str = str(media_id)
-        urls = await self._media_service.resolve_urls([media_id_str])
-        return urls.get(media_id_str)
-
-    async def _resolve_urls_batch(self, media_ids) -> dict[str, str]:
-        """批量解析 media_id → URL（去重、忽略 None；空列表 → {}）。"""
-        ids = list({str(m) for m in media_ids if m is not None})
-        if not ids:
-            return {}
-        return await self._media_service.resolve_urls(ids)
+        self._shop_service = shop_service
 
     async def _load_product_categories(
         self, product_id: uuid.UUID
@@ -152,45 +102,6 @@ class ShopService:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=_SHOP_CLOSED_MSG,
             )
-
-    async def create_category(self, data: CategoryCreate) -> CategoryResponse:
-        """管理员创建类目。"""
-        parent_id: uuid.UUID | None = None
-        if data.parent_id is not None:
-            parent_id = uuid.UUID(data.parent_id)
-            parent = await self._category_repository.get_by_id(parent_id)
-            if parent is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=_CATEGORY_PARENT_NOT_FOUND_MSG,
-                )
-
-        duplicate = await self._category_repository.get_by_parent_and_name(
-            parent_id, data.name
-        )
-        if duplicate is not None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_CATEGORY_DUPLICATE_MSG,
-            )
-
-        try:
-            category = await self._category_repository.create(
-                category_id=uuid.uuid4(),
-                name=data.name,
-                parent_id=parent_id,
-            )
-        except IntegrityError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_CATEGORY_DUPLICATE_MSG,
-            ) from exc
-        return _to_category_response(category)
-
-    async def list_categories(self) -> list[CategoryResponse]:
-        """返回扁平类目列表。"""
-        categories = await self._category_repository.list_all()
-        return [_to_category_response(item) for item in categories]
 
     async def create_product(self, shop: Shop, data: ProductCreate) -> ProductResponse:
         """店主在 active 店铺下创建商品。
@@ -223,7 +134,9 @@ class ShopService:
             primary_category_id=primary_category_id,
         )
         categories = await self._load_product_categories(uuid.UUID(str(product.id)))
-        image_url = await self._resolve_single_url(product.primary_media_id)
+        image_url = await resolve_single_url(
+            self._media_service, product.primary_media_id
+        )
         return _to_product_response(product, categories, image_url=image_url)
 
     async def update_product(
@@ -240,18 +153,20 @@ class ShopService:
                 detail=_PRODUCT_NOT_FOUND_MSG,
             )
 
-        shop = await self._repository.get_by_id(uuid.UUID(str(product.shop_id)))
-        if shop is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=_PRODUCT_NOT_FOUND_MSG,
-            )
+        # 经 shop service 取本店上下文，避免 product → shop ORM 泄漏（design Risk 表）
+        shop = await self._shop_service.get_shop_context(
+            uuid.UUID(str(product.shop_id))
+        )
         if str(shop.owner_user_id) != str(owner_user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=_FORBIDDEN_PRODUCT_MSG,
             )
-        self._ensure_shop_active(shop)
+        if shop.status == "closed":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_SHOP_CLOSED_MSG,
+            )
 
         if data.name is not None:
             product.name = data.name
@@ -289,7 +204,9 @@ class ShopService:
 
         updated = await self._product_repository.save(product)
         categories = await self._load_product_categories(product_id)
-        image_url = await self._resolve_single_url(updated.primary_media_id)
+        image_url = await resolve_single_url(
+            self._media_service, updated.primary_media_id
+        )
         return _to_product_response(updated, categories, image_url=image_url)
 
     async def list_my_products(
@@ -305,7 +222,9 @@ class ShopService:
             limit=limit,
             offset=offset,
         )
-        urls = await self._resolve_urls_batch([p.primary_media_id for p in products])
+        urls = await resolve_urls_batch(
+            self._media_service, [p.primary_media_id for p in products]
+        )
         items: list[ProductResponse] = []
         for product in products:
             categories = await self._load_product_categories(uuid.UUID(str(product.id)))
@@ -335,7 +254,9 @@ class ShopService:
             limit=limit,
             offset=offset,
         )
-        urls = await self._resolve_urls_batch([p.primary_media_id for p in products])
+        urls = await resolve_urls_batch(
+            self._media_service, [p.primary_media_id for p in products]
+        )
         items: list[ProductResponse] = []
         for product in products:
             categories = await self._load_product_categories(uuid.UUID(str(product.id)))
@@ -361,7 +282,9 @@ class ShopService:
                 detail=_PRODUCT_NOT_FOUND_MSG,
             )
         categories = await self._load_product_categories(product_id)
-        image_url = await self._resolve_single_url(product.primary_media_id)
+        image_url = await resolve_single_url(
+            self._media_service, product.primary_media_id
+        )
         return _to_product_response(product, categories, image_url=image_url)
 
     async def get_purchasable_products(
@@ -396,7 +319,9 @@ class ShopService:
         )
         if not rows:
             return []
-        urls = await self._resolve_urls_batch([row["primary_media_id"] for row in rows])
+        urls = await resolve_urls_batch(
+            self._media_service, [row["primary_media_id"] for row in rows]
+        )
         return [
             EngagementProduct(
                 id=row["id"],
@@ -428,122 +353,6 @@ class ShopService:
     async def release_stock(self, items: list[tuple[str, int]]) -> None:
         """释放库存（供 ordering 域取消/过期时调用）。"""
         await self._product_repository.release_stock(items)
-
-    async def create_shop(
-        self,
-        owner_user_id: uuid.UUID,
-        data: ShopCreate,
-    ) -> ShopResponse:
-        """已认证用户创建店铺。
-
-        设置 ``logo_media_id`` 时经 media attach 校验（owner 403 / ``image/*`` 422），
-        成功后同事务 ``mark_public``；响应 logo_url 经 media 域 resolve。
-        """
-        existing_shop = await self._repository.get_by_owner_user_id(owner_user_id)
-        if existing_shop is not None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_USER_ALREADY_HAS_SHOP_MSG,
-            )
-
-        name_conflict = await self._repository.get_by_name(data.name)
-        if name_conflict is not None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_SHOP_NAME_TAKEN_MSG,
-            )
-
-        if data.logo_media_id is not None:
-            await self._media_service.assert_owned_by(
-                data.logo_media_id, str(owner_user_id)
-            )
-            await self._media_service.assert_image_content_type(data.logo_media_id)
-            await self._media_service.mark_public(data.logo_media_id)
-
-        shop = await self._repository.create(
-            shop_id=uuid.uuid4(),
-            owner_user_id=owner_user_id,
-            name=data.name,
-            description=data.description,
-            logo_media_id=data.logo_media_id,
-        )
-        logo_url = await self._resolve_single_url(shop.logo_media_id)
-        return _to_shop_response(shop, logo_url=logo_url)
-
-    async def get_my_shop(self, owner_user_id: uuid.UUID) -> ShopResponse:
-        """查询当前用户作为店主的店铺。"""
-        shop = await self._repository.get_by_owner_user_id(owner_user_id)
-        if shop is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=_SHOP_NOT_FOUND_MSG,
-            )
-        logo_url = await self._resolve_single_url(shop.logo_media_id)
-        return _to_shop_response(shop, logo_url=logo_url)
-
-    async def update_my_shop(self, shop: Shop, data: ShopUpdate) -> ShopResponse:
-        """店主更新自己的店铺。
-
-        ``logo_media_id`` 显式 null 清空 logo；设置时经 media attach 校验
-        （owner 403 / ``image/*`` 422）并同事务 ``mark_public``。
-        """
-        if data.name is not None and data.name != shop.name:
-            name_conflict = await self._repository.get_by_name(data.name)
-            if name_conflict is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=_SHOP_NAME_TAKEN_MSG,
-                )
-            shop.name = data.name
-
-        if data.description is not None:
-            shop.description = data.description
-
-        updates = data.model_dump(exclude_unset=True)
-        if "logo_media_id" in updates:
-            new_logo = updates["logo_media_id"]
-            if new_logo is not None:
-                await self._media_service.assert_owned_by(
-                    new_logo, str(shop.owner_user_id)
-                )
-                await self._media_service.assert_image_content_type(new_logo)
-                await self._media_service.mark_public(new_logo)
-            shop.logo_media_id = new_logo
-
-        if data.status is not None:
-            shop.status = data.status
-
-        updated = await self._repository.save(shop)
-        logo_url = await self._resolve_single_url(updated.logo_media_id)
-        return _to_shop_response(updated, logo_url=logo_url)
-
-    async def get_public_shop(self, shop_id: uuid.UUID) -> ShopResponse:
-        """公开查询店铺详情（含 closed 状态）。"""
-        shop = await self._repository.get_by_id(shop_id)
-        if shop is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=_SHOP_NOT_FOUND_MSG,
-            )
-        logo_url = await self._resolve_single_url(shop.logo_media_id)
-        return _to_shop_response(shop, logo_url=logo_url)
-
-    async def get_shop_for_support(self, shop_id: uuid.UUID) -> ShopSupportContext:
-        """返回供 support 域会话创建与校验使用的店铺上下文；shop 不存在时 404。
-
-        跨域 service（无 HTTP 路由）：support 域注入本方法即可，禁止 import catalog ORM。
-        """
-        shop = await self._repository.get_by_id(shop_id)
-        if shop is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=_SHOP_NOT_FOUND_MSG,
-            )
-        return ShopSupportContext(
-            id=str(shop.id),
-            status=shop.status,
-            owner_user_id=str(shop.owner_user_id),
-        )
 
     async def validate_product_refs_for_shop(
         self,

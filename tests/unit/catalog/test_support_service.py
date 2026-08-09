@@ -1,4 +1,4 @@
-"""``ShopService`` support 跨域方法单元测试（get_shop_for_support / validate_product_refs_for_shop）。
+"""catalog 跨域方法单元测试（ShopService.get_shop_context / ProductService.validate_product_refs_for_shop）。
 
 对齐 catalog-products spec "Shop support context service method" 与
 "Product refs validation for support" 的 scenario：上下文字段、404、422、未上架允许。
@@ -13,8 +13,9 @@ import allure
 import pytest
 from fastapi import HTTPException
 
+from app.catalog.product_service import ProductService
 from app.catalog.schemas import ShopSupportContext
-from app.catalog.service import ShopService
+from app.catalog.shop_service import ShopService
 
 
 @pytest.fixture
@@ -32,14 +33,24 @@ def mock_product_repository() -> AsyncMock:
 @pytest.fixture
 def shop_service(
     mock_repository: AsyncMock,
-    mock_product_repository: AsyncMock,
 ) -> ShopService:
-    """注入 mock 的 repository；category_repository 不参与本组方法。"""
+    """注入 mock 的 shop repository + media；类目/商品仓储不参与。"""
     return ShopService(
         repository=mock_repository,
-        category_repository=AsyncMock(),
-        product_repository=mock_product_repository,
         media_service=AsyncMock(),
+    )
+
+
+@pytest.fixture
+def product_service(
+    mock_product_repository: AsyncMock,
+) -> ProductService:
+    """注入 mock 的 product repository；shop service 由 mock 顶替（本组方法不调用）。"""
+    return ProductService(
+        product_repository=mock_product_repository,
+        category_repository=AsyncMock(),
+        media_service=AsyncMock(),
+        shop_service=AsyncMock(),
     )
 
 
@@ -57,14 +68,14 @@ def _fake_product(*, shop_id: str) -> SimpleNamespace:
     return SimpleNamespace(id=uuid4(), shop_id=shop_id)
 
 
-# ── get_shop_for_support ──────────────────────────────────────
+# ── get_shop_context ──────────────────────────────────────────
 
 
 @allure.epic("catalog")
 @allure.feature("support_service")
-@allure.title("get_shop_for_support 返回 ShopSupportContext 字段一致。")
+@allure.title("get_shop_context 返回 ShopSupportContext 字段一致。")
 @pytest.mark.asyncio
-async def test_get_shop_for_support_returns_context(
+async def test_get_shop_context_returns_context(
     shop_service: ShopService,
     mock_repository: AsyncMock,
 ) -> None:
@@ -72,7 +83,7 @@ async def test_get_shop_for_support_returns_context(
     shop = _fake_shop()
     mock_repository.get_by_id.return_value = shop
 
-    context = await shop_service.get_shop_for_support(shop.id)
+    context = await shop_service.get_shop_context(shop.id)
 
     assert isinstance(context, ShopSupportContext)
     assert context.id == str(shop.id)
@@ -82,9 +93,9 @@ async def test_get_shop_for_support_returns_context(
 
 @allure.epic("catalog")
 @allure.feature("support_service")
-@allure.title("get_shop_for_support shop 不存在抛 404。")
+@allure.title("get_shop_context shop 不存在抛 404。")
 @pytest.mark.asyncio
-async def test_get_shop_for_support_missing_raises_404(
+async def test_get_shop_context_missing_raises_404(
     shop_service: ShopService,
     mock_repository: AsyncMock,
 ) -> None:
@@ -92,7 +103,7 @@ async def test_get_shop_for_support_missing_raises_404(
     mock_repository.get_by_id.return_value = None
 
     with pytest.raises(HTTPException) as exc_info:
-        await shop_service.get_shop_for_support(uuid4())
+        await shop_service.get_shop_context(uuid4())
 
     assert exc_info.value.status_code == 404
 
@@ -105,7 +116,7 @@ async def test_get_shop_for_support_missing_raises_404(
 @allure.title("全部 product 属于 shop 时校验通过。")
 @pytest.mark.asyncio
 async def test_validate_refs_all_in_shop_passes(
-    shop_service: ShopService,
+    product_service: ProductService,
     mock_product_repository: AsyncMock,
 ) -> None:
     """所有 id 存在且 shop_id 匹配时不抛异常。"""
@@ -113,7 +124,9 @@ async def test_validate_refs_all_in_shop_passes(
     products = [_fake_product(shop_id=shop_id) for _ in range(2)]
     mock_product_repository.get_by_ids.return_value = products
 
-    await shop_service.validate_product_refs_for_shop(shop_id, [p.id for p in products])
+    await product_service.validate_product_refs_for_shop(
+        shop_id, [p.id for p in products]
+    )
 
 
 @allure.epic("catalog")
@@ -121,7 +134,7 @@ async def test_validate_refs_all_in_shop_passes(
 @allure.title("任一 product 不存在时抛 422。")
 @pytest.mark.asyncio
 async def test_validate_refs_missing_product_raises_422(
-    shop_service: ShopService,
+    product_service: ProductService,
     mock_product_repository: AsyncMock,
 ) -> None:
     """列表中含不存在的 product_id 时抛出 HTTP 422。"""
@@ -130,7 +143,7 @@ async def test_validate_refs_missing_product_raises_422(
     mock_product_repository.get_by_ids.return_value = [existing]
 
     with pytest.raises(HTTPException) as exc_info:
-        await shop_service.validate_product_refs_for_shop(
+        await product_service.validate_product_refs_for_shop(
             shop_id, [existing.id, str(uuid4())]
         )
 
@@ -142,7 +155,7 @@ async def test_validate_refs_missing_product_raises_422(
 @allure.title("product 存在但跨 shop 时抛 422。")
 @pytest.mark.asyncio
 async def test_validate_refs_cross_shop_raises_422(
-    shop_service: ShopService,
+    product_service: ProductService,
     mock_product_repository: AsyncMock,
 ) -> None:
     """product 存在但 shop_id 与参数不一致时抛出 HTTP 422。"""
@@ -151,7 +164,7 @@ async def test_validate_refs_cross_shop_raises_422(
     mock_product_repository.get_by_ids.return_value = [other_shop_product]
 
     with pytest.raises(HTTPException) as exc_info:
-        await shop_service.validate_product_refs_for_shop(
+        await product_service.validate_product_refs_for_shop(
             shop_id, [other_shop_product.id]
         )
 
@@ -163,7 +176,7 @@ async def test_validate_refs_cross_shop_raises_422(
 @allure.title("未上架本店 product 校验通过。")
 @pytest.mark.asyncio
 async def test_validate_refs_unpublished_allowed(
-    shop_service: ShopService,
+    product_service: ProductService,
     mock_product_repository: AsyncMock,
 ) -> None:
     """product 属于该 shop 时即使未上架也不抛异常（不按公开可见性过滤）。"""
@@ -171,7 +184,7 @@ async def test_validate_refs_unpublished_allowed(
     product = _fake_product(shop_id=shop_id)
     mock_product_repository.get_by_ids.return_value = [product]
 
-    await shop_service.validate_product_refs_for_shop(shop_id, [product.id])
+    await product_service.validate_product_refs_for_shop(shop_id, [product.id])
 
 
 @allure.epic("catalog")
@@ -179,10 +192,10 @@ async def test_validate_refs_unpublished_allowed(
 @allure.title("空 product_ids 直接返回，不查询 repository。")
 @pytest.mark.asyncio
 async def test_validate_refs_empty_no_query(
-    shop_service: ShopService,
+    product_service: ProductService,
     mock_product_repository: AsyncMock,
 ) -> None:
     """空列表输入不抛异常，且不触发 repository 查询。"""
-    await shop_service.validate_product_refs_for_shop(str(uuid4()), [])
+    await product_service.validate_product_refs_for_shop(str(uuid4()), [])
 
     mock_product_repository.get_by_ids.assert_not_awaited()

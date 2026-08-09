@@ -68,16 +68,16 @@
 
 ## 1. catalog 域内 service / deps / router 拆分
 
-- [ ] Phase C Task 1.1 从现 `ShopService` 拆出 `CategoryService` + `get_category_service`；`/categories*` router 改用之
-- [ ] Phase C Task 1.2 拆出 `ProductService` + `get_product_service`（含库存、可购/engagement 读、product ref 校验、media helper）；`/products*` router 改用之
-- [ ] Phase C Task 1.3 收窄 `ShopService` 为店铺专用 + `get_shop_service`（仅 shop repo + media）；`/shops*` router 改用之
+- [x] Phase C Task 1.1 从现 `ShopService` 拆出 `CategoryService` + `get_category_service`；`/categories*` router 改用之
+- [x] Phase C Task 1.2 拆出 `ProductService` + `get_product_service`（含库存、可购/engagement 读、product ref 校验、media helper）；`/products*` router 改用之
+- [x] Phase C Task 1.3 收窄 `ShopService` 为店铺专用 + `get_shop_service`（仅 shop repo + media）；`/shops*` router 改用之
 
 ## 2. 跨域调用方 narrow 依赖
 
-- [ ] Phase C Task 2.1 更新 `app/ordering/service.py` / `cart_service.py` / `deps.py`：catalog 依赖改为 `ProductService`（及必要的 `ShopService`），无上帝 `ShopService`
-- [ ] Phase C Task 2.2 更新 `app/engagement/service.py` / `deps.py`：`ProductService.get_products_for_engagement`
-- [ ] Phase C Task 2.3 更新 `app/support/service.py` / `deps.py`：`ShopService` + `ProductService`（或 shop 委托校验）替代单一上帝注入
-- [ ] Phase C Task 2.4 删除或瘦身原 `app/catalog/service.py` 上帝类；修正全库 `from app.catalog.service import ShopService` 引用
+- [x] Phase C Task 2.1 更新 `app/ordering/service.py` / `cart_service.py` / `deps.py`：catalog 依赖改为 `ProductService`（及必要的 `ShopService`），无上帝 `ShopService`
+- [x] Phase C Task 2.2 更新 `app/engagement/service.py` / `deps.py`：`ProductService.get_products_for_engagement`
+- [x] Phase C Task 2.3 更新 `app/support/service.py` / `deps.py`：`ShopService` + `ProductService`（或 shop 委托校验）替代单一上帝注入
+- [x] Phase C Task 2.4 删除或瘦身原 `app/catalog/service.py` 上帝类；修正全库 `from app.catalog.service import ShopService` 引用
 
 ## 3. Phase C 验证
 
@@ -86,7 +86,9 @@
 
 ---
 
-## 4. 收尾（merge 后）
+## 收尾（所有 Phase 完成后，merge 后执行）
+
+> 独立于任何 Phase 的 change 级收尾；后续新增 Phase（D/E…）插在 Phase C 之后、本节之前。
 
 - [ ] 4.1 PR merge 到 `dev`；远程 CI 全绿
 - [ ] 4.2 archive change；sync `refactor-regression` delta 至主 spec（若采用）；**不**在本 change sync 工程纪律全文（留给 `docs-app-layer-discipline`）

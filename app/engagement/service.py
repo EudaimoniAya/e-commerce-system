@@ -7,8 +7,8 @@ from typing import Literal
 from fastapi import BackgroundTasks, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.product_service import ProductService
 from app.catalog.schemas import EngagementProduct
-from app.catalog.service import ShopService
 from app.engagement.models import UserBrowseHistory, UserFavorite
 from app.engagement.repository import BrowseRepository, FavoriteRepository
 from app.engagement.schemas import (
@@ -55,11 +55,11 @@ class FavoriteService:
         self,
         session: AsyncSession,
         favorite_repo: FavoriteRepository,
-        catalog_service: ShopService,
+        product_service: ProductService,
     ) -> None:
         self._session = session
         self._favorite_repo = favorite_repo
-        self._catalog = catalog_service
+        self._products = product_service
 
     # ── POST /favorites ────────────────────────────────────────
 
@@ -73,7 +73,7 @@ class FavoriteService:
         Returns:
             (favorite, created)：``created=True`` 新建（201）；``False`` 幂等返回既有（200）。
         """
-        products = await self._catalog.get_products_for_engagement([product_id])
+        products = await self._products.get_products_for_engagement([product_id])
         if not products:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -143,7 +143,7 @@ class FavoriteService:
 
         # 批量查询商品（一次 SQL，避免 N+1）
         product_ids = [str(f.product_id) for f in favorites]
-        products = await self._catalog.get_products_for_engagement(product_ids)
+        products = await self._products.get_products_for_engagement(product_ids)
         product_map: dict[str, EngagementProduct] = {p.id: p for p in products}
 
         items, unavailable = await self._classify_favorites(favorites, product_map)
@@ -252,11 +252,11 @@ class BrowseService:
         self,
         session: AsyncSession,
         browse_repo: BrowseRepository,
-        catalog_service: ShopService,
+        product_service: ProductService,
     ) -> None:
         self._session = session
         self._browse_repo = browse_repo
-        self._catalog = catalog_service
+        self._products = product_service
 
     # ── POST /browse ───────────────────────────────────────────
 
@@ -271,7 +271,7 @@ class BrowseService:
         catalog 行存在即可记录（偏好 ≠ 可购，不要求上架/店 active）；
         catalog 无此商品 → 422 且不调度 BackgroundTask。
         """
-        products = await self._catalog.get_products_for_engagement([product_id])
+        products = await self._products.get_products_for_engagement([product_id])
         if not products:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -381,7 +381,7 @@ class BrowseService:
             )
 
         product_ids = [str(r.product_id) for r in rows]
-        products = await self._catalog.get_products_for_engagement(product_ids)
+        products = await self._products.get_products_for_engagement(product_ids)
         product_map: dict[str, EngagementProduct] = {p.id: p for p in products}
 
         items, unavailable = await self._classify_browses(rows, product_map)
