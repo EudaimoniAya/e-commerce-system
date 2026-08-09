@@ -56,11 +56,13 @@
 
 ## 4. 验证与留档
 
-- [ ] Phase B Task 4.1 `rg 'from app.(ordering|user).service import _' app/*/deps.py` 无命中；`rg 'Depends\(get_current_shop\)' app/support/` 无命中；`devbox run -- task ci` 全绿；design.md Changelog 追加 Phase B 摘要
+- [x] Phase B Task 4.1 `rg 'from app.(ordering|user).service import _' app/*/deps.py` 无命中；`rg 'Depends\(get_current_shop\)' app/support/` 无命中；`devbox run -- task ci` 全绿；design.md Changelog 追加 Phase B 摘要
 
 ---
 
-## Phase C — catalog：实体 service 拆分
+## Phase C — catalog：上帝 service 拆分（反模式 ④：上帝 service → 上帝 deps）
+
+**核心原理**：单一上帝 `ShopService` 迫使 `get_shop_service()` 一次注入三 repo + `MediaService`——service 越界导致 deps 上帝化；跨域调用方（ordering / engagement / support）被迫依赖整个上帝类。拆为按实体 service + 按端点 deps，跨域收窄为 narrow 入口。
 
 **DoD**：`CategoryService` / `ProductService` / `ShopService` 分离；`deps` 分设 `get_*_service`；catalog router 按端点注入对应 service；ordering / engagement / support 的 catalog 依赖改为 narrow service；全量 CI 绿。
 

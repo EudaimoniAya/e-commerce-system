@@ -26,7 +26,7 @@
 
 - Phase A：ordering router **不再**注入 `ShopService`；ORM→Schema 映射集中在 `OrderService`（及必要时 `CartService`）；router 以「单 service + 返回 schema」为主。
 - Phase B：deps 规范化——current-object deps 本域独用、绝不建 schema。消除 ordering + user 的建 schema deps（`get_order_for_buyer_or_shop_response` / `get_current_user`）与 support 跨域 `get_current_shop` 违规（见 Decision 2）。
-- Phase C：catalog 按实体拆分 service 与 deps；router 端点注入语义匹配的 service；跨域调用方（ordering / engagement / support）改为依赖 **narrow** catalog 入口（见 Decision 4）。
+- Phase C：**反模式 ④（上帝 service → 上帝 deps）**——catalog 按实体拆分 service 与 deps；router 端点注入语义匹配的 service；跨域调用方（ordering / engagement / support）改为依赖 **narrow** catalog 入口（见 Decision 4）。
 - 全 change 结束：现有 pytest **406** 量级全绿，对外 API 无变化。
 
 **Non-Goals:**
@@ -80,7 +80,7 @@
 
 **验收**：`rg 'ShopService|get_shop_service' app/ordering/router.py` 无命中；ordering 相关 tests 全绿。
 
-### 4. Phase C — catalog 实体 service 拆分
+### 4. Phase C — catalog 上帝 service 拆分（反模式 ④：上帝 service → 上帝 deps）
 
 **选择**：拆为三个 application service 类（同包内，文件名可 `shop_service.py` / `product_service.py` / `category_service.py`，或暂保留单文件三类）：
 
@@ -149,6 +149,7 @@
 | 2026-08-08 | — | propose：Phase A ordering + Phase B catalog 拆分 |
 | 2026-08-09 | Phase A | ordering 闭环：router 薄化 + OrderService 返 schema。跨域编排（`get_my_shop` 解析、buyer 校验、`cancel_reason` 角色分支）全部迁入 `OrderService`；写方法统一返回 `OrderResponse` / `BatchPayResponse`；读路径 `get_order` 经 schema deps `get_order_for_buyer_or_shop_response` 返 DTO（router 不再注入 service+ORM）。router 无任何 catalog import（DoD 达成）；`tests/ordering` 79 + 全量 CI 406 全绿。**命名决策**：映射统一为模块级私有 `_to_order_response`（与各域 `_to_*` 一致），deps 同域导入该私有函数（仿 `app/user/deps.py`）；读路径映射跨模块问题（Option C：鉴权收进 service 读方法）留待后续 change |
 | 2026-08-09 | — | 追加 Phase B（deps 规范化：current-object deps 本域独用、绝不建 schema）：跨域只走 service+schema；`get_order_for_buyer_or_shop_response` / `get_current_user` 建 schema 违规 → 改为 service 公开读方法（`OrderService.get_order_response(order_id, user_id)` / `UserService.get_user_response(user_id)`），`_to_*` 保持私有；support 跨域 `get_current_shop` 违规 → 改经 `ShopService.get_my_shop`。滑坡论证：跨域 deps 例外诱发 deps 建 schema 交互网（破窗/架构侵蚀）。原 catalog 拆分顺延为 Phase C；规范全文留 `docs-app-layer-discipline` |
+| 2026-08-09 | Phase B | deps 规范化完成：反模式 ①（deps 建 schema）与 ②（deps 跨域）已清除。ordering `get_order_response(order_id, user_id)` / user `get_user_response(user_id)` 收读路径，`_to_*` 保持私有（`get_order_for_buyer_or_shop` 保留给 cancel_order）；support 店主路径经 `ShopService.get_my_shop` 解析本店，`get_current_shop` 退回 catalog 本域。反模式 ③（写路径收编 / 路由两步编排）与 ④（上帝 service → 上帝 deps）另立 Phase，④ 由 Phase C 执行。行为不变：406 全绿 |
 
 ## Open Questions
 
