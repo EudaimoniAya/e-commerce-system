@@ -41,8 +41,8 @@
 
 ## 1. ordering：读路径 schema 收进 service
 
-- [ ] Phase B Task 1.1 `OrderService` 增加公开方法 `get_order_response(order_id, user_id)`（fetch → 404 → 懒释放 → buyer/店主鉴权 → 私有 `_to_order_response`）；写路径内部仍用 `_to_order_response`
-- [ ] Phase B Task 1.2 删除 deps 内 `get_order_for_buyer_or_shop_response` 与 `_to_order_response` import；`get_order` router 改用 `get_current_user_id` + `service.get_order_response(order_id, user_id)`（`get_order_for_buyer_or_shop` 保留——cancel_order 写路径仍需，合法 current-object deps）
+- [x] Phase B Task 1.1 `OrderService` 增加公开方法 `get_order_response(order_id, user_id)`（fetch → 404 → 懒释放 → buyer/店主鉴权 → 私有 `_to_order_response`）；写路径内部仍用 `_to_order_response`
+- [x] Phase B Task 1.2 删除 deps 内 `get_order_for_buyer_or_shop_response` 与 `_to_order_response` import；`get_order` router 改用 `get_current_user_id` + `service.get_order_response(order_id, user_id)`（`get_order_for_buyer_or_shop` 保留——cancel_order 写路径仍需，合法 current-object deps）
 
 ## 2. user：读路径 schema 收进 service
 

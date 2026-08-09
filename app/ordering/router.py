@@ -11,7 +11,6 @@ from app.ordering.deps import (
     get_order_by_id,
     get_order_for_buyer,
     get_order_for_buyer_or_shop,
-    get_order_for_buyer_or_shop_response,
     get_order_service,
 )
 from app.ordering.models import Order
@@ -117,10 +116,15 @@ async def list_my_orders(
     tags=["orders"],
 )
 async def get_order(
-    order: OrderResponse = Depends(get_order_for_buyer_or_shop_response),
+    order_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    service: OrderService = Depends(get_order_service),
 ) -> OrderResponse:
-    """买家或本店店主查看订单详情（触发懒释放）。"""
-    return order
+    """买家或本店店主查看订单详情（触发懒释放 + 鉴权 + 映射）。
+
+    deps 只解析 user_id（未认证 401）；fetch/鉴权/schema 全由 service 产出。
+    """
+    return await service.get_order_response(order_id, user_id)
 
 
 # ── 支付桩 ───────────────────────────────────────────────

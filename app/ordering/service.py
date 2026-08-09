@@ -517,6 +517,40 @@ class OrderService:
         order.items = await self._item_repo.list_by_order_id(order.id)
         return order
 
+    async def get_order_response(
+        self,
+        order_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> OrderResponse:
+        """买家或本店店主查看订单详情：fetch → 404 → 懒释放 → 鉴权 → 映射。
+
+        读路径 schema 唯一出口；router 只传 order_id + user_id。
+        鉴权语义与 deps `get_order_for_buyer_or_shop` 一致：非买家且非本店店主 → 404。
+        """
+        order = await self.get_order_or_404(order_id)
+
+        # 懒释放（expire_if_needed 内部会 commit 过期变更）
+        expired = await self.expire_if_needed(order)
+        if expired:
+            order = await self.get_order_or_404(order_id)
+
+        # 买家或本店店主，否则 404
+        if str(order.buyer_user_id) != str(user_id):
+            try:
+                shop = await self._catalog.get_my_shop(user_id)
+            except HTTPException:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=_NOT_FOUND_MSG,
+                ) from None
+            if str(shop.id) != str(order.shop_id):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=_NOT_FOUND_MSG,
+                )
+
+        return _to_order_response(order)
+
     # ── 批量支付 ──────────────────────────────────────────────
 
     async def batch_pay_orders(
