@@ -12,7 +12,7 @@ from app.catalog.service import ShopService
 from app.infra.config import get_settings
 from app.ordering.models import Order, OrderItem
 from app.ordering.repository import OrderItemRepository, OrderRepository
-from app.ordering.schemas import OrderResponse, PaginatedOrders
+from app.ordering.schemas import BatchPayResponse, OrderResponse, PaginatedOrders
 from app.user.service import UserService
 
 _NOT_FOUND_MSG = "Order not found"
@@ -35,7 +35,11 @@ def _to_items_list(
 
 
 def _to_order_response(order: Order) -> OrderResponse:
-    """ORM Order → OrderResponse（含 items）。"""
+    """ORM Order → OrderResponse（含 items）。
+
+    模块级私有映射（与 catalog / user / engagement / support 各域 `_to_*` 一致）；
+    ordering 域内 service 与 deps 均可调用，router 不做 ORM 映射。
+    """
     return OrderResponse(
         id=str(order.id),
         buyer_user_id=str(order.buyer_user_id),
@@ -256,28 +260,31 @@ class OrderService:
         self,
         buyer_user_id: uuid.UUID,
         items: list[tuple[str, int]],
-    ) -> Order:
+    ) -> OrderResponse:
         """买家建单：委托内核（initiated_by=buyer，shop 由商品推导）。"""
-        return await self._create_order_core(
+        order = await self._create_order_core(
             buyer_user_id,
             items,
             initiated_by="buyer",
         )
+        return _to_order_response(order)
 
     # ── 卖家建单 ────────────────────────────────────────────
 
     async def create_order_by_seller(
         self,
-        seller_shop_id: uuid.UUID,
+        owner_user_id: uuid.UUID,
         buyer_user_id: uuid.UUID,
         items: list[tuple[str, int]],
-    ) -> Order:
-        """卖家为指定买家建单。
+    ) -> OrderResponse:
+        """卖家为指定买家建单：解析本店 → 校验商品归属 → 买家存在 → 建单。
 
-        前置校验（由路由层完成）：当前用户是 seller_shop_id 的店主。
+        店铺归属由本方法经 catalog 解析（router 不再编排）。
         本方法校验：买家存在且 active、非自购、所有商品属本店 → 建单。
-        校验顺序：商品归属/可购 → 自购 → 买家存在 → 内核（库存+建单）。
+        校验顺序：店铺解析 → 商品归属/可购 → 自购 → 买家存在 → 内核（库存+建单）。
         """
+        shop = await self._catalog.get_my_shop(owner_user_id)
+        seller_shop_id = uuid.UUID(shop.id)
         item_dicts = _to_items_list(items)
         product_ids = [d["product_id"] for d in item_dicts]
 
@@ -310,20 +317,27 @@ class OrderService:
         # 校验买家存在且 active（不存在→404，禁用→422）
         await self._user_service.get_user_summary(str(buyer_user_id))
 
-        return await self._create_order_core(
+        order = await self._create_order_core(
             buyer_user_id,
             items,
             initiated_by="seller",
             expected_shop_id=seller_shop_id,
         )
+        return _to_order_response(order)
 
     # ── 支付桩 ──────────────────────────────────────────────
 
-    async def pay_order(self, order: Order) -> Order:
-        """支付桩：检查过期（409）→ 条件迁移到 confirmed。
+    async def pay_order(self, user_id: uuid.UUID, order: Order) -> OrderResponse:
+        """支付桩：非买家 403 → 检查过期（409）→ 条件迁移到 confirmed。
 
-        返回刷新后的订单。
+        buyer 校验由本方法负责（router 只传 user_id）。
         """
+        if str(order.buyer_user_id) != str(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the buyer can pay for this order",
+            )
+
         expired = await self.expire_if_needed(order)
         if expired:
             raise HTTPException(
@@ -345,16 +359,33 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = await self._item_repo.list_by_order_id(order.id)
-        return order
+        return _to_order_response(order)
 
     # ── 发货 ────────────────────────────────────────────────
 
     async def create_shipment(
         self,
+        user_id: uuid.UUID,
         order: Order,
         note: str | None = None,
-    ) -> Order:
-        """卖家发货：条件迁移 confirmed → shipped。"""
+    ) -> OrderResponse:
+        """卖家发货：校验本店归属（403）→ 条件迁移 confirmed → shipped。
+
+        店铺归属由本方法经 catalog 解析（router 不再编排）。
+        """
+        try:
+            shop = await self._catalog.get_my_shop(user_id)
+        except HTTPException:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not your shop's order",
+            ) from None
+        if str(order.shop_id) != str(shop.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not your shop's order",
+            )
+
         updated = await self._order_repo.update_status(
             order.id,
             from_statuses={"confirmed"},
@@ -372,11 +403,11 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = await self._item_repo.list_by_order_id(order.id)
-        return order
+        return _to_order_response(order)
 
     # ── 确认收货 ────────────────────────────────────────────
 
-    async def confirm_receipt(self, order: Order) -> Order:
+    async def confirm_receipt(self, order: Order) -> OrderResponse:
         """买家确认收货：条件迁移 shipped → completed。"""
         updated = await self._order_repo.update_status(
             order.id,
@@ -392,16 +423,21 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = await self._item_repo.list_by_order_id(order.id)
-        return order
+        return _to_order_response(order)
 
     # ── 取消 ────────────────────────────────────────────────
 
     async def cancel_order(
         self,
+        user_id: uuid.UUID,
         order: Order,
-        cancel_reason: str,
-    ) -> Order:
-        """取消订单（买家/卖家）：条件迁移 → cancelled + 释放库存。"""
+    ) -> OrderResponse:
+        """取消订单（买家/卖家）：条件迁移 → cancelled + 释放库存。
+
+        cancel_reason 由本方法按角色选择（router 只传 user_id）。
+        """
+        is_buyer = str(order.buyer_user_id) == str(user_id)
+        cancel_reason = "buyer_cancelled" if is_buyer else "seller_cancelled"
         updated = await self._order_repo.update_status(
             order.id,
             from_statuses={"awaiting_payment", "confirmed", "shipped"},
@@ -421,7 +457,7 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = items
-        return order
+        return _to_order_response(order)
 
     # ── 列表 ────────────────────────────────────────────────
 
@@ -447,12 +483,14 @@ class OrderService:
 
     async def list_shop_orders(
         self,
-        shop_id: uuid.UUID,
+        owner_user_id: uuid.UUID,
         *,
         limit: int = 20,
         offset: int = 0,
     ) -> PaginatedOrders:
-        """店铺订单列表（店主查看本店订单）。"""
+        """店铺订单列表（店主查看本店订单）：先解析本店，再分页查订单。"""
+        shop = await self._catalog.get_my_shop(owner_user_id)
+        shop_id = uuid.UUID(shop.id)
         orders, total = await self._order_repo.list_by_shop(
             shop_id,
             limit=limit,
@@ -485,7 +523,7 @@ class OrderService:
         self,
         user_id: uuid.UUID,
         order_ids: list[uuid.UUID],
-    ) -> list[Order]:
+    ) -> BatchPayResponse:
         """批量支付桩：全有或全无，单事务。
 
         1. 校验全部 order 存在且属当前用户
@@ -550,4 +588,4 @@ class OrderService:
             order.items = await self._item_repo.list_by_order_id(order.id)
             result.append(order)
 
-        return result
+        return BatchPayResponse(orders=[_to_order_response(o) for o in result])

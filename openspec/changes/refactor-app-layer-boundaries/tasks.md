@@ -16,15 +16,15 @@
 
 ## 1. OrderService 返回 schema（`_to_*` 收拢）
 
-- [ ] Phase A Task 1.1 合并 router `_to_response` 与 `OrderService._to_order_response`，统一为 service 层映射；router 删除 `_to_response`
-- [ ] Phase A Task 1.2 `OrderService` 写方法改为返回 schema（`create_order`、`pay_order`、`create_shipment`、`confirm_receipt`、`cancel_order`、`batch_pay_orders` 等）；router 直接 `return await service.*`
+- [x] Phase A Task 1.1 合并 router `_to_response` 与 `OrderService._to_order_response`，统一为 service 层映射；router 删除 `_to_response`
+- [x] Phase A Task 1.2 `OrderService` 写方法改为返回 schema（`create_order`、`pay_order`、`create_shipment`、`confirm_receipt`、`cancel_order`、`batch_pay_orders` 等）；router 直接 `return await service.*`
 
 ## 2. 跨域编排迁入 OrderService
 
-- [ ] Phase A Task 2.1 卖家建单：将 router 内 `catalog_service.get_my_shop` + `create_order_by_seller(shop.id, …)` 迁入 `OrderService.create_order_by_seller(owner_user_id, …)`；router 仅注入 `OrderService`
-- [ ] Phase A Task 2.2 店主发货：将 router 内 shop 归属校验迁入 `OrderService.create_shipment`（或 ordering deps + service 组合）；router 不再注入 catalog
-- [ ] Phase A Task 2.3 店主订单列表：将 `list_shop_orders` router 内 `get_my_shop` 迁入 `OrderService.list_shop_orders(owner_user_id, …)`
-- [ ] Phase A Task 2.4 `pay_order` / `cancel_order`：将 buyer 校验与 `cancel_reason` 分支迁入 service；router 只传 `user_id`
+- [x] Phase A Task 2.1 卖家建单：将 router 内 `catalog_service.get_my_shop` + `create_order_by_seller(shop.id, …)` 迁入 `OrderService.create_order_by_seller(owner_user_id, …)`；router 仅注入 `OrderService`
+- [x] Phase A Task 2.2 店主发货：将 router 内 shop 归属校验迁入 `OrderService.create_shipment`（或 ordering deps + service 组合）；router 不再注入 catalog
+- [x] Phase A Task 2.3 店主订单列表：将 `list_shop_orders` router 内 `get_my_shop` 迁入 `OrderService.list_shop_orders(owner_user_id, …)`
+- [x] Phase A Task 2.4 `pay_order` / `cancel_order`：将 buyer 校验与 `cancel_reason` 分支迁入 service；router 只传 `user_id`
 
 ## 3. Router 清理与 Phase A 验证
 

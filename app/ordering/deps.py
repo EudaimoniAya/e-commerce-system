@@ -14,7 +14,8 @@ from app.ordering.cart_service import CartService
 from app.ordering.checkout_batch_repository import CheckoutBatchRepository
 from app.ordering.models import Order
 from app.ordering.repository import OrderItemRepository, OrderRepository
-from app.ordering.service import OrderService
+from app.ordering.schemas import OrderResponse
+from app.ordering.service import OrderService, _to_order_response
 from app.user.deps import get_user_service
 from app.user.service import UserService
 
@@ -129,3 +130,13 @@ async def get_order_for_buyer_or_shop(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=_NOT_FOUND_MSG,
     )
+
+
+async def get_order_for_buyer_or_shop_response(
+    order: Order = Depends(get_order_for_buyer_or_shop),
+) -> OrderResponse:
+    """买家或本店店主视角；返回 OrderResponse（GET 读路径）。
+
+    deps 层返完整 DTO，router 不再接触 ORM（仿 user 域 ``get_current_user``）。
+    """
+    return _to_order_response(order)
