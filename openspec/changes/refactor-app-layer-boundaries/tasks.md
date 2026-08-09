@@ -104,7 +104,7 @@
 
 ## 3. cart：CRUD schema 收编
 
-- [ ] Phase D Task 3.1 `_to_cart_item_response` 迁入 CartService；`add_item` 返回 `(CartItemResponse, created)`、`update_qty` 返回 `CartItemResponse`；删 router 映射函数
+- [x] Phase D Task 3.1 `_to_cart_item_response` 迁入 CartService；`add_item` 返回 `(CartItemResponse, created)`、`update_qty` 返回 `CartItemResponse`；删 router 映射函数
 
 ## 4. Phase D 验证
 

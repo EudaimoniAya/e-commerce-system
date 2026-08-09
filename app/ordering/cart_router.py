@@ -21,18 +21,6 @@ from app.ordering.schemas import (
 router = APIRouter(tags=["cart"])
 
 
-def _to_cart_item_response(item) -> CartItemResponse:
-    """ORM CartItem → CartItemResponse。"""
-    return CartItemResponse(
-        id=str(item.id),
-        user_id=str(item.user_id),
-        product_id=str(item.product_id),
-        qty=item.qty,
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-    )
-
-
 @router.post("/cart/items", response_model=CartItemResponse)
 async def add_cart_item(
     body: CartItemCreate,
@@ -46,7 +34,7 @@ async def add_cart_item(
         qty=body.qty,
     )
     return JSONResponse(
-        content=_to_cart_item_response(item).model_dump(mode="json"),
+        content=item.model_dump(mode="json"),
         status_code=201 if created else 200,
     )
 
@@ -68,12 +56,11 @@ async def update_cart_item(
     service: CartService = Depends(get_cart_service),
 ) -> CartItemResponse:
     """修改购物车行数量。"""
-    item = await service.update_qty(
+    return await service.update_qty(
         user_id=user_id,
         cart_item_id=cart_item_id,
         qty=body.qty,
     )
-    return _to_cart_item_response(item)
 
 
 @router.delete("/cart/items/{cart_item_id}", status_code=204)

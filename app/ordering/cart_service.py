@@ -14,6 +14,7 @@ from app.ordering.checkout_batch_repository import CheckoutBatchRepository
 from app.ordering.models import CartItem, CheckoutBatch
 from app.ordering.schemas import (
     CartInvalidItem,
+    CartItemResponse,
     CartListResponse,
     CartShopGroup,
     CartShopItem,
@@ -24,6 +25,21 @@ from app.ordering.schemas import (
     CheckoutResponse,
 )
 from app.ordering.service import OrderService
+
+
+def _to_cart_item_response(item) -> CartItemResponse:
+    """ORM CartItem → CartItemResponse。
+
+    模块级私有映射（与各域 `_to_*` 一致）；schema 归 service 产出，router 不做 ORM 映射。
+    """
+    return CartItemResponse(
+        id=str(item.id),
+        user_id=str(item.user_id),
+        product_id=str(item.product_id),
+        qty=item.qty,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 def _derive_batch_status(statuses: set[str]) -> str:
@@ -61,11 +77,11 @@ class CartService:
         user_id: uuid.UUID,
         product_id: uuid.UUID,
         qty: int,
-    ) -> tuple[CartItem, bool]:
+    ) -> tuple[CartItemResponse, bool]:
         """加购：校验商品存在 → 查重累加或新建。
 
         Returns:
-            (CartItem, created): ``created=True`` 表示新建行；``False`` 表示累加。
+            (CartItemResponse, created): ``created=True`` 表示新建行；``False`` 表示累加。
         """
         # 校验商品存在（通过可购查询）
         products = await self._products.get_purchasable_products([str(product_id)])
@@ -84,7 +100,7 @@ class CartService:
             existing.qty += qty
             await self._session.commit()
             await self._session.refresh(existing)
-            return existing, False
+            return _to_cart_item_response(existing), False
 
         item = CartItem(
             id=uuid.uuid4(),
@@ -95,14 +111,14 @@ class CartService:
         await self._cart_repo.save(item)
         await self._session.commit()
         await self._session.refresh(item)
-        return item, True
+        return _to_cart_item_response(item), True
 
     async def update_qty(
         self,
         user_id: uuid.UUID,
         cart_item_id: uuid.UUID,
         qty: int,
-    ) -> CartItem:
+    ) -> CartItemResponse:
         """修改数量：须属当前用户 → 更新 qty。"""
         item = await self._cart_repo.get_by_id(cart_item_id)
         if item is None or str(item.user_id) != str(user_id):
@@ -113,7 +129,7 @@ class CartService:
         item.qty = qty
         await self._session.commit()
         await self._session.refresh(item)
-        return item
+        return _to_cart_item_response(item)
 
     async def delete_item(
         self,
