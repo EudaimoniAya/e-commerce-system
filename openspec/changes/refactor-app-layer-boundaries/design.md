@@ -25,7 +25,7 @@
 **Goals:**
 
 - Phase A：ordering router **不再**注入 `ShopService`；ORM→Schema 映射集中在 `OrderService`（及必要时 `CartService`）；router 以「单 service + 返回 schema」为主。
-- Phase B：消除 ordering + user deps 构建 schema 的坏味道——deps 不再 import service 私有映射函数，读路径 schema 由 service 公开方法产出（见 Decision 2）。
+- Phase B：deps 规范化——current-object deps 本域独用、绝不建 schema。消除 ordering + user 的建 schema deps（`get_order_for_buyer_or_shop_response` / `get_current_user`）与 support 跨域 `get_current_shop` 违规（见 Decision 2）。
 - Phase C：catalog 按实体拆分 service 与 deps；router 端点注入语义匹配的 service；跨域调用方（ordering / engagement / support）改为依赖 **narrow** catalog 入口（见 Decision 4）。
 - 全 change 结束：现有 pytest **406** 量级全绿，对外 API 无变化。
 
@@ -37,23 +37,26 @@
 
 ## Decisions
 
-### 1. Phase 顺序：ordering（A）→ ordering deps 坏味道修复（B）→ catalog（C）
+### 1. Phase 顺序：ordering（A）→ deps 规范化（B）→ catalog（C）
 
 **选择**：A → B → C。
 
-**理由**：Phase A 已闭环（router 不编排、service 返 schema）；Phase B 先消除 ordering 与 user 的 deps 构建 schema 坏味道（同根因共 2 处），把依赖面收敛后再动 catalog；Phase C 拆分 `ShopService` 后需更新 ordering/engagement/support 的 catalog 依赖类型，若先做 C 会与 B 交叉冲突。
+**理由**：Phase A 已闭环（router 不编排、service 返 schema）；Phase B 先做 deps 规范化——消除 ordering/user 建 schema deps（`get_order_for_buyer_or_shop_response` / `get_current_user`）与 support 跨域 `get_current_shop`，把依赖面收敛后再动 catalog；Phase C 拆分 `ShopService` 后需更新 ordering/engagement/support 的 catalog 依赖类型，若先做 C 会与 B 交叉冲突。
 
 **替代**：先做 catalog 拆分 → 拒绝，ordering 的 deps 坏味道与 catalog 拆分会在 `service.py` / `deps.py` 上交叉改动。
 
-### 2. Phase B — ordering + user deps 读路径不构建 schema（坏味道修复）
+### 2. Phase B — deps 规范化：current-object deps 本域独用、绝不建 schema
 
-**核心矛盾**：`app/ordering/deps.py` 的 `get_order_for_buyer_or_shop_response` 与 `app/user/deps.py` 的 `get_current_user` 均跨模块 import 并调用 service 私有映射函数（`_to_order_response` / `_to_user_response`、`_resolve_avatar_url`），在 deps 层构建 schema。deps 是 DI 装配细节，本应只返回实体/原语；耦合 service 私有实现意味着：service 重构（改签名/删函数）时 deps 会在无编译期告警下**静默破坏**；schema 构建逻辑散落多处；分层边界被侵蚀，后续调用方可能效仿直接穿透。**问题累积 → 跨域调用面从「service 接口」漂移到「实现细节」，与跨域 service+schema 纪律冲突。**
+**核心原理**：跨域只走 service 接口 + schema；deps 是本域私有装配——**current-object deps（返回实体/原语的授权解析器）绝不跨域、绝不建 schema**（schema 由 service 产出）；**service deps 是唯一允许的跨域接线**（各域 service 依赖在 deps 汇聚）。理由（滑坡论证）：current-object deps 一旦跨域（support 用 catalog `get_current_shop`），deps 被当域公共面，诱发 deps 调 service 私有 `_to_*` 建 schema（`get_current_user`、`get_order_for_buyer_or_shop_response`），在 service 边界之外绕出「deps 交互网」——小违规悄然累积成架构侵蚀（破窗效应）。
 
 **选择**：
-- **ordering**：`OrderService` 暴露公开方法 `to_order_response(order)` 作为 ordering 域 schema 映射唯一出口（迁移模块级 `_to_order_response`）；`get_order` 读路径恢复「deps 返 ORM 实体 + router 调 service 方法」；删除 `get_order_for_buyer_or_shop_response` 与 deps 内 `_to_order_response` import。（`get_order_for_buyer_or_shop` 保留——`cancel_order` 写路径仍需它返 ORM。）
+- **ordering**：`OrderService` 暴露公开方法 `get_order_response(order_id, user_id)`（fetch → 404 → 懒释放 → buyer/店主鉴权 → 私有 `_to_order_response`）；`get_order` 读路径改为 `get_current_user_id` + service 方法；删除 `get_order_for_buyer_or_shop_response` 与 deps 内 `_to_order_response` import。（`get_order_for_buyer_or_shop` 保留——`cancel_order` 写路径仍需它返 ORM，且其为合法 current-object deps：本域、不建 schema。）
 - **user**：`UserService` 暴露公开方法 `get_user_response(user_id)`（fetch → 404 → 解析 avatar → 私有 `_to_user_response`）；删除 `get_current_user` deps 与 `_to_user_response` / `_resolve_avatar_url` import；`GET /users/me` 改用 `get_current_user_id` + service 方法。（user 无写路径消费 current-user ORM，故 deps 直接删；401 语义由 `get_current_user_id` 鉴权保留。）
+- **catalog/support**：support 店主路径不再 `Depends(get_current_shop)`（catalog deps），改经已注入 `ShopService.get_my_shop(user_id)` 解析本店（404 语义一致）；`get_current_shop` 退回 catalog 域内私有。
 
-**规范范围**：deps 三分类 /「deps 不构建 schema」的规范全文**不**在本 change 定稿（留给 `docs-app-layer-discipline`）；本 Phase 只消除现有坏味道。
+**命名定稿**：service 公开读方法用 `get_*`（有 IO/鉴权），映射函数保持模块级私有 `_to_*`（不再用公开 `to_*`）。
+
+**规范范围**：deps 三分类 /「current-object deps 不跨域、不建 schema」规范全文**不**在本 change 定稿（留给 `docs-app-layer-discipline`）；本 Phase 消除现有违规。
 
 ### 3. Phase A — ordering 收编排与 `_to_*`
 
@@ -133,7 +136,7 @@
 
 1. 从 `dev` 切 `refactor/app-layer-boundaries`。
 2. **Phase A**：按 tasks.md §Phase A 实现 → CI 绿 → commit（建议 `refactor(ordering) [layer-boundaries]: Phase A ...`）。
-3. **Phase B**：按 tasks.md §Phase B 实现（ordering + user deps 坏味道修复）→ CI 绿 → commit。
+3. **Phase B**：按 tasks.md §Phase B 实现（deps 规范化：ordering + user + support）→ CI 绿 → commit。
 4. **Phase C**：按 tasks.md §Phase C 实现 → CI 绿 → commit。
 5. PR → merge `dev` → archive change（**不** sync 纪律类主 spec；仅 `refactor-regression` delta 若采用）。
 
@@ -145,7 +148,7 @@
 |------|-------|------|
 | 2026-08-08 | — | propose：Phase A ordering + Phase B catalog 拆分 |
 | 2026-08-09 | Phase A | ordering 闭环：router 薄化 + OrderService 返 schema。跨域编排（`get_my_shop` 解析、buyer 校验、`cancel_reason` 角色分支）全部迁入 `OrderService`；写方法统一返回 `OrderResponse` / `BatchPayResponse`；读路径 `get_order` 经 schema deps `get_order_for_buyer_or_shop_response` 返 DTO（router 不再注入 service+ORM）。router 无任何 catalog import（DoD 达成）；`tests/ordering` 79 + 全量 CI 406 全绿。**命名决策**：映射统一为模块级私有 `_to_order_response`（与各域 `_to_*` 一致），deps 同域导入该私有函数（仿 `app/user/deps.py`）；读路径映射跨模块问题（Option C：鉴权收进 service 读方法）留待后续 change |
-| 2026-08-09 | — | 追加 Phase B（ordering + user deps 坏味道修复）：`get_order_for_buyer_or_shop_response` 与 `get_current_user` 均跨模块调用 service 私有映射函数建 schema；改为 service 公开方法（`OrderService.to_order_response` / `UserService.get_user_response`），deps 不再 import 私有、只返实体/原语；原 catalog 拆分顺延为 Phase C。核心矛盾：deps 是 DI 装配细节却耦合 service 私有实现，重构会在无告警下静默破坏、schema 构建散落、分层边界被侵蚀；规范全文留 `docs-app-layer-discipline` |
+| 2026-08-09 | — | 追加 Phase B（deps 规范化：current-object deps 本域独用、绝不建 schema）：跨域只走 service+schema；`get_order_for_buyer_or_shop_response` / `get_current_user` 建 schema 违规 → 改为 service 公开读方法（`OrderService.get_order_response(order_id, user_id)` / `UserService.get_user_response(user_id)`），`_to_*` 保持私有；support 跨域 `get_current_shop` 违规 → 改经 `ShopService.get_my_shop`。滑坡论证：跨域 deps 例外诱发 deps 建 schema 交互网（破窗/架构侵蚀）。原 catalog 拆分顺延为 Phase C；规范全文留 `docs-app-layer-discipline` |
 
 ## Open Questions
 

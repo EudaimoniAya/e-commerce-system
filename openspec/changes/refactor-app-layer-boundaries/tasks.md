@@ -33,25 +33,30 @@
 
 ---
 
-## Phase B — ordering + user：deps 读路径不构建 schema（坏味道修复）
+## Phase B — deps 规范化：current-object deps 本域独用、绝不建 schema
 
-**核心矛盾**：`get_order_for_buyer_or_shop_response`（ordering）与 `get_current_user`（user）在 deps 层 import 并调用 service 私有映射函数（`_to_order_response` / `_to_user_response`、`_resolve_avatar_url`）构建 schema。deps 是 DI 装配细节，耦合 service 私有实现后：service 重构（改签名/删函数）会在无编译期告警下**静默破坏** deps；schema 构建散落多处；分层边界被侵蚀，后续调用方可能效仿穿透。本 Phase **只修坏味道**；deps 三分类 /「deps 不构建 schema」规范全文留给 `docs-app-layer-discipline`。
+**核心原理**：跨域只走 service 接口 + schema；deps 是本域私有装配——**current-object deps 绝不跨域、绝不建 schema**（schema 由 service 产出）；service deps 是唯一允许的跨域接线（各域 service 依赖在 deps 汇聚）。理由：current-object deps 一旦跨域（如 support 用 catalog `get_current_shop`），deps 被当域公共面，诱发 deps 调 service 私有 `_to_*` 建 schema（`get_current_user`、`get_order_for_buyer_or_shop_response`），在 service 边界外绕出 deps 交互网（破窗/架构侵蚀）。规范全文留给 `docs-app-layer-discipline`。
 
-**DoD**：`app/ordering/deps.py` 与 `app/user/deps.py` 不再 import service 私有映射函数；`get_order_for_buyer_or_shop_response` 与 `get_current_user` 删除；读路径 schema 由 service 公开方法产出；ordering / user 相关 tests 全绿。
+**DoD**：`get_order_for_buyer_or_shop_response` 与 `get_current_user` 删除，读路径 schema 由 service 公开方法产出；support 店主路径不再 `Depends(get_current_shop)`；`app/*/deps.py` 不再 import service 私有映射函数；相关 tests 全绿。
 
-## 1. ordering：schema 构建归属 service，deps 退化为返实体
+## 1. ordering：读路径 schema 收进 service
 
-- [ ] Phase B Task 1.1 `OrderService` 增加公开方法 `to_order_response(order)` 作为 ordering 域 schema 映射唯一出口（迁移模块级 `_to_order_response`；类内调用同步改用）
-- [ ] Phase B Task 1.2 删除 deps 内 `get_order_for_buyer_or_shop_response` 与 `_to_order_response` import；`get_order` router 改用 `get_order_for_buyer_or_shop`（返 ORM 实体）+ `service.to_order_response(order)`
+- [ ] Phase B Task 1.1 `OrderService` 增加公开方法 `get_order_response(order_id, user_id)`（fetch → 404 → 懒释放 → buyer/店主鉴权 → 私有 `_to_order_response`）；写路径内部仍用 `_to_order_response`
+- [ ] Phase B Task 1.2 删除 deps 内 `get_order_for_buyer_or_shop_response` 与 `_to_order_response` import；`get_order` router 改用 `get_current_user_id` + `service.get_order_response(order_id, user_id)`（`get_order_for_buyer_or_shop` 保留——cancel_order 写路径仍需，合法 current-object deps）
 
-## 2. user：current-user deps 删除，读走 service
+## 2. user：读路径 schema 收进 service
 
-- [ ] Phase B Task 2.1 `UserService` 增加公开方法 `get_user_response(user_id)`（fetch → 404 → 解析 avatar → `_to_user_response`）；`update_profile` 复用 avatar/映射 helper
+- [ ] Phase B Task 2.1 `UserService` 增加公开方法 `get_user_response(user_id)`（fetch → 404 → 解析 avatar → 私有 `_to_user_response`）；`update_profile` 复用 avatar/映射 helper
 - [ ] Phase B Task 2.2 删除 `get_current_user` deps 与 `_to_user_response` / `_resolve_avatar_url` import；`GET /users/me` 改用 `get_current_user_id` + `service.get_user_response(user_id)`
 
-## 3. 验证与留档
+## 3. catalog/support：消除跨域 current-object deps
 
-- [ ] Phase B Task 3.1 `rg 'from app.(ordering|user).service import _' app/*/deps.py` 无命中；`devbox run -- task ci` 全绿；design.md Changelog 追加 Phase B 摘要
+- [ ] Phase B Task 3.1 support 店主路径（`/support/inbox*`）不再 `Depends(get_current_shop)`；改注入 `user_id` + `SupportService`，经已注入 `ShopService.get_my_shop(user_id)` 解析本店（404 语义一致）
+- [ ] Phase B Task 3.2 移除 support router 的 `from app.catalog.deps import get_current_shop` 与 `from app.catalog.models import Shop`；`get_current_shop` 退回 catalog 域内私有（仅 catalog router 消费）；support / catalog 相关 tests 全绿
+
+## 4. 验证与留档
+
+- [ ] Phase B Task 4.1 `rg 'from app.(ordering|user).service import _' app/*/deps.py` 无命中；`rg 'Depends\(get_current_shop\)' app/support/` 无命中；`devbox run -- task ci` 全绿；design.md Changelog 追加 Phase B 摘要
 
 ---
 
