@@ -74,6 +74,16 @@ class SupportService:
         self._message_repo = message_repo
         self._catalog = catalog_service
 
+    # ── 本店解析（店主路径）──────────────────────────────────
+
+    async def get_current_shop_id(self, user_id: uuid.UUID) -> uuid.UUID:
+        """解析当前用户店铺 id（经 catalog `ShopService.get_my_shop`，404 语义一致）。
+
+        店主路径不再跨域 `Depends(get_current_shop)`——本域 service 经 catalog service 解析。
+        """
+        shop = await self._catalog.get_my_shop(user_id)
+        return uuid.UUID(str(shop.id))
+
     # ── 买家路径 ──────────────────────────────────────────────
 
     async def get_buyer_conversation(

@@ -51,8 +51,8 @@
 
 ## 3. catalog/support：消除跨域 current-object deps
 
-- [ ] Phase B Task 3.1 support 店主路径（`/support/inbox*`）不再 `Depends(get_current_shop)`；改注入 `user_id` + `SupportService`，经已注入 `ShopService.get_my_shop(user_id)` 解析本店（404 语义一致）
-- [ ] Phase B Task 3.2 移除 support router 的 `from app.catalog.deps import get_current_shop` 与 `from app.catalog.models import Shop`；`get_current_shop` 退回 catalog 域内私有（仅 catalog router 消费）；support / catalog 相关 tests 全绿
+- [x] Phase B Task 3.1 support 店主路径（`/support/inbox*`）不再 `Depends(get_current_shop)`；改注入 `user_id` + `SupportService`，经已注入 `ShopService.get_my_shop(user_id)` 解析本店（404 语义一致）
+- [x] Phase B Task 3.2 移除 support router 的 `from app.catalog.deps import get_current_shop` 与 `from app.catalog.models import Shop`；`get_current_shop` 退回 catalog 域内私有（仅 catalog router 消费）；support / catalog 相关 tests 全绿
 
 ## 4. 验证与留档
 
