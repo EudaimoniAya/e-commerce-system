@@ -1,7 +1,7 @@
 """support 域 HTTP 路由。
 
 - 买家路径：``/support/shops/{shop_id}/*``（Bearer JWT，``get_current_user_id``）
-- 店主路径：``/support/inbox/*``（``SupportService.get_current_shop_id`` 经 catalog service 解析本店）
+- 店主路径：``/support/inbox/*``（``SupportService`` 内部经 catalog service 自解析本店）
 """
 
 import uuid
@@ -91,9 +91,8 @@ async def list_inbox(
     params: PaginationParams = Depends(get_pagination_params),
 ) -> PaginatedConversations:
     """本店会话分页列表（updated_at DESC，含 last_message_preview）。"""
-    shop_id = await service.get_current_shop_id(user_id)
     return await service.list_inbox(
-        shop_id,
+        user_id,
         limit=params.limit,
         offset=params.offset,
     )
@@ -110,8 +109,7 @@ async def get_inbox_conversation(
     service: SupportService = Depends(get_support_service),
 ) -> ConversationResponse:
     """店主查看会话详情：非本店会话 404。"""
-    shop_id = await service.get_current_shop_id(user_id)
-    return await service.get_inbox_conversation(shop_id, conversation_id)
+    return await service.get_inbox_conversation(user_id, conversation_id)
 
 
 @router.get(
@@ -126,9 +124,8 @@ async def list_inbox_messages(
     params: PaginationParams = Depends(get_pagination_params),
 ) -> PaginatedMessages:
     """店主拉取会话消息（created_at ASC）。"""
-    shop_id = await service.get_current_shop_id(user_id)
     return await service.list_inbox_messages(
-        shop_id,
+        user_id,
         conversation_id,
         limit=params.limit,
         offset=params.offset,
@@ -148,5 +145,4 @@ async def post_shop_message(
     service: SupportService = Depends(get_support_service),
 ) -> MessageResponse:
     """店主回复：closed 店铺仍允许（售后收尾）。"""
-    shop_id = await service.get_current_shop_id(user_id)
-    return await service.send_shop_message(shop_id, conversation_id, body)
+    return await service.send_shop_message(user_id, conversation_id, body)

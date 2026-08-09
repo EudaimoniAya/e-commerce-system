@@ -94,8 +94,8 @@
 
 ## 1. support：跨域两步收编
 
-- [ ] Phase D Task 1.1 `SupportService.list_inbox(user_id, ...)` / `get_inbox_conversation(user_id, conversation_id)` / `list_inbox_messages(user_id, ...)` / `send_shop_message(user_id, conversation_id, body)` 内部经 `_get_current_shop_id` 自解析本店
-- [ ] Phase D Task 1.2 `get_current_shop_id` 公开 → 私有 `_get_current_shop_id`；support router 4 店主端点删两步、一步调用
+- [x] Phase D Task 1.1 `SupportService.list_inbox(user_id, ...)` / `get_inbox_conversation(user_id, conversation_id)` / `list_inbox_messages(user_id, ...)` / `send_shop_message(user_id, conversation_id, body)` 内部经 `_get_current_shop_id` 自解析本店
+- [x] Phase D Task 1.2 `get_current_shop_id` 公开 → 私有 `_get_current_shop_id`；support router 4 店主端点删两步、一步调用
 
 ## 2. cart：checkout-batch 编排收编
 

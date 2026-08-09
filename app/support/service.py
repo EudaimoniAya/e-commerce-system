@@ -79,10 +79,11 @@ class SupportService:
 
     # ── 本店解析（店主路径）──────────────────────────────────
 
-    async def get_current_shop_id(self, user_id: uuid.UUID) -> uuid.UUID:
+    async def _get_current_shop_id(self, user_id: uuid.UUID) -> uuid.UUID:
         """解析当前用户店铺 id（经 catalog `ShopService.get_my_shop`，404 语义一致）。
 
-        店主路径不再跨域 `Depends(get_current_shop)`——本域 service 经 catalog service 解析。
+        店主路径不再跨域 `Depends(get_current_shop)`——本域 service 经 catalog service 解析；
+        跨域上下文由业务方法内部自解析，router 一步调用（Phase D）。
         """
         shop = await self._shops.get_my_shop(user_id)
         return uuid.UUID(str(shop.id))
@@ -171,12 +172,16 @@ class SupportService:
 
     async def list_inbox(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         *,
         limit: int = 20,
         offset: int = 0,
     ) -> PaginatedConversations:
-        """本店会话分页列表（updated_at DESC，含 last_message_preview）。"""
+        """本店会话分页列表（updated_at DESC，含 last_message_preview）。
+
+        店主身份经 `_get_current_shop_id` 内部解析（router 不再两步调用）。
+        """
+        shop_id = await self._get_current_shop_id(user_id)
         conversations, total = await self._conversation_repo.list_by_shop(
             shop_id, limit=limit, offset=offset
         )
@@ -189,32 +194,35 @@ class SupportService:
 
     async def get_inbox_conversation(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         conversation_id: uuid.UUID,
     ) -> ConversationResponse:
         """店主查看会话详情：非本店会话 404。"""
+        shop_id = await self._get_current_shop_id(user_id)
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
         return _to_conversation_response(conversation)
 
     async def list_inbox_messages(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         conversation_id: uuid.UUID,
         *,
         limit: int = 20,
         offset: int = 0,
     ) -> PaginatedMessages:
         """店主拉取会话消息（created_at ASC）：非本店会话 404。"""
+        shop_id = await self._get_current_shop_id(user_id)
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
         return await self._list_messages(conversation.id, limit=limit, offset=offset)
 
     async def send_shop_message(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         conversation_id: uuid.UUID,
         data: MessageCreate,
     ) -> MessageResponse:
         """店主回复：closed 店铺仍允许（售后收尾）。"""
+        shop_id = await self._get_current_shop_id(user_id)
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
         refs = await self._validate_message(data, uuid.UUID(str(conversation.shop_id)))
         message = await self._persist_message(
