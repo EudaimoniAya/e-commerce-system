@@ -14,7 +14,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.catalog.product_service import ProductService
-from app.catalog.schemas import ShopSupportContext
+from app.catalog.schemas import ShopContext
 from app.catalog.shop_service import ShopService
 
 
@@ -73,19 +73,19 @@ def _fake_product(*, shop_id: str) -> SimpleNamespace:
 
 @allure.epic("catalog")
 @allure.feature("support_service")
-@allure.title("get_shop_context 返回 ShopSupportContext 字段一致。")
+@allure.title("get_shop_context 返回 ShopContext 字段一致。")
 @pytest.mark.asyncio
 async def test_get_shop_context_returns_context(
     shop_service: ShopService,
     mock_repository: AsyncMock,
 ) -> None:
-    """shop 存在时返回 ShopSupportContext，字段与 DB 一致。"""
+    """shop 存在时返回 ShopContext，字段与 DB 一致。"""
     shop = _fake_shop()
     mock_repository.get_by_id.return_value = shop
 
     context = await shop_service.get_shop_context(shop.id)
 
-    assert isinstance(context, ShopSupportContext)
+    assert isinstance(context, ShopContext)
     assert context.id == str(shop.id)
     assert context.status == "active"
     assert context.owner_user_id == str(shop.owner_user_id)

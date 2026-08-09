@@ -24,7 +24,7 @@ from app.ordering.schemas import (
     CheckoutBatchShopGroup,
     CheckoutResponse,
 )
-from app.ordering.service import OrderService
+from app.ordering.service import OrderService, _to_order_response
 
 
 def _to_cart_item_response(item) -> CartItemResponse:
@@ -306,38 +306,8 @@ class CartService:
         await self._cart_repo.delete_batch(cart_item_ids)
 
         # 7. 构建响应数据（在 commit 前收集，避免 commit 后 ORM 过期）
-        from app.ordering.schemas import OrderResponse
-
-        order_responses: list[OrderResponse] = []
-        for o in created_orders:
-            items_data = [
-                {
-                    "id": str(i.id),
-                    "product_id": str(i.product_id),
-                    "product_name": i.product_name,
-                    "unit_price": str(i.unit_price),
-                    "qty": i.qty,
-                }
-                for i in o.items
-            ]
-            order_responses.append(
-                OrderResponse(
-                    id=str(o.id),
-                    buyer_user_id=str(o.buyer_user_id),
-                    shop_id=str(o.shop_id),
-                    initiated_by=o.initiated_by,  # type: ignore[arg-type]
-                    status=o.status,  # type: ignore[arg-type]
-                    cancel_reason=o.cancel_reason,
-                    checkout_batch_id=str(o.checkout_batch_id)
-                    if o.checkout_batch_id
-                    else None,
-                    total_amount=str(o.total_amount),
-                    expires_at=o.expires_at,
-                    items=items_data,
-                    created_at=o.created_at,
-                    updated_at=o.updated_at,
-                )
-            )
+        # 复用 OrderService 的模块级映射，避免与 service.py `_to_order_response` 双份维护
+        order_responses = [_to_order_response(o) for o in created_orders]
 
         response = CheckoutResponse(
             checkout_batch_id=str(batch.id),

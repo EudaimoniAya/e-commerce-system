@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from app.catalog._media import resolve_single_url
 from app.catalog.models import Shop
 from app.catalog.repository import ShopRepository
-from app.catalog.schemas import ShopCreate, ShopResponse, ShopSupportContext, ShopUpdate
+from app.catalog.schemas import ShopContext, ShopCreate, ShopResponse, ShopUpdate
 from app.media.service import MediaService
 
 _USER_ALREADY_HAS_SHOP_MSG = "User already has a shop"
@@ -142,7 +142,7 @@ class ShopService:
         logo_url = await resolve_single_url(self._media_service, shop.logo_media_id)
         return _to_shop_response(shop, logo_url=logo_url)
 
-    async def get_shop_context(self, shop_id: uuid.UUID) -> ShopSupportContext:
+    async def get_shop_context(self, shop_id: uuid.UUID) -> ShopContext:
         """返回店铺上下文（id / status / owner_user_id）；shop 不存在时 404。
 
         跨域 service（无 HTTP 路由）：product service / support 域注入本方法即可，
@@ -154,7 +154,7 @@ class ShopService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=_SHOP_NOT_FOUND_MSG,
             )
-        return ShopSupportContext(
+        return ShopContext(
             id=str(shop.id),
             status=shop.status,
             owner_user_id=str(shop.owner_user_id),

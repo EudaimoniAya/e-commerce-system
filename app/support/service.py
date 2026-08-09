@@ -1,7 +1,7 @@
 """support 域业务逻辑：买家会话/发消息、店主 inbox/回复、product ref 校验。
 
 跨域纪律：商品与店铺校验仅经 ``catalog.service``（ProductService / ShopService）
-与 schema（``ShopSupportContext``），禁止 import catalog / ordering ORM 或 repository。
+与 schema（``ShopContext``），禁止 import catalog / ordering ORM 或 repository。
 """
 
 import uuid

@@ -232,16 +232,16 @@ catalog 域 SHALL 通过 **service**（非 repository 对外、**无 HTTP 路由
 
 ### Requirement: Shop support context service method
 
-catalog 域 SHALL 通过 **service**（非 repository 对外、**无 HTTP 路由**）提供 `get_shop_for_support(shop_id) -> ShopSupportContext`，供 support 域会话创建与校验使用。`ShopSupportContext` SHALL 至少包含：`id`、`status`（`active` \| `closed`）、`owner_user_id`。shop 不存在时 service SHALL 抛出 **404** HTTPException。support SHALL NOT import catalog ORM。
+catalog 域 SHALL 通过 **service**（非 repository 对外、**无 HTTP 路由**）提供 `get_shop_context(shop_id) -> ShopContext`，供 support 域会话创建与校验使用。`ShopContext` SHALL 至少包含：`id`、`status`（`active` \| `closed`）、`owner_user_id`。shop 不存在时 service SHALL 抛出 **404** HTTPException。support SHALL NOT import catalog ORM。
 
 #### Scenario: 返回 shop 支持上下文
 
-- **WHEN** support 调用 `get_shop_for_support` 且 shop 存在
-- **THEN** SHALL 返回 `ShopSupportContext`，字段与数据库一致
+- **WHEN** support 调用 `get_shop_context` 且 shop 存在
+- **THEN** SHALL 返回 `ShopContext`，字段与数据库一致
 
 #### Scenario: shop 不存在抛 404
 
-- **WHEN** support 调用 `get_shop_for_support` 且 shop 不存在
+- **WHEN** support 调用 `get_shop_context` 且 shop 不存在
 - **THEN** SHALL 抛出 HTTP 404 异常
 
 ### Requirement: Product refs validation for support
