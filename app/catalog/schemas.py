@@ -184,8 +184,11 @@ class EngagementProduct(BaseModel):
     shop_active: bool
 
 
-class ShopSupportContext(BaseModel):
-    """跨域 DTO：供 support 域会话创建与校验使用（无 HTTP 路由，不泄漏 ORM 实例）。"""
+class ShopContext(BaseModel):
+    """跨域 DTO：店铺上下文（id / status / owner_user_id）。
+
+    供 product service 与 support 域校验使用（无 HTTP 路由，不泄漏 ORM 实例）。
+    """
 
     id: str
     status: str  # active | closed

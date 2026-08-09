@@ -4,8 +4,15 @@ import uuid
 
 from fastapi import APIRouter, Depends, status
 
-from app.catalog.deps import get_current_shop, get_shop_service
+from app.catalog.category_service import CategoryService
+from app.catalog.deps import (
+    get_category_service,
+    get_current_shop,
+    get_product_service,
+    get_shop_service,
+)
 from app.catalog.models import Shop
+from app.catalog.product_service import ProductService
 from app.catalog.schemas import (
     CategoryCreate,
     CategoryResponse,
@@ -17,7 +24,7 @@ from app.catalog.schemas import (
     ShopResponse,
     ShopUpdate,
 )
-from app.catalog.service import ShopService
+from app.catalog.shop_service import ShopService
 from app.infra.auth import get_current_user_id
 from app.infra.pagination.deps import get_pagination_params
 from app.infra.pagination.schemas import PaginationParams
@@ -28,7 +35,7 @@ router = APIRouter()
 
 @router.get("/categories", response_model=list[CategoryResponse], tags=["categories"])
 async def list_categories(
-    service: ShopService = Depends(get_shop_service),
+    service: CategoryService = Depends(get_category_service),
 ) -> list[CategoryResponse]:
     """公开返回扁平类目列表。"""
     return await service.list_categories()
@@ -43,7 +50,7 @@ async def list_categories(
 async def create_category(
     body: CategoryCreate,
     _admin_id: uuid.UUID = Depends(require_admin),
-    service: ShopService = Depends(get_shop_service),
+    service: CategoryService = Depends(get_category_service),
 ) -> CategoryResponse:
     """管理员创建类目。"""
     return await service.create_category(body)
@@ -53,7 +60,7 @@ async def create_category(
 async def list_public_products(
     category_id: uuid.UUID | None = None,
     params: PaginationParams = Depends(get_pagination_params),
-    service: ShopService = Depends(get_shop_service),
+    service: ProductService = Depends(get_product_service),
 ) -> PaginatedProducts:
     """公开分页返回已上架且店铺 active 的商品。"""
     return await service.list_public_products(
@@ -66,7 +73,7 @@ async def list_public_products(
 @router.get("/products/{product_id}", response_model=ProductResponse, tags=["products"])
 async def read_public_product(
     product_id: uuid.UUID,
-    service: ShopService = Depends(get_shop_service),
+    service: ProductService = Depends(get_product_service),
 ) -> ProductResponse:
     """公开查询商品详情。"""
     return await service.get_public_product(product_id)
@@ -81,7 +88,7 @@ async def read_public_product(
 async def create_product(
     body: ProductCreate,
     shop: Shop = Depends(get_current_shop),
-    service: ShopService = Depends(get_shop_service),
+    service: ProductService = Depends(get_product_service),
 ) -> ProductResponse:
     """店主在 active 店铺下创建商品。"""
     return await service.create_product(shop, body)
@@ -94,7 +101,7 @@ async def update_product(
     product_id: uuid.UUID,
     body: ProductUpdate,
     user_id: uuid.UUID = Depends(get_current_user_id),
-    service: ShopService = Depends(get_shop_service),
+    service: ProductService = Depends(get_product_service),
 ) -> ProductResponse:
     """店主更新本店商品。"""
     return await service.update_product(product_id, user_id, body)
@@ -132,7 +139,7 @@ async def read_my_shop(
 async def list_my_products(
     params: PaginationParams = Depends(get_pagination_params),
     shop: Shop = Depends(get_current_shop),
-    service: ShopService = Depends(get_shop_service),
+    service: ProductService = Depends(get_product_service),
 ) -> PaginatedProducts:
     """店主分页返回本店全部商品（含未上架）。"""
     return await service.list_my_products(

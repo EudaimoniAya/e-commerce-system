@@ -5,8 +5,9 @@ import uuid
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.deps import get_shop_service
-from app.catalog.service import ShopService
+from app.catalog.deps import get_product_service, get_shop_service
+from app.catalog.product_service import ProductService
+from app.catalog.shop_service import ShopService
 from app.infra.auth import get_current_user_id
 from app.infra.database import get_db
 from app.ordering.cart_repository import CartRepository
@@ -51,24 +52,32 @@ def get_order_item_repository(
 
 def get_order_service(
     session: AsyncSession = Depends(get_db),
-    catalog_service: ShopService = Depends(get_shop_service),
+    product_service: ProductService = Depends(get_product_service),
+    shop_service: ShopService = Depends(get_shop_service),
     order_repo: OrderRepository = Depends(get_order_repository),
     item_repo: OrderItemRepository = Depends(get_order_item_repository),
     user_service: UserService = Depends(get_user_service),
 ) -> OrderService:
     """注入 ordering 编排服务（共享同一 DB 事务）。"""
-    return OrderService(session, catalog_service, order_repo, item_repo, user_service)
+    return OrderService(
+        session,
+        product_service,
+        shop_service,
+        order_repo,
+        item_repo,
+        user_service,
+    )
 
 
 def get_cart_service(
     session: AsyncSession = Depends(get_db),
     cart_repo: CartRepository = Depends(get_cart_repository),
-    catalog_service: ShopService = Depends(get_shop_service),
+    product_service: ProductService = Depends(get_product_service),
     batch_repo: CheckoutBatchRepository = Depends(get_checkout_batch_repository),
     order_service: OrderService = Depends(get_order_service),
 ) -> CartService:
     """注入购物车编排服务（共享同一 DB 事务；含 checkout 依赖）。"""
-    return CartService(session, cart_repo, catalog_service, batch_repo, order_service)
+    return CartService(session, cart_repo, product_service, batch_repo, order_service)
 
 
 async def get_order_by_id(
@@ -109,14 +118,14 @@ async def get_order_for_buyer(
 async def get_order_for_buyer_or_shop(
     order: Order = Depends(get_order_by_id),
     user_id: uuid.UUID = Depends(get_current_user_id),
-    catalog_service: ShopService = Depends(get_shop_service),
+    shop_service: ShopService = Depends(get_shop_service),
 ) -> Order:
     """买家或本店店主视角；既不属买家又非店主时 404。"""
     if str(order.buyer_user_id) == str(user_id):
         return order
 
     try:
-        shop = await catalog_service.get_my_shop(user_id)
+        shop = await shop_service.get_my_shop(user_id)
     except HTTPException:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -1,7 +1,7 @@
 """support 域业务逻辑：买家会话/发消息、店主 inbox/回复、product ref 校验。
 
-跨域纪律：商品与店铺校验仅经 ``catalog.service`` 与 schema（``ShopSupportContext``），
-禁止 import catalog / ordering ORM 或 repository。
+跨域纪律：商品与店铺校验仅经 ``catalog.service``（ProductService / ShopService）
+与 schema（``ShopContext``），禁止 import catalog / ordering ORM 或 repository。
 """
 
 import uuid
@@ -10,7 +10,8 @@ from typing import Literal
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.service import ShopService
+from app.catalog.product_service import ProductService
+from app.catalog.shop_service import ShopService
 from app.support.models import SupportConversation, SupportMessage
 from app.support.repository import ConversationRepository, MessageRepository
 from app.support.schemas import (
@@ -60,19 +61,32 @@ def _to_message_response(message: SupportMessage) -> MessageResponse:
 
 
 class SupportService:
-    """support 域编排服务（注入 catalog ShopService 做店铺/product ref 校验）。"""
+    """support 域编排服务（注入 catalog ShopService + ProductService 做店铺/product ref 校验）。"""
 
     def __init__(
         self,
         session: AsyncSession,
         conversation_repo: ConversationRepository,
         message_repo: MessageRepository,
-        catalog_service: ShopService,
+        shop_service: ShopService,
+        product_service: ProductService,
     ) -> None:
         self._session = session
         self._conversation_repo = conversation_repo
         self._message_repo = message_repo
-        self._catalog = catalog_service
+        self._shops = shop_service
+        self._products = product_service
+
+    # ── 本店解析（店主路径）──────────────────────────────────
+
+    async def _get_current_shop_id(self, user_id: uuid.UUID) -> uuid.UUID:
+        """解析当前用户店铺 id（经 catalog `ShopService.get_my_shop`，404 语义一致）。
+
+        店主路径不再跨域 `Depends(get_current_shop)`——本域 service 经 catalog service 解析；
+        跨域上下文由业务方法内部自解析，router 一步调用（Phase D）。
+        """
+        shop = await self._shops.get_my_shop(user_id)
+        return uuid.UUID(str(shop.id))
 
     # ── 买家路径 ──────────────────────────────────────────────
 
@@ -82,7 +96,7 @@ class SupportService:
         buyer_user_id: uuid.UUID,
     ) -> ConversationResponse:
         """买家查询会话：无会话 404；店主走买家路径 403；shop 不存在 404。"""
-        shop = await self._catalog.get_shop_for_support(shop_id)
+        shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
 
         conversation = await self._conversation_repo.get_by_shop_and_buyer(
@@ -104,7 +118,7 @@ class SupportService:
         offset: int = 0,
     ) -> PaginatedMessages:
         """买家拉取会话消息（created_at ASC）：无会话 404。"""
-        shop = await self._catalog.get_shop_for_support(shop_id)
+        shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
 
         conversation = await self._conversation_repo.get_by_shop_and_buyer(
@@ -124,7 +138,7 @@ class SupportService:
         data: MessageCreate,
     ) -> MessageResponse:
         """买家发消息：lazy create 会话（单事务）；closed 店任何 POST 422。"""
-        shop = await self._catalog.get_shop_for_support(shop_id)
+        shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
         if shop.status == "closed":
             raise HTTPException(
@@ -158,12 +172,16 @@ class SupportService:
 
     async def list_inbox(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         *,
         limit: int = 20,
         offset: int = 0,
     ) -> PaginatedConversations:
-        """本店会话分页列表（updated_at DESC，含 last_message_preview）。"""
+        """本店会话分页列表（updated_at DESC，含 last_message_preview）。
+
+        店主身份经 `_get_current_shop_id` 内部解析（router 不再两步调用）。
+        """
+        shop_id = await self._get_current_shop_id(user_id)
         conversations, total = await self._conversation_repo.list_by_shop(
             shop_id, limit=limit, offset=offset
         )
@@ -176,32 +194,35 @@ class SupportService:
 
     async def get_inbox_conversation(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         conversation_id: uuid.UUID,
     ) -> ConversationResponse:
         """店主查看会话详情：非本店会话 404。"""
+        shop_id = await self._get_current_shop_id(user_id)
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
         return _to_conversation_response(conversation)
 
     async def list_inbox_messages(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         conversation_id: uuid.UUID,
         *,
         limit: int = 20,
         offset: int = 0,
     ) -> PaginatedMessages:
         """店主拉取会话消息（created_at ASC）：非本店会话 404。"""
+        shop_id = await self._get_current_shop_id(user_id)
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
         return await self._list_messages(conversation.id, limit=limit, offset=offset)
 
     async def send_shop_message(
         self,
-        shop_id: uuid.UUID,
+        user_id: uuid.UUID,
         conversation_id: uuid.UUID,
         data: MessageCreate,
     ) -> MessageResponse:
         """店主回复：closed 店铺仍允许（售后收尾）。"""
+        shop_id = await self._get_current_shop_id(user_id)
         conversation = await self._get_shop_conversation(shop_id, conversation_id)
         refs = await self._validate_message(data, uuid.UUID(str(conversation.shop_id)))
         message = await self._persist_message(
@@ -278,7 +299,7 @@ class SupportService:
             product_ids.append(uuid.UUID(ref["ref_id"]))
 
         if product_ids:
-            await self._catalog.validate_product_refs_for_shop(shop_id, product_ids)
+            await self._products.validate_product_refs_for_shop(shop_id, product_ids)
         return deduped
 
     async def _persist_message(
