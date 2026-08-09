@@ -13,38 +13,49 @@
 
 | 层级 | 含义 | 闭环标准 |
 |------|------|----------|
-| **Phase** | 高于 Task 的主题迭代单元（如 Phase A ordering、Phase B catalog） | design 增量 + 本节 tasks 全 `[x]` + `devbox run -- task ci` 绿 + 可选 commit |
+| **Phase** | 高于 Task 的主题迭代单元（如 Phase A ordering、Phase B deps 修复、Phase C catalog） | design 增量 + 本节 tasks 全 `[x]` + `devbox run -- task ci` 绿 + 可选 commit |
 | **Task** | Phase 内可勾选的具体步骤（与历史 OpenSpec tasks 同级） | 实现 + 勾选 |
 
-- Phase **不替代** Task；tasks.md 在 `## Phase A` / `## Phase B` 下用 `## 1.` / `## 2.` Task 组，小步 checkbox 写 **Phase A Task X.X** / **Phase B Task X.X**（与 OpenSpec `- [ ] X.Y` 解析兼容）。
+- Phase **不替代** Task；tasks.md 在 `## Phase A` / `## Phase B` / `## Phase C` 下用 `## 1.` / `## 2.` Task 组，小步 checkbox 写 **Phase A / Phase B / Phase C Task X.X**（与 OpenSpec `- [ ] X.Y` 解析兼容）。
 - Phase 完成后在 design.md **Changelog** 追加决策；**不**在本 change sync 主 spec 纪律全文。
-- 后续若发现 Phase C（如 support `Shop` import），在 tasks/design **追加 Phase**，不必新开分支。
+- 后续若发现新 Phase（如 support `Shop` import），在 tasks/design **追加 Phase**，不必新开分支。
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Phase A：ordering router **不再**注入 `ShopService`；ORM→Schema 映射集中在 `OrderService`（及必要时 `CartService`）；router 以「单 service + 返回 schema」为主。
-- Phase B：catalog 按实体拆分 service 与 deps；router 端点注入语义匹配的 service；跨域调用方（ordering / engagement / support）改为依赖 **narrow** catalog 入口（见 Decision 3）。
+- Phase B：消除 ordering + user deps 构建 schema 的坏味道——deps 不再 import service 私有映射函数，读路径 schema 由 service 公开方法产出（见 Decision 2）。
+- Phase C：catalog 按实体拆分 service 与 deps；router 端点注入语义匹配的 service；跨域调用方（ordering / engagement / support）改为依赖 **narrow** catalog 入口（见 Decision 4）。
 - 全 change 结束：现有 pytest **406** 量级全绿，对外 API 无变化。
 
 **Non-Goals:**
 
 - 不定稿 ADR / cursor rules / cross-domain lint 脚本（规范 change）。
-- 不改 support router 的 `catalog.models.Shop`（可 Phase C 或规范前单独做）。
+- 不改 support router 的 `catalog.models.Shop`（可后续 Phase 或规范前单独做）。
 - 不拆 `ordering/cart_router.py` 的 `_to_cart_item_response`（除非 Phase A 顺带极小改动且测试仍绿；非必须）。
 
 ## Decisions
 
-### 1. Phase 顺序：先 ordering（A），后 catalog（B）
+### 1. Phase 顺序：ordering（A）→ ordering deps 坏味道修复（B）→ catalog（C）
 
-**选择**：A → B。
+**选择**：A → B → C。
 
-**理由**：Phase A 把「router 不编排、service 返 schema」落在 ordering，不依赖 catalog 拆分；Phase B 拆分 `ShopService` 后需更新 ordering/engagement/support 的 catalog 依赖类型，若先做 B 会与 A 交叉冲突。
+**理由**：Phase A 已闭环（router 不编排、service 返 schema）；Phase B 先消除 ordering 与 user 的 deps 构建 schema 坏味道（同根因共 2 处），把依赖面收敛后再动 catalog；Phase C 拆分 `ShopService` 后需更新 ordering/engagement/support 的 catalog 依赖类型，若先做 C 会与 B 交叉冲突。
 
-**替代**：先做 catalog 拆分 → 拒绝，ordering router 仍会在过渡期注入上帝 `ShopService`。
+**替代**：先做 catalog 拆分 → 拒绝，ordering 的 deps 坏味道与 catalog 拆分会在 `service.py` / `deps.py` 上交叉改动。
 
-### 2. Phase A — ordering 收编排与 `_to_*`
+### 2. Phase B — ordering + user deps 读路径不构建 schema（坏味道修复）
+
+**核心矛盾**：`app/ordering/deps.py` 的 `get_order_for_buyer_or_shop_response` 与 `app/user/deps.py` 的 `get_current_user` 均跨模块 import 并调用 service 私有映射函数（`_to_order_response` / `_to_user_response`、`_resolve_avatar_url`），在 deps 层构建 schema。deps 是 DI 装配细节，本应只返回实体/原语；耦合 service 私有实现意味着：service 重构（改签名/删函数）时 deps 会在无编译期告警下**静默破坏**；schema 构建逻辑散落多处；分层边界被侵蚀，后续调用方可能效仿直接穿透。**问题累积 → 跨域调用面从「service 接口」漂移到「实现细节」，与跨域 service+schema 纪律冲突。**
+
+**选择**：
+- **ordering**：`OrderService` 暴露公开方法 `to_order_response(order)` 作为 ordering 域 schema 映射唯一出口（迁移模块级 `_to_order_response`）；`get_order` 读路径恢复「deps 返 ORM 实体 + router 调 service 方法」；删除 `get_order_for_buyer_or_shop_response` 与 deps 内 `_to_order_response` import。（`get_order_for_buyer_or_shop` 保留——`cancel_order` 写路径仍需它返 ORM。）
+- **user**：`UserService` 暴露公开方法 `get_user_response(user_id)`（fetch → 404 → 解析 avatar → 私有 `_to_user_response`）；删除 `get_current_user` deps 与 `_to_user_response` / `_resolve_avatar_url` import；`GET /users/me` 改用 `get_current_user_id` + service 方法。（user 无写路径消费 current-user ORM，故 deps 直接删；401 语义由 `get_current_user_id` 鉴权保留。）
+
+**规范范围**：deps 三分类 /「deps 不构建 schema」的规范全文**不**在本 change 定稿（留给 `docs-app-layer-discipline`）；本 Phase 只消除现有坏味道。
+
+### 3. Phase A — ordering 收编排与 `_to_*`
 
 **Router 规则（本 Phase 目标态）**：
 
@@ -66,7 +77,7 @@
 
 **验收**：`rg 'ShopService|get_shop_service' app/ordering/router.py` 无命中；ordering 相关 tests 全绿。
 
-### 3. Phase B — catalog 实体 service 拆分
+### 4. Phase C — catalog 实体 service 拆分
 
 **选择**：拆为三个 application service 类（同包内，文件名可 `shop_service.py` / `product_service.py` / `category_service.py`，或暂保留单文件三类）：
 
@@ -84,10 +95,10 @@
 **Router**：
 
 - `/categories*` → `CategoryService`
-- `/products*` → `ProductService`（店主写操作仍通过 `get_current_shop` 解析 shop，见 Decision 4）
+- `/products*` → `ProductService`（店主写操作仍通过 `get_current_shop` 解析 shop，见 Decision 5）
 - `/shops*` → `ShopService`
 
-**跨域调用方更新**（Phase B 必做）：
+**跨域调用方更新**（Phase C 必做）：
 
 | 调用方 | 现依赖 | 改为 |
 |--------|--------|------|
@@ -97,15 +108,15 @@
 
 **替代**：单一 `CatalogService` facade 包装三类 → 可接受，但类名须 honest，且 router 仍按端点注入子 facade；**不**继续叫 `ShopService` 包三类。
 
-### 4. `get_current_shop` 与 ORM（Phase B 范围）
+### 5. `get_current_shop` 与 ORM（Phase C 范围）
 
-**选择**：Phase B **catalog 域内** router 仍可使用 `get_current_shop` → `Shop` ORM 供 `ProductService.create_product(shop, ...)`；**不**在本 Phase 强制改为 schema（support 跨域 import 留待后续）。
+**选择**：Phase C **catalog 域内** router 仍可使用 `get_current_shop` → `Shop` ORM 供 `ProductService.create_product(shop, ...)`；**不**在本 Phase 强制改为 schema（support 跨域 import 留待后续）。
 
 **理由**：拆分 service 已足够大；ORM 仅在 catalog router/deps 内，不扩大 scope。
 
-### 5. 测试策略
+### 6. 测试策略
 
-**选择**：**行为不变** — 不新增 BDD scenario；以现有 `tests/ordering/**`、`tests/catalog/**` integration 全绿为准。Refactor 中若某测试 mock 了 `ShopService` 路径，随 Phase B 更新 mock 目标。
+**选择**：**行为不变** — 不新增 BDD scenario；以现有 `tests/ordering/**`、`tests/catalog/**` integration 全绿为准。Refactor 中若某测试 mock 了 `ShopService` 路径，随 Phase C 更新 mock 目标。
 
 **TDD**：无新业务能力；改完每 Task 跑相关测试，每 Phase 末 `devbox run -- task ci`。
 
@@ -113,7 +124,7 @@
 
 | 风险 | 缓解 |
 |------|------|
-| Phase B 动跨域注入面大 | 按 Decision 3 表逐项改 deps；Phase 末全量 CI |
+| Phase C 动跨域注入面大 | 按 Decision 4 表逐项改 deps；Phase 末全量 CI |
 | `service.py` 拆文件 import 循环 | product 依赖 shop 校验时用 shop_id UUID + shop service 方法，避免 product → shop ORM 泄漏 |
 | 与「规范 change」重复文档 | 本 design 只记实现决策；纪律 MUST 留给下一 change |
 | Phase 定义新范式 | 本 design §Phase 与 Task 写入 proposal/tasks，archive 时可摘入 ADR-008 附录（可选，非本 change 必须） |
@@ -122,8 +133,9 @@
 
 1. 从 `dev` 切 `refactor/app-layer-boundaries`。
 2. **Phase A**：按 tasks.md §Phase A 实现 → CI 绿 → commit（建议 `refactor(ordering) [layer-boundaries]: Phase A ...`）。
-3. **Phase B**：按 tasks.md §Phase B 实现 → CI 绿 → commit。
-4. PR → merge `dev` → archive change（**不** sync 纪律类主 spec；仅 `refactor-regression` delta 若采用）。
+3. **Phase B**：按 tasks.md §Phase B 实现（ordering + user deps 坏味道修复）→ CI 绿 → commit。
+4. **Phase C**：按 tasks.md §Phase C 实现 → CI 绿 → commit。
+5. PR → merge `dev` → archive change（**不** sync 纪律类主 spec；仅 `refactor-regression` delta 若采用）。
 
 **Rollback**：按 Phase revert commit；无 DB migration。
 
@@ -133,8 +145,9 @@
 |------|-------|------|
 | 2026-08-08 | — | propose：Phase A ordering + Phase B catalog 拆分 |
 | 2026-08-09 | Phase A | ordering 闭环：router 薄化 + OrderService 返 schema。跨域编排（`get_my_shop` 解析、buyer 校验、`cancel_reason` 角色分支）全部迁入 `OrderService`；写方法统一返回 `OrderResponse` / `BatchPayResponse`；读路径 `get_order` 经 schema deps `get_order_for_buyer_or_shop_response` 返 DTO（router 不再注入 service+ORM）。router 无任何 catalog import（DoD 达成）；`tests/ordering` 79 + 全量 CI 406 全绿。**命名决策**：映射统一为模块级私有 `_to_order_response`（与各域 `_to_*` 一致），deps 同域导入该私有函数（仿 `app/user/deps.py`）；读路径映射跨模块问题（Option C：鉴权收进 service 读方法）留待后续 change |
+| 2026-08-09 | — | 追加 Phase B（ordering + user deps 坏味道修复）：`get_order_for_buyer_or_shop_response` 与 `get_current_user` 均跨模块调用 service 私有映射函数建 schema；改为 service 公开方法（`OrderService.to_order_response` / `UserService.get_user_response`），deps 不再 import 私有、只返实体/原语；原 catalog 拆分顺延为 Phase C。核心矛盾：deps 是 DI 装配细节却耦合 service 私有实现，重构会在无告警下静默破坏、schema 构建散落、分层边界被侵蚀；规范全文留 `docs-app-layer-discipline` |
 
 ## Open Questions
 
-- Phase B 是否将 `app/catalog/service.py` 物理拆为多文件（apply 时按可读性决定，默认拆）。
+- Phase C 是否将 `app/catalog/service.py` 物理拆为多文件（apply 时按可读性决定，默认拆）。
 - `CartService` 的 `_to_*` 是否纳入 Phase A 最后一并迁移（可选）。

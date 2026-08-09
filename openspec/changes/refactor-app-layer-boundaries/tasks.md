@@ -1,7 +1,7 @@
 # refactor-app-layer-boundaries
 
 > **Phase > Task**：Phase 是高于 `## N.` Task 组的迭代单元（见 `design.md`）。  
-> Phase 内小步用 **Phase A Task X.X** / **Phase B Task X.X** 标注；Phase 闭环 = 该 Phase 下全部 Task 组勾选 + design Changelog + CI 绿。
+> Phase 内小步用 **Phase A / Phase B / Phase C Task X.X** 标注；Phase 闭环 = 该 Phase 下全部 Task 组勾选 + design Changelog + CI 绿。
 
 ## 0. 分支与准备
 
@@ -33,27 +33,49 @@
 
 ---
 
-## Phase B — catalog：实体 service 拆分
+## Phase B — ordering + user：deps 读路径不构建 schema（坏味道修复）
+
+**核心矛盾**：`get_order_for_buyer_or_shop_response`（ordering）与 `get_current_user`（user）在 deps 层 import 并调用 service 私有映射函数（`_to_order_response` / `_to_user_response`、`_resolve_avatar_url`）构建 schema。deps 是 DI 装配细节，耦合 service 私有实现后：service 重构（改签名/删函数）会在无编译期告警下**静默破坏** deps；schema 构建散落多处；分层边界被侵蚀，后续调用方可能效仿穿透。本 Phase **只修坏味道**；deps 三分类 /「deps 不构建 schema」规范全文留给 `docs-app-layer-discipline`。
+
+**DoD**：`app/ordering/deps.py` 与 `app/user/deps.py` 不再 import service 私有映射函数；`get_order_for_buyer_or_shop_response` 与 `get_current_user` 删除；读路径 schema 由 service 公开方法产出；ordering / user 相关 tests 全绿。
+
+## 1. ordering：schema 构建归属 service，deps 退化为返实体
+
+- [ ] Phase B Task 1.1 `OrderService` 增加公开方法 `to_order_response(order)` 作为 ordering 域 schema 映射唯一出口（迁移模块级 `_to_order_response`；类内调用同步改用）
+- [ ] Phase B Task 1.2 删除 deps 内 `get_order_for_buyer_or_shop_response` 与 `_to_order_response` import；`get_order` router 改用 `get_order_for_buyer_or_shop`（返 ORM 实体）+ `service.to_order_response(order)`
+
+## 2. user：current-user deps 删除，读走 service
+
+- [ ] Phase B Task 2.1 `UserService` 增加公开方法 `get_user_response(user_id)`（fetch → 404 → 解析 avatar → `_to_user_response`）；`update_profile` 复用 avatar/映射 helper
+- [ ] Phase B Task 2.2 删除 `get_current_user` deps 与 `_to_user_response` / `_resolve_avatar_url` import；`GET /users/me` 改用 `get_current_user_id` + `service.get_user_response(user_id)`
+
+## 3. 验证与留档
+
+- [ ] Phase B Task 3.1 `rg 'from app.(ordering|user).service import _' app/*/deps.py` 无命中；`devbox run -- task ci` 全绿；design.md Changelog 追加 Phase B 摘要
+
+---
+
+## Phase C — catalog：实体 service 拆分
 
 **DoD**：`CategoryService` / `ProductService` / `ShopService` 分离；`deps` 分设 `get_*_service`；catalog router 按端点注入对应 service；ordering / engagement / support 的 catalog 依赖改为 narrow service；全量 CI 绿。
 
 ## 1. catalog 域内 service / deps / router 拆分
 
-- [ ] Phase B Task 1.1 从现 `ShopService` 拆出 `CategoryService` + `get_category_service`；`/categories*` router 改用之
-- [ ] Phase B Task 1.2 拆出 `ProductService` + `get_product_service`（含库存、可购/engagement 读、product ref 校验、media helper）；`/products*` router 改用之
-- [ ] Phase B Task 1.3 收窄 `ShopService` 为店铺专用 + `get_shop_service`（仅 shop repo + media）；`/shops*` router 改用之
+- [ ] Phase C Task 1.1 从现 `ShopService` 拆出 `CategoryService` + `get_category_service`；`/categories*` router 改用之
+- [ ] Phase C Task 1.2 拆出 `ProductService` + `get_product_service`（含库存、可购/engagement 读、product ref 校验、media helper）；`/products*` router 改用之
+- [ ] Phase C Task 1.3 收窄 `ShopService` 为店铺专用 + `get_shop_service`（仅 shop repo + media）；`/shops*` router 改用之
 
 ## 2. 跨域调用方 narrow 依赖
 
-- [ ] Phase B Task 2.1 更新 `app/ordering/service.py` / `cart_service.py` / `deps.py`：catalog 依赖改为 `ProductService`（及必要的 `ShopService`），无上帝 `ShopService`
-- [ ] Phase B Task 2.2 更新 `app/engagement/service.py` / `deps.py`：`ProductService.get_products_for_engagement`
-- [ ] Phase B Task 2.3 更新 `app/support/service.py` / `deps.py`：`ShopService` + `ProductService`（或 shop 委托校验）替代单一上帝注入
-- [ ] Phase B Task 2.4 删除或瘦身原 `app/catalog/service.py` 上帝类；修正全库 `from app.catalog.service import ShopService` 引用
+- [ ] Phase C Task 2.1 更新 `app/ordering/service.py` / `cart_service.py` / `deps.py`：catalog 依赖改为 `ProductService`（及必要的 `ShopService`），无上帝 `ShopService`
+- [ ] Phase C Task 2.2 更新 `app/engagement/service.py` / `deps.py`：`ProductService.get_products_for_engagement`
+- [ ] Phase C Task 2.3 更新 `app/support/service.py` / `deps.py`：`ShopService` + `ProductService`（或 shop 委托校验）替代单一上帝注入
+- [ ] Phase C Task 2.4 删除或瘦身原 `app/catalog/service.py` 上帝类；修正全库 `from app.catalog.service import ShopService` 引用
 
-## 3. Phase B 验证
+## 3. Phase C 验证
 
-- [ ] Phase B Task 3.1 跑 catalog / ordering / engagement / support 相关 tests；`devbox run -- task ci` 全绿
-- [ ] Phase B Task 3.2 更新 `design.md` Changelog；准备 PR（scope: ordering + catalog + engagement + support）
+- [ ] Phase C Task 3.1 跑 catalog / ordering / engagement / support 相关 tests；`devbox run -- task ci` 全绿
+- [ ] Phase C Task 3.2 更新 `design.md` Changelog；准备 PR（scope: ordering + catalog + engagement + support）
 
 ---
 
