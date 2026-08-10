@@ -145,3 +145,44 @@ def get_shop_service(shop_repo, category_repo, product_repo, media_service) -> S
 | ② deps 跨域 | support `Depends(get_current_shop)` | `user_id` + `ShopService.get_my_shop` |
 | ③ 跨域两步 | support `get_current_shop_id` 两步；cart checkout-batch router 编排 + `_item_repo` 私有访问 | `list_inbox(user_id, ...)` 一步；`CartService.get_checkout_batch` + `OrderService.list_orders_by_checkout_batch` |
 | ④ 上帝 service | 单一 `ShopService` + 上帝 `get_shop_service()` | `CategoryService` / `ProductService` / `ShopService` + 分窄 deps |
+
+---
+
+## 补充（2026-08-10）：`docs-app-layer-discipline` 决策调整——"deps 禁仓储"的归谬
+
+> 本 change（`refactor-app-layer-discipline`）propose 阶段推翻了自己刚定的 `service 双形态（返 ORM getter 供 deps）`。以下记录**掉坑过程**与**否决的观点**，防止历史重演。决策细则见 design.md（Decision 4/4b/4c），留档见 [ADR-010](../decision/ADR-010-应用层边界纪律.md)。
+
+### 坑：deps 禁仓储 → service 被迫造透传 getter
+
+**错在哪**：为"强制 current-object deps 不直吃仓储"，service 被要求补公开返 ORM getter（`get_shop_or_404` = `repo.get_by_owner_user_id` + 404，纯透传）。这是**依赖注入方向反转**——本应是 deps 组合根装配 service 的依赖，变成 service 为 deps 造方法（反向倒灌）。更糟的是归谬后果：service 一旦有公开 ORM getter，跨域调用方为"获取依赖项"就跨域调 service——反模式③的种子复燃。
+
+**归谬推理（用户推导）**：
+
+1. 前提：deps 禁仓储 → current-object 只能经 service 拿实体
+2. 推论：service 必须公开 `get_*`（返 ORM）给 deps 用 → 双形态
+3. 归谬：service 有公开 get_* → 跨域方直接调它拿依赖 → 职责混乱 + 跨域两步复燃
+4. 结论：前提错。deps 是组合根，仓储是它装配的合法组件，纯读解析归组合根；service 只管业务逻辑，不管依赖项怎么来
+
+**应怎么做（与上文反模式索引 ② 的"同域 current-object 合法"一致并细化）**：
+
+- **纯读解析**（查实体 + 404 + 状态无关归属比较）→ **本域仓储直读**（`get_current_shop` / `get_current_product` / `get_current_cart_item` / `get_current_checkout_batch` / `get_current_user`）。
+- **业务读**（解析伴随副作用，如 ordering 懒释放）→ deps 纯定位 + service 读方法内部完成（`get_current_order` 仓储直读 + 404；懒释放/items 归 `get_order_response`）。
+- **跨域解析** → 对方 service 公开方法（schema），deps 只转发不建 schema（support `get_current_support_shop` 转发 `get_my_shop_context`）。
+- service 方法**自含业务完整性**（cancel 补 expire 为模板）；被跨模块/跨域消费的方法不得私有。
+
+### 否决的观点（拍板记录）
+
+| 观点 | 否决理由 |
+|------|---------|
+| service 双形态（返 ORM getter 供 deps） | 反向倒灌 + 跨域破窗诱饵（见上归谬） |
+| deps 禁仓储，一律经 service | 组合根本义被破坏，必然推论把 service 拉下水 |
+| update_product B 方案（service 收 Shop 查归属） | 鉴权留 service，违反"鉴权进 deps" |
+| 过期订单取消改 200（不动 cancel_order） | 否决，选 self-expire 保 409——方法自含业务完整性是原则而非妥协 |
+| support deps 内把 ShopResponse 转 ShopContext | deps 建 schema = 反模式①；应 `get_my_shop_context` 转发 |
+| 消灭懒释放（后台任务统一释放） | 暂缓 follow-up，本 change 只做"触发点归 service" |
+
+### 本 change 的规范对照
+
+- 决策细则：`openspec/changes/refactor-app-layer-discipline/design.md`（Decision 4 / 4b / 4c + Changelog）
+- 决策留档：[ADR-010](../decision/ADR-010-应用层边界纪律.md)
+- 规范全文（MUST）：`.cursor/rules/app-layer-discipline.mdc`（本 change Task 1 落）
