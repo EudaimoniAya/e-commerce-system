@@ -112,6 +112,32 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 单体阶段跨域 service 调用是函数调用 + 若干 SQL，性能影响可忽略。边界清晰带来的可维护性优先于 JOIN 便利。
 
+### 4.5 应用层边界纪律（deps / service / router）
+
+分层：router（HTTP）→ deps（装配 + 请求上下文解析）→ service（业务）→ repository → ORM。
+
+**deps = 组合根：装配自由 + 无副作用**
+
+- 两大类：**装配类**（`get_*_repository` / `get_*_service`）+ **解析类**（`get_current_*`，鉴权 + 实体解析，**只被本域 router 消费**）。
+- 无副作用：只做注入 + 存在性定位（404）+ 状态无关的归属比较；不触发写、不建 schema、不做业务数据准备。
+- **current-object 解析判据（三分类）**：
+  - **纯读解析**（查实体 + 404 + 归属比较，无副作用）→ 本域仓储直读（`get_current_shop` / `get_current_product` / `get_current_cart_item` / `get_current_checkout_batch` / `get_current_user`）
+  - **业务读**（解析伴随副作用，如 ordering 懒释放）→ deps 纯定位 + service 读方法内完成（`get_current_order` → `get_order_response(order)`）
+  - **跨域解析**（本域 deps 解析别域实体）→ 对方 service 公开方法（schema），deps 只转发不建 schema（support `get_current_support_shop` 转发 `get_my_shop_context`）
+- 鉴权切分：状态无关（buyer/owner/user 比较）→ deps；状态依赖（过期 / 可支付 / 店铺关闭）→ service 方法内。
+
+**service = 业务逻辑 + schema 权威出口**
+
+- 公开方法仅两类：返 schema（跨域/响应）+ 业务方法（含业务读）。**不为 deps 造返 ORM 公开 getter**（`get_shop_or_404` 不新增、`get_order_or_404` 私有化）。
+- 方法自含业务完整性（不依赖调用方/deps 先触发业务前置，cancel 补 expire 为模板）；被跨模块/跨域消费的方法不得私有。
+
+**router = 薄**
+
+- 拿 deps 实体必须传 service 方法，**不得直接序列化**（deps 只保证"存在 + 有权"，不保证"新鲜 + 完整"）。
+- 错误语义：归属失败统一 404（不泄漏存在性）；状态失败 409/422（service 内）。
+
+> 完整纪律与铁律见 [ADR-010](./decision/ADR-010-应用层边界纪律.md) 与 `.cursor/rules/app-layer-discipline.mdc`。
+
 ## 5. 目录结构
 
 ### 5.1 当前骨架（user + catalog + ordering + engagement + support + infra）

@@ -1,6 +1,6 @@
 ## Why
 
-`refactor-app-layer-boundaries` 已消灭 deps 四反模式（① deps 建 schema ② deps 跨域 ③ 跨域两步 ④ 上帝 service），但**工程纪律尚未成文**——四反模式是规范缺失下 AI 的随机二选一累积而成。本 change 把上一轮推导定稿的 deps 边界规范（deps 两大类、跨域白名单、service 双形态、域内 current-object 模式）**落实为成文规范 + 全库代码改造 + AST lint 强制**，从根上消除 AI 偷懒绕过"跨域仅 service+schema"的机会。
+`refactor-app-layer-boundaries` 已消灭 deps 四反模式（① deps 建 schema ② deps 跨域 ③ 跨域两步 ④ 上帝 service），但**工程纪律尚未成文**——四反模式是规范缺失下 AI 的随机二选一累积而成。本 change 把上一轮推导定稿的 deps 边界规范（deps 两大类、跨域白名单、service 公开方法两类 + current-object 解析判据、域内 current-object 模式）**落实为成文规范 + 全库代码改造 + AST lint 强制**，从根上消除 AI 偷懒绕过"跨域仅 service+schema"的机会。
 
 上一轮的 Phase B/D 决策（`get_order_response(order_id, user_id)` service 内自解析鉴权、support `_get_current_shop_id` service 内自解析、cart checkout-batch 收进 service）是**暂缓形式**，与本次推导的规范（鉴权收进 deps `get_current_*`、业务不进 deps）冲突，予以推翻。
 
@@ -10,7 +10,8 @@
   - deps 两大类：**装配类**（`get_*_repository` / `get_*_service`，供注入）+ **解析类**（`get_current_*`，鉴权 + 实体解析，只被本域 router 消费）
   - **业务不进 deps**：deps 只做装配 + 纯横切鉴权，schema 权威出口只在 service
   - **跨域白名单两维**：跨域只碰对方 service 接口 + schemas（含 deps 里 service-provider）；禁 models / repository / current-object deps / 私有 `_*`
-  - **service 双形态**：返 schema（跨域/响应）+ 返 ORM（本域 current-object deps 消费）；`get_*` 公开 / `_to_*` 私有
+  - **service 公开方法两类**：返 schema（跨域/响应）+ 业务方法（含业务读，如懒释放）；`get_*` 公开 / `_to_*` 私有 / `_get_<entity>_or_404` 私有 helper；**不为 deps 造返 ORM 公开 getter**（`get_shop_or_404` 不新增、`get_order_or_404` 私有化）
+  - **current-object 解析判据**：纯读→本域仓储直读 / 业务读→service 读方法内完成 / 跨域→对方 service schema（deps 只转发不建 schema）；状态无关归 deps、状态依赖归 service
   - **域内 current-object 模式**：router `Depends(get_current_*)` 拿实体 → 传 service；`get_current_user_id` 作业务参数（engagement 等）合法
   - **上帝 service = 域内膨胀后果**：按实体拆 service、deps 分窄
 - **全库改造**（行为不变）：

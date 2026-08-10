@@ -4,7 +4,7 @@
 - **遗留问题**：规范未成文。上一轮 Phase B/D 的部分决策是**暂缓形式**：`get_order_response(order_id, user_id)`（service 内自解析鉴权）、support `_get_current_shop_id`（service 内自解析）、cart checkout-batch 收进 service——它们把"鉴权/解析"塞进 service，与本次推导的规范（鉴权收进 deps `get_current_*`）冲突。
 - **现状代码**（2026-08-09 盘点）：`get_current_shop`（catalog/deps.py）直吃 `get_shop_repository`（**本域纯读，合规**，见 Decision 4b，不再要求改经 service）；`update_product` 在 service 内 `get_shop_context` + owner 校验（类型2，应改 A 方案）；ordering 4 端点 + cart 4 端点鉴权散在 service；support 7 处店主解析用 `_get_current_shop_id` service 内自解析（跨域，但可升级为本域 current-object deps）。
 - **约束**：HTTP API 与 BDD 行为不变；本 change 行为不变，不新增 BDD 场景；遵循 ADR-001 跨域 service + schema；不引入 TID251 / import-linter（理由见 Decision 5）。
-- **分支**：`refactor/app-layer-discipline`；短标签 `[app-discipline]`。
+- **分支**：`refactor/app-layer-discipline`；短标签 `[layer-discipline]`。
 
 ## Task 组织
 

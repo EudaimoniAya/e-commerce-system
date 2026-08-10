@@ -3,7 +3,7 @@
 > **状态**：`refactor-app-layer-boundaries` 分支闭环后留档（跨域两步 + 上帝 service 已修复）。
 > **目的**：用真实代码说明「错在哪、为什么错」；对照修复方向，新代码不得延续这些模式。
 > **背景**：这些反模式是**规范缺失下 AI 引入的随机性**——工程纪律未成文前，AI 在 deps / service / router 分层边界上做了任意取舍，小违规悄然累积成架构侵蚀（破窗效应）。
-> **规范对照**：修复决策见 `openspec/changes/refactor-app-layer-boundaries/design.md`（Decision 2 / Decision 7）；规范全文留给 `docs-app-layer-discipline`。
+> **规范对照**：修复决策见 `openspec/changes/refactor-app-layer-discipline/design.md`（Decision 4 / 4b / 4c）与 [ADR-010](../decision/ADR-010-应用层边界纪律.md)；规范全文见 `.cursor/rules/app-layer-discipline.mdc`。
 > **日期**：2026-08-09
 
 ---

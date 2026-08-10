@@ -1,9 +1,9 @@
 ## 1. 规范成文
 
-- [ ] 1.1 新增 `.cursor/rules/app-layer-discipline.mdc`：deps 两大类（装配/解析）、业务不进 deps、跨域白名单两维（service 接口 + schemas）、service 公开方法两类（schema 出口 + 业务方法，无返 ORM 透传 getter）、current-object 解析判据（纯读→本域仓储 / 业务读→service / 跨域→service，含状态无关/依赖切分）、域内 current-object 模式（`get_current_*` 只被本域 router 消费）、铁律条文（deps 无副作用 / service 自含业务完整性 / router 不直接序列化）、`_*` 私有名不跨模块
-- [ ] 1.2 ADR-010 已有 propose 骨架（`docs/decision/ADR-010-应用层边界纪律.md`，含决策 + 归谬推理 + 否决观点）；apply 时校验/完善
-- [ ] 1.3 增补 `docs/architecture.md` §4 域间协作规则：deps 两大类、跨域白名单、service 公开方法两类、current-object 解析判据、域内 current-object 模式
-- [ ] 1.4 更新 `docs/troubleshooting/deps-跨域两步与上帝service反模式.md` 的"规范对照"链接指向本 change 决策
+- [x] 1.1 新增 `.cursor/rules/app-layer-discipline.mdc`：deps 两大类（装配/解析）、业务不进 deps、跨域白名单两维（service 接口 + schemas）、service 公开方法两类（schema 出口 + 业务方法，无返 ORM 透传 getter）、current-object 解析判据（纯读→本域仓储 / 业务读→service / 跨域→service，含状态无关/依赖切分）、域内 current-object 模式（`get_current_*` 只被本域 router 消费）、铁律条文（deps 无副作用 / service 自含业务完整性 / router 不直接序列化）、`_*` 私有名不跨模块
+- [x] 1.2 ADR-010 已有 propose 骨架（`docs/decision/ADR-010-应用层边界纪律.md`，含决策 + 归谬推理 + 否决观点）；apply 时校验/完善
+- [x] 1.3 增补 `docs/architecture.md` §4 域间协作规则：deps 两大类、跨域白名单、service 公开方法两类、current-object 解析判据、域内 current-object 模式
+- [x] 1.4 更新 `docs/troubleshooting/deps-跨域两步与上帝service反模式.md` 的"规范对照"链接指向本 change 决策
 
 ## 2. catalog 域
 
