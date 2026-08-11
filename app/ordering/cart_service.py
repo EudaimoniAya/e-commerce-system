@@ -115,17 +115,10 @@ class CartService:
 
     async def update_qty(
         self,
-        user_id: uuid.UUID,
-        cart_item_id: uuid.UUID,
+        item: CartItem,
         qty: int,
     ) -> CartItemResponse:
-        """修改数量：须属当前用户 → 更新 qty。"""
-        item = await self._cart_repo.get_by_id(cart_item_id)
-        if item is None or str(item.user_id) != str(user_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cart item not found",
-            )
+        """修改数量：deps `get_current_cart_item` 已鉴权归属（非本人 404），仅更新 qty。"""
         item.qty = qty
         await self._session.commit()
         await self._session.refresh(item)
@@ -133,16 +126,9 @@ class CartService:
 
     async def delete_item(
         self,
-        user_id: uuid.UUID,
-        cart_item_id: uuid.UUID,
+        item: CartItem,
     ) -> None:
-        """删除行：须属当前用户 → 删除。"""
-        item = await self._cart_repo.get_by_id(cart_item_id)
-        if item is None or str(item.user_id) != str(user_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cart item not found",
-            )
+        """删除行：deps `get_current_cart_item` 已鉴权归属（非本人 404），直接删除。"""
         await self._cart_repo.delete(item)
         await self._session.commit()
 
@@ -321,22 +307,15 @@ class CartService:
 
     async def get_checkout_batch(
         self,
-        batch_id: uuid.UUID,
-        user_id: uuid.UUID,
+        batch: CheckoutBatch,
     ) -> CheckoutBatchResponse:
-        """查看结算批次详情：fetch/404 → 子订单（懒释放+items）→ 聚合 → 派生状态 → build schema。
+        """查看结算批次详情：子订单（懒释放+items）→ 聚合 → 派生状态 → build schema。
 
-        router 编排全收编：跨域上下文由 service 一步完成；schema 由 service 产出。
+        deps `get_current_checkout_batch` 已做买家鉴权（非本人 404，design Decision 4c）；
+        schema 由 service 产出。
         子订单数据经 OrderService.list_orders_by_checkout_batch（方案 A：order 数据访问留在 OrderService）。
         """
-        batch = await self._batch_repo.get_by_id(batch_id)
-        if batch is None or str(batch.buyer_user_id) != str(user_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Checkout batch not found",
-            )
-
-        orders = await self._order_service.list_orders_by_checkout_batch(batch_id)
+        orders = await self._order_service.list_orders_by_checkout_batch(batch.id)
 
         paid_total = Decimal("0.00")
         remaining_total = Decimal("0.00")

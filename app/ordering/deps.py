@@ -13,13 +13,15 @@ from app.infra.database import get_db
 from app.ordering.cart_repository import CartRepository
 from app.ordering.cart_service import CartService
 from app.ordering.checkout_batch_repository import CheckoutBatchRepository
-from app.ordering.models import Order
+from app.ordering.models import CartItem, CheckoutBatch, Order
 from app.ordering.repository import OrderItemRepository, OrderRepository
 from app.ordering.service import OrderService
 from app.user.deps import get_user_service
 from app.user.service import UserService
 
 _NOT_FOUND_MSG = "Order not found"
+_CART_ITEM_NOT_FOUND_MSG = "Cart item not found"
+_CHECKOUT_BATCH_NOT_FOUND_MSG = "Checkout batch not found"
 
 
 def get_cart_repository(
@@ -164,3 +166,47 @@ async def get_current_order_for_shop(
             detail=_NOT_FOUND_MSG,
         )
     return order
+
+
+async def get_current_cart_item(
+    cart_item_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    cart_repository: CartRepository = Depends(get_cart_repository),
+) -> CartItem:
+    """按路径参数 cart_item_id 解析购物车行（仓储纯定位 + 归属校验）；不存在或非本人 404。
+
+    先解析 user_id（若未认证 401），再查 cart_item。
+    纯读解析（design Decision 4b）：本域仓储直读 + 状态无关的归属比较，无副作用。
+    """
+    # user_id 先于 cart_item 解析，确保未认证时返回 401 而非 404
+    _ = user_id
+
+    item = await cart_repository.get_by_id(cart_item_id)
+    if item is None or str(item.user_id) != str(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_CART_ITEM_NOT_FOUND_MSG,
+        )
+    return item
+
+
+async def get_current_checkout_batch(
+    batch_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    batch_repository: CheckoutBatchRepository = Depends(get_checkout_batch_repository),
+) -> CheckoutBatch:
+    """按路径参数 batch_id 解析结算批次（仓储纯定位 + 买家校验）；不存在或非本人 404。
+
+    先解析 user_id（若未认证 401），再查 batch。
+    纯读解析（design Decision 4b）：本域仓储直读 + 状态无关的归属比较，无副作用。
+    """
+    # user_id 先于 batch 解析，确保未认证时返回 401 而非 404
+    _ = user_id
+
+    batch = await batch_repository.get_by_id(batch_id)
+    if batch is None or str(batch.buyer_user_id) != str(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_CHECKOUT_BATCH_NOT_FOUND_MSG,
+        )
+    return batch

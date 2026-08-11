@@ -25,10 +25,10 @@
 
 ## 4. cart 域
 
-- [ ] 4.1 `CartService.update_qty` / `delete_item` 鉴权收编：新增 `get_current_cart_item` deps（解析 cart_item + 归属校验），service 收已鉴权实体
-- [ ] 4.2 `checkout` 保留 service 逐笔校验（多 cart_item_ids，deps 单实体模式不适用；design Decision 8 documented）
-- [ ] 4.3 `get_checkout_batch` 鉴权收编：新增 `get_current_checkout_batch` deps（解析 batch + buyer 校验），service 收已鉴权 batch
-- [ ] 4.4 收尾：`devbox run -- task ci` 全绿，`tests/ordering` cart 相关全绿
+- [x] 4.1 `CartService.update_qty` / `delete_item` 鉴权收编：新增 `get_current_cart_item` deps（解析 cart_item + 归属校验），service 收已鉴权实体
+- [x] 4.2 `checkout` 保留 service 逐笔校验（多 cart_item_ids，deps 单实体模式不适用；design Decision 8 documented；`checkout` 已自含逐笔校验 + 单事务，无需改动）
+- [x] 4.3 `get_checkout_batch` 鉴权收编：新增 `get_current_checkout_batch` deps（解析 batch + buyer 校验），service 收已鉴权 batch
+- [x] 4.4 收尾：`devbox run -- task ci` 全绿（406 passed），`tests/ordering` cart 相关全绿
 
 ## 5. support 域
 

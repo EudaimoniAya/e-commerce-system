@@ -7,7 +7,12 @@ from fastapi.responses import JSONResponse, Response
 
 from app.infra.auth import get_current_user_id
 from app.ordering.cart_service import CartService
-from app.ordering.deps import get_cart_service
+from app.ordering.deps import (
+    get_cart_service,
+    get_current_cart_item,
+    get_current_checkout_batch,
+)
+from app.ordering.models import CartItem, CheckoutBatch
 from app.ordering.schemas import (
     CartItemCreate,
     CartItemResponse,
@@ -50,30 +55,21 @@ async def list_cart(
 
 @router.patch("/cart/items/{cart_item_id}", response_model=CartItemResponse)
 async def update_cart_item(
-    cart_item_id: uuid.UUID,
     body: CartItemUpdate,
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    item: CartItem = Depends(get_current_cart_item),
     service: CartService = Depends(get_cart_service),
 ) -> CartItemResponse:
-    """修改购物车行数量。"""
-    return await service.update_qty(
-        user_id=user_id,
-        cart_item_id=cart_item_id,
-        qty=body.qty,
-    )
+    """修改购物车行数量（deps 已鉴权归属）。"""
+    return await service.update_qty(item, qty=body.qty)
 
 
 @router.delete("/cart/items/{cart_item_id}", status_code=204)
 async def remove_cart_item(
-    cart_item_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    item: CartItem = Depends(get_current_cart_item),
     service: CartService = Depends(get_cart_service),
 ) -> Response:
-    """删除购物车行。"""
-    await service.delete_item(
-        user_id=user_id,
-        cart_item_id=cart_item_id,
-    )
+    """删除购物车行（deps 已鉴权归属）。"""
+    await service.delete_item(item)
     return Response(status_code=204)
 
 
@@ -96,9 +92,8 @@ async def checkout(
     response_model=CheckoutBatchResponse,
 )
 async def get_checkout_batch_detail(
-    batch_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    batch: CheckoutBatch = Depends(get_current_checkout_batch),
     service: CartService = Depends(get_cart_service),
 ) -> CheckoutBatchResponse:
-    """查看结算批次详情（含子订单、聚合金额、派生状态；schema 由 service 产出）。"""
-    return await service.get_checkout_batch(batch_id, user_id)
+    """查看结算批次详情（deps 已鉴权买家；子订单/聚合/派生状态/schema 由 service 产出）。"""
+    return await service.get_checkout_batch(batch)
