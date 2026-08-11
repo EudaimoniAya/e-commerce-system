@@ -32,10 +32,10 @@
 
 ## 5. support 域
 
-- [ ] 5.1 新增 `ShopService.get_my_shop_context(owner_user_id) -> ShopContext`（返上下文 schema）；support/deps.py 新增 `get_current_support_shop(user_id)` deps **只转发**（不建 schema；design Decision 4b 跨域解析）
-- [ ] 5.2 7 处店主路径升级：`list_inbox` / `get_inbox_conversation` / `list_inbox_messages` / `send_shop_message` 改经 `get_current_support_shop`，service 方法改收 `ShopContext`（**非 Shop ORM**，跨域禁 import ORM；design Decision 4b/4c），删除 `_get_current_shop_id` service 内自解析
-- [ ] 5.3 买家路径（`get_shop_context` + `_ensure_not_owner`）确认保留 service 自解析（跨域解析 catalog shop，非本域；design Decision 8 documented）
-- [ ] 5.4 收尾：`devbox run -- task ci` 全绿，`tests/support` integration 全绿
+- [x] 5.1 新增 `ShopService.get_my_shop_context(owner_user_id) -> ShopContext`（返上下文 schema）；support/deps.py 新增 `get_current_support_shop(user_id)` deps **只转发**（不建 schema；design Decision 4b 跨域解析）
+- [x] 5.2 店主路径升级：`list_inbox` / `get_inbox_conversation` / `list_inbox_messages` / `send_shop_message` 改经 `get_current_support_shop`，service 方法改收 `ShopContext`（**非 Shop ORM**，跨域禁 import ORM；design Decision 4b/4c），删除 `_get_current_shop_id` service 内自解析（注：实际店主路径 4 处，proposal "7 处"为早期盘点计数）
+- [x] 5.3 买家路径（`get_shop_context` + `_ensure_not_owner`）确认保留 service 自解析（跨域解析 catalog shop，非本域；design Decision 8 documented；无改动）
+- [x] 5.4 收尾：`devbox run -- task ci` 全绿（406 passed），`tests/support` integration 全绿
 
 ## 6. user 域
 
