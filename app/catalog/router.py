@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends, status
 from app.catalog.category_service import CategoryService
 from app.catalog.deps import (
     get_category_service,
+    get_current_product,
     get_current_shop,
     get_product_service,
     get_shop_service,
 )
-from app.catalog.models import Shop
+from app.catalog.models import Product, Shop
 from app.catalog.product_service import ProductService
 from app.catalog.schemas import (
     CategoryCreate,
@@ -98,13 +99,12 @@ async def create_product(
     "/products/{product_id}", response_model=ProductResponse, tags=["products"]
 )
 async def update_product(
-    product_id: uuid.UUID,
     body: ProductUpdate,
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    product: Product = Depends(get_current_product),
     service: ProductService = Depends(get_product_service),
 ) -> ProductResponse:
-    """店主更新本店商品。"""
-    return await service.update_product(product_id, user_id, body)
+    """店主更新本店商品（鉴权 + 归属由 get_current_product deps 完成）。"""
+    return await service.update_product(product, body)
 
 
 @router.post(

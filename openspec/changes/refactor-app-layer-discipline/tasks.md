@@ -7,10 +7,10 @@
 
 ## 2. catalog 域
 
-- [ ] 2.1 取消新增 `get_shop_or_404`（见 design Decision 4）；`get_current_shop` 保留直吃 `get_shop_repository`（本域纯读合规，无需改经 service）
-- [ ] 2.2 catalog/deps.py 新增 `get_current_product(product_id, user_id) -> Product`：**直吃本域仓储**（`get_product_repository` 解析 404 + `get_shop_repository` 归属校验）；`ProductService.update_product` 改收已鉴权实体（去 self 自解析鉴权），router 改用 `get_current_product`
-- [ ] 2.3 确认 `get_current_shop` 仓储直读保留（纯读合规）；验证 catalog 域内 import 全部合规（域内 models/repository 允许，跨域白名单不误伤）
-- [ ] 2.4 收尾：`devbox run -- task ci` 全绿，`tests/catalog` integration 全绿
+- [x] 2.1 取消新增 `get_shop_or_404`（见 design Decision 4）；`get_current_shop` 保留直吃 `get_shop_repository`（本域纯读合规，无需改经 service）
+- [x] 2.2 catalog/deps.py 新增 `get_current_product(product_id, user_id) -> Product`：**直吃本域仓储**（`get_product_repository` 解析 404 + `get_shop_repository` 归属校验）；`ProductService.update_product` 改收已鉴权实体（去 self 自解析鉴权），router 改用 `get_current_product`
+- [x] 2.3 确认 `get_current_shop` 仓储直读保留（纯读合规）；验证 catalog 域内 import 全部合规（域内 models/repository 允许，跨域白名单不误伤）
+- [x] 2.4 收尾：`devbox run -- task ci` 全绿，`tests/catalog` integration 全绿
 
 ## 3. ordering 域
 

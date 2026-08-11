@@ -23,7 +23,6 @@ from app.media.service import MediaService
 _PRODUCT_NOT_FOUND_MSG = "Product not found"
 _SHOP_CLOSED_MSG = "Shop is closed"
 _CATEGORY_NOT_FOUND_MSG = "One or more categories not found"
-_FORBIDDEN_PRODUCT_MSG = "Not allowed to modify this product"
 _PRODUCT_REF_INVALID_MSG = "Product ref not found or not in this shop"
 
 
@@ -141,27 +140,17 @@ class ProductService:
 
     async def update_product(
         self,
-        product_id: uuid.UUID,
-        owner_user_id: uuid.UUID,
+        product: Product,
         data: ProductUpdate,
     ) -> ProductResponse:
-        """店主更新本店商品。"""
-        product = await self._product_repository.get_by_id(product_id)
-        if product is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=_PRODUCT_NOT_FOUND_MSG,
-            )
+        """店主更新本店商品（``product`` 已由 ``get_current_product`` deps 鉴权解析）。
 
+        店铺 closed 校验是状态依赖（Decision 4b 鉴权切分），归 service 方法内。
+        """
         # 经 shop service 取本店上下文，避免 product → shop ORM 泄漏（design Risk 表）
         shop = await self._shop_service.get_shop_context(
             uuid.UUID(str(product.shop_id))
         )
-        if str(shop.owner_user_id) != str(owner_user_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=_FORBIDDEN_PRODUCT_MSG,
-            )
         if shop.status == "closed":
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -185,7 +174,7 @@ class ProductService:
             new_primary = updates["primary_media_id"]
             if new_primary is not None:
                 await self._media_service.assert_owned_by(
-                    new_primary, str(owner_user_id)
+                    new_primary, shop.owner_user_id
                 )
                 await self._media_service.assert_image_content_type(new_primary)
                 await self._media_service.mark_public(new_primary)
@@ -197,13 +186,13 @@ class ProductService:
             primary_category_id = uuid.UUID(data.primary_category_id)
             await self._ensure_categories_exist(category_ids)
             await self._product_repository.replace_categories(
-                product_id,
+                product.id,
                 category_ids,
                 primary_category_id,
             )
 
         updated = await self._product_repository.save(product)
-        categories = await self._load_product_categories(product_id)
+        categories = await self._load_product_categories(product.id)
         image_url = await resolve_single_url(
             self._media_service, updated.primary_media_id
         )
