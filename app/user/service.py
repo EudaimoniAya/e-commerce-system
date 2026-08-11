@@ -8,6 +8,7 @@ from pwdlib import PasswordHash
 
 from app.infra.auth import create_access_token
 from app.media.service import MediaService
+from app.user.models import User
 from app.user.phone import normalize_phone
 from app.user.repository import UserRepository
 from app.user.schemas import (
@@ -176,17 +177,12 @@ class UserService:
             )
         return UserSummary(id=str(user.id), nickname=user.nickname)
 
-    async def get_user_response(self, user_id: uuid.UUID) -> UserResponse:
-        """查询当前用户资料：fetch → 404 → 解析 avatar → 私有映射。
+    async def get_user_response(self, user: User) -> UserResponse:
+        """查询当前用户资料：解析 avatar → 私有映射。
 
-        读路径 schema 出口（`GET /users/me`）；401 语义由 `get_current_user_id` 保留。
+        读路径 schema 出口（`GET /users/me`）；实体由 deps `get_current_user`
+        解析（用户不存在 404，design Decision 4b 纯读解析），service 不再自解析。
         """
-        user = await self._repository.get_by_id(user_id)
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
-            )
         avatar_url = await _resolve_avatar_url(self._media_service, user)
         return _to_user_response(user, avatar_url=avatar_url)
 

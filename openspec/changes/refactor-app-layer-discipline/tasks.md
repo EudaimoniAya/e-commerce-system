@@ -39,9 +39,9 @@
 
 ## 6. user 域
 
-- [ ] 6.1 user/deps.py 新增 `get_current_user` deps（本域仓储直读，返 User ORM）；`get_user_response` 改收 User 实体（推翻 Phase B service 内自解析）
-- [ ] 6.2 `update_profile` 确认保留：user_id 是业务参数（更新当前用户自己资料，get_by_id 读自身实体），非自解析鉴权；design Decision 8 documented
-- [ ] 6.3 收尾：`devbox run -- task ci` 全绿，`tests/user` integration 全绿
+- [x] 6.1 user/deps.py 新增 `get_current_user` deps（本域仓储直读，返 User ORM）；`get_user_response` 改收 User 实体（推翻 Phase B service 内自解析）
+- [x] 6.2 `update_profile` 确认保留：user_id 是业务参数（更新当前用户自己资料，get_by_id 读自身实体），非自解析鉴权；design Decision 8 documented；无改动
+- [x] 6.3 收尾：`devbox run -- task ci` 全绿（406 passed），`tests/user` integration 全绿
 
 ## 7. AST lint 强制
 

@@ -5,7 +5,8 @@ import uuid
 from fastapi import APIRouter, Depends, Response, status
 
 from app.infra.auth import get_current_user_id
-from app.user.deps import get_user_service
+from app.user.deps import get_current_user, get_user_service
+from app.user.models import User
 from app.user.schemas import (
     LoginRequest,
     SmsLoginRequest,
@@ -63,11 +64,11 @@ async def login(
 
 @router.get("/users/me", response_model=UserResponse)
 async def read_current_user(
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
 ) -> UserResponse:
-    """返回当前认证用户资料（fetch/avatar/映射由 service 产出）。"""
-    return await service.get_user_response(user_id)
+    """返回当前认证用户资料（deps 已解析实体；avatar/映射由 service 产出）。"""
+    return await service.get_user_response(user)
 
 
 @router.patch("/users/me", response_model=UserResponse)
