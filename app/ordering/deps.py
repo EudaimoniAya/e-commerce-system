@@ -80,30 +80,31 @@ def get_cart_service(
     return CartService(session, cart_repo, product_service, batch_repo, order_service)
 
 
-async def get_order_by_id(
+async def get_current_order(
     order_id: uuid.UUID,
     user_id: uuid.UUID = Depends(get_current_user_id),
-    service: OrderService = Depends(get_order_service),
+    order_repository: OrderRepository = Depends(get_order_repository),
 ) -> Order:
-    """按路径参数 order_id 解析订单；不存在时 404；读时触发懒释放。
+    """按路径参数 order_id 解析订单（仓储纯定位，无副作用）；不存在时 404。
 
     先解析 user_id（若未认证 401），再查订单。
+    不触发懒释放、不加载 items、不建 schema——懒释放/items 属业务读，归 service
+    业务方法（design Decision 4b 业务读）；仅基础 deps 无 service 依赖（4c 无副作用）。
     """
     # user_id 先于 order 解析，确保未认证时返回 401 而非 404
     _ = user_id
 
-    order = await service.get_order_or_404(order_id)
-
-    # 读时懒释放（expire_if_needed 内部会 commit 过期变更）
-    expired = await service.expire_if_needed(order)
-    if expired:
-        order = await service.get_order_or_404(order_id)
-
+    order = await order_repository.get_by_id(order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_NOT_FOUND_MSG,
+        )
     return order
 
 
-async def get_order_for_buyer(
-    order: Order = Depends(get_order_by_id),
+async def get_current_order_for_buyer(
+    order: Order = Depends(get_current_order),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Order:
     """买家视角：仅允许买家本人访问自己的订单，否则 404。"""
@@ -115,8 +116,8 @@ async def get_order_for_buyer(
     return order
 
 
-async def get_order_for_buyer_or_shop(
-    order: Order = Depends(get_order_by_id),
+async def get_current_order_for_buyer_or_shop(
+    order: Order = Depends(get_current_order),
     user_id: uuid.UUID = Depends(get_current_user_id),
     shop_service: ShopService = Depends(get_shop_service),
 ) -> Order:
@@ -138,3 +139,28 @@ async def get_order_for_buyer_or_shop(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=_NOT_FOUND_MSG,
     )
+
+
+async def get_current_order_for_shop(
+    order: Order = Depends(get_current_order),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    shop_service: ShopService = Depends(get_shop_service),
+) -> Order:
+    """店主视角：仅允许订单所属店铺的店主发货；非本店或用户无店时 404。
+
+    跨域解析 catalog shop 经 ShopService.get_my_shop（service 公开方法，合法）；
+    deps 只转发不建 schema（design Decision 4b 跨域解析）。
+    """
+    try:
+        shop = await shop_service.get_my_shop(user_id)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_NOT_FOUND_MSG,
+        ) from None
+    if str(shop.id) != str(order.shop_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_NOT_FOUND_MSG,
+        )
+    return order

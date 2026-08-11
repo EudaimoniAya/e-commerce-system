@@ -8,9 +8,9 @@ from app.infra.auth import get_current_user_id
 from app.infra.pagination.deps import get_pagination_params
 from app.infra.pagination.schemas import PaginationParams
 from app.ordering.deps import (
-    get_order_by_id,
-    get_order_for_buyer,
-    get_order_for_buyer_or_shop,
+    get_current_order_for_buyer,
+    get_current_order_for_buyer_or_shop,
+    get_current_order_for_shop,
     get_order_service,
 )
 from app.ordering.models import Order
@@ -116,15 +116,14 @@ async def list_my_orders(
     tags=["orders"],
 )
 async def get_order(
-    order_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    order: Order = Depends(get_current_order_for_buyer_or_shop),
     service: OrderService = Depends(get_order_service),
 ) -> OrderResponse:
-    """买家或本店店主查看订单详情（触发懒释放 + 鉴权 + 映射）。
+    """买家或本店店主查看订单详情（deps 已鉴权）。
 
-    deps 只解析 user_id（未认证 401）；fetch/鉴权/schema 全由 service 产出。
+    懒释放/items 数据准备/映射由 service.get_order_response 内部完成。
     """
-    return await service.get_order_response(order_id, user_id)
+    return await service.get_order_response(order)
 
 
 # ── 支付桩 ───────────────────────────────────────────────
@@ -136,12 +135,11 @@ async def get_order(
     tags=["orders"],
 )
 async def pay_order(
-    order: Order = Depends(get_order_by_id),
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    order: Order = Depends(get_current_order_for_buyer),
     service: OrderService = Depends(get_order_service),
 ) -> OrderResponse:
-    """买家支付桩：awaiting_payment → confirmed。"""
-    return await service.pay_order(user_id, order)
+    """买家支付桩：awaiting_payment → confirmed（deps 已鉴权买家）。"""
+    return await service.pay_order(order)
 
 
 # ── 发货 ─────────────────────────────────────────────────
@@ -155,12 +153,11 @@ async def pay_order(
 )
 async def create_shipment(
     body: ShipmentCreate,
-    order: Order = Depends(get_order_by_id),
+    order: Order = Depends(get_current_order_for_shop),
     service: OrderService = Depends(get_order_service),
-    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> OrderResponse:
-    """店主发货：confirmed → shipped。"""
-    return await service.create_shipment(user_id, order, note=body.note)
+    """店主发货：confirmed → shipped（deps 已鉴权店主）。"""
+    return await service.create_shipment(order, note=body.note)
 
 
 # ── 确认收货 ─────────────────────────────────────────────
@@ -172,7 +169,7 @@ async def create_shipment(
     tags=["orders"],
 )
 async def confirm_receipt(
-    order: Order = Depends(get_order_for_buyer),
+    order: Order = Depends(get_current_order_for_buyer),
     service: OrderService = Depends(get_order_service),
 ) -> OrderResponse:
     """买家确认收货：shipped → completed。"""
@@ -188,11 +185,14 @@ async def confirm_receipt(
     tags=["orders"],
 )
 async def cancel_order(
-    order: Order = Depends(get_order_for_buyer_or_shop),
+    order: Order = Depends(get_current_order_for_buyer_or_shop),
     user_id: uuid.UUID = Depends(get_current_user_id),
     service: OrderService = Depends(get_order_service),
 ) -> OrderResponse:
-    """买家或店主取消订单（awaiting_payment / confirmed / shipped → cancelled）。"""
+    """买家或店主取消订单（awaiting_payment / confirmed / shipped → cancelled）。
+
+    user_id 是业务参数：service 按调用方角色选择 cancel_reason（buyer/seller）。
+    """
     return await service.cancel_order(user_id, order)
 
 

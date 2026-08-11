@@ -330,17 +330,12 @@ class OrderService:
 
     # ── 支付桩 ──────────────────────────────────────────────
 
-    async def pay_order(self, user_id: uuid.UUID, order: Order) -> OrderResponse:
-        """支付桩：非买家 403 → 检查过期（409）→ 条件迁移到 confirmed。
+    async def pay_order(self, order: Order) -> OrderResponse:
+        """支付桩：检查过期（409）→ 条件迁移到 confirmed。
 
-        buyer 校验由本方法负责（router 只传 user_id）。
+        buyer 鉴权已由 deps `get_current_order_for_buyer` 完成（非买家 404，
+        design Decision 4c 归属失败统一 404）。
         """
-        if str(order.buyer_user_id) != str(user_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only the buyer can pay for this order",
-            )
-
         expired = await self.expire_if_needed(order)
         if expired:
             raise HTTPException(
@@ -368,27 +363,14 @@ class OrderService:
 
     async def create_shipment(
         self,
-        user_id: uuid.UUID,
         order: Order,
         note: str | None = None,
     ) -> OrderResponse:
-        """卖家发货：校验本店归属（403）→ 条件迁移 confirmed → shipped。
+        """卖家发货：条件迁移 confirmed → shipped。
 
-        店铺归属由本方法经 catalog 解析（router 不再编排）。
+        店主归属已由 deps `get_current_order_for_shop` 完成（非本店 404，
+        design Decision 4c 归属失败统一 404）。
         """
-        try:
-            shop = await self._shops.get_my_shop(user_id)
-        except HTTPException:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not your shop's order",
-            ) from None
-        if str(order.shop_id) != str(shop.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not your shop's order",
-            )
-
         updated = await self._order_repo.update_status(
             order.id,
             from_statuses={"confirmed"},
@@ -435,10 +417,15 @@ class OrderService:
         user_id: uuid.UUID,
         order: Order,
     ) -> OrderResponse:
-        """取消订单（买家/卖家）：条件迁移 → cancelled + 释放库存。
+        """取消订单（买家/卖家）：self-expire → 条件迁移 → cancelled + 释放库存。
 
-        cancel_reason 由本方法按角色选择（router 只传 user_id）。
+        cancel_reason 由本方法按角色选择（deps 无法判定调用方角色，user_id 是业务参数）。
+        开头 self-expire：deps 纯化后不再先触发懒释放，服务方法自含业务完整性
+        （design Decision 4c）；过期订单 → update_status 无匹配行 → 409。
         """
+        # self-expire：过期 awaiting_payment 先终态化 + 释放库存，再进入取消流程
+        await self.expire_if_needed(order)
+
         is_buyer = str(order.buyer_user_id) == str(user_id)
         cancel_reason = "buyer_cancelled" if is_buyer else "seller_cancelled"
         updated = await self._order_repo.update_status(
@@ -527,52 +514,35 @@ class OrderService:
             result.append(refreshed)
         return result
 
-    async def get_order_or_404(
+    async def _get_order_or_404(
         self,
         order_id: uuid.UUID,
     ) -> Order:
-        """按 ID 查询订单，不存在时 404。"""
+        """按 ID 查询订单（不含 items），不存在时 404。
+
+        私有 helper，仅 service 读方法内部懒释放后重取用（design Decision 4 私有化；
+        不为 deps 提供返 ORM 公开 getter）。
+        """
         order = await self._order_repo.get_by_id(order_id)
         if order is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=_NOT_FOUND_MSG,
             )
-        order.items = await self._item_repo.list_by_order_id(order.id)
         return order
 
-    async def get_order_response(
-        self,
-        order_id: uuid.UUID,
-        user_id: uuid.UUID,
-    ) -> OrderResponse:
-        """买家或本店店主查看订单详情：fetch → 404 → 懒释放 → 鉴权 → 映射。
+    async def get_order_response(self, order: Order) -> OrderResponse:
+        """买家或本店店主查看订单详情：懒释放 → 重取 → items → 映射。
 
-        读路径 schema 唯一出口；router 只传 order_id + user_id。
-        鉴权语义与 deps `get_order_for_buyer_or_shop` 一致：非买家且非本店店主 → 404。
+        读路径 schema 唯一出口；deps `get_current_order_for_buyer_or_shop` 已做归属鉴权
+        （非买家且非本店店主 404），此处只完成业务读（懒释放 + 数据准备 + 映射）。
         """
-        order = await self.get_order_or_404(order_id)
-
         # 懒释放（expire_if_needed 内部会 commit 过期变更）
         expired = await self.expire_if_needed(order)
         if expired:
-            order = await self.get_order_or_404(order_id)
+            order = await self._get_order_or_404(order.id)
 
-        # 买家或本店店主，否则 404
-        if str(order.buyer_user_id) != str(user_id):
-            try:
-                shop = await self._shops.get_my_shop(user_id)
-            except HTTPException:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=_NOT_FOUND_MSG,
-                ) from None
-            if str(shop.id) != str(order.shop_id):
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=_NOT_FOUND_MSG,
-                )
-
+        order.items = await self._item_repo.list_by_order_id(order.id)
         return _to_order_response(order)
 
     # ── 批量支付 ──────────────────────────────────────────────

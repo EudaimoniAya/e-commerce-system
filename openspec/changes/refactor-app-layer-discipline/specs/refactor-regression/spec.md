@@ -19,6 +19,7 @@
 
 - **WHEN** 客户端调用既有 ordering 端点（下单、支付、发货、取消、买家/店主订单列表、batch-pay）
 - **THEN** 响应 status code 与 response body 结构 SHALL 与 refactor 前一致
+- **AND** 例外（design Decision 4c 归属失败统一 404）：`pay_order` 非买家、`create_shipment` 非本店店主由 403 统一为 404（不泄漏存在性；断言见 `tests/ordering/test_pay_order.py` / `test_shipments_and_receipt.py`）
 
 #### Scenario: Cart flows unchanged for clients
 

@@ -14,14 +14,14 @@
 
 ## 3. ordering 域
 
-- [ ] 3.1 ordering/deps.py 命名统一：`get_order_by_id` → `get_current_order`、`get_order_for_buyer` → `get_current_order_for_buyer`、`get_order_for_buyer_or_shop` → `get_current_order_for_buyer_or_shop`；同步所有 router `Depends` 引用
-- [ ] 3.2 `get_current_order` 基础 deps 改**仓储纯定位**（`get_order_repository` 直读 + 404，删 `service.get_order_or_404` / `expire_if_needed` 调用；**仅基础 deps 无 service 依赖**——派生鉴权 deps 如 `get_current_order_for_buyer_or_shop` 仍吃 `ShopService.get_my_shop`，跨域 service 合法；无副作用；design Decision 4b/4c）
-- [ ] 3.3 `pay_order` 鉴权收编：router 改用 `get_current_order_for_buyer`，`OrderService.pay_order` 改收已鉴权 Order（去 buyer 校验）
-- [ ] 3.4 `create_shipment` 鉴权收编：新增店主视角 deps（`get_current_order_for_shop`，内部吃 `ShopService.get_my_shop`），service 改收已鉴权 Order
-- [ ] 3.5 读路径推翻 Phase B：router 用 `get_current_order_for_buyer_or_shop` 拿已鉴权 Order，`service.get_order_response(order)` 收实体**内部懒释放 + items 数据准备 + 映射**；`get_order_or_404` 私有化 `_get_order_or_404`
-- [ ] 3.6 `cancel_order` 补 self-expire（开头 `await self.expire_if_needed(order)`，仿 pay_order）——deps 纯化后不先触发懒释放，服务方法自含业务完整性（Decision 4c）；保留过期订单取消 409 语义
-- [ ] 3.7 `batch_pay` 保留 service 逐笔校验（多 order_ids，deps 单实体模式不适用；design Decision 8 documented）
-- [ ] 3.8 收尾：`devbox run -- task ci` 全绿，`tests/ordering` integration 全绿
+- [x] 3.1 ordering/deps.py 命名统一：`get_order_by_id` → `get_current_order`、`get_order_for_buyer` → `get_current_order_for_buyer`、`get_order_for_buyer_or_shop` → `get_current_order_for_buyer_or_shop`；同步所有 router `Depends` 引用
+- [x] 3.2 `get_current_order` 基础 deps 改**仓储纯定位**（`get_order_repository` 直读 + 404，删 `service.get_order_or_404` / `expire_if_needed` 调用；**仅基础 deps 无 service 依赖**——派生鉴权 deps 如 `get_current_order_for_buyer_or_shop` 仍吃 `ShopService.get_my_shop`，跨域 service 合法；无副作用；design Decision 4b/4c）
+- [x] 3.3 `pay_order` 鉴权收编：router 改用 `get_current_order_for_buyer`，`OrderService.pay_order` 改收已鉴权 Order（去 buyer 校验；非买家 403→404，design Decision 4c 归属失败统一 404）
+- [x] 3.4 `create_shipment` 鉴权收编：新增店主视角 deps（`get_current_order_for_shop`，内部吃 `ShopService.get_my_shop`），service 改收已鉴权 Order（非本店 403→404，design Decision 4c）
+- [x] 3.5 读路径推翻 Phase B：router 用 `get_current_order_for_buyer_or_shop` 拿已鉴权 Order，`service.get_order_response(order)` 收实体**内部懒释放 + items 数据准备 + 映射**；`get_order_or_404` 私有化 `_get_order_or_404`
+- [x] 3.6 `cancel_order` 补 self-expire（开头 `await self.expire_if_needed(order)`，仿 pay_order）——deps 纯化后不先触发懒释放，服务方法自含业务完整性（Decision 4c）；保留过期订单取消 409 语义
+- [x] 3.7 `batch_pay` 保留 service 逐笔校验（多 order_ids，deps 单实体模式不适用；design Decision 8 documented；`batch_pay_orders` 已自含逐笔校验 + self-expire，无需改动）
+- [x] 3.8 收尾：`devbox run -- task ci` 全绿（406 passed），`tests/ordering` integration 全绿（79 passed）
 
 ## 4. cart 域
 
