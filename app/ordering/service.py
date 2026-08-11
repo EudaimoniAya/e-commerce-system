@@ -35,10 +35,10 @@ def _to_items_list(
     return [{"product_id": pid, "qty": qty} for pid, qty in items]
 
 
-def _to_order_response(order: Order) -> OrderResponse:
+def to_order_response(order: Order) -> OrderResponse:
     """ORM Order → OrderResponse（含 items）。
 
-    模块级私有映射（与 catalog / user / engagement / support 各域 `_to_*` 一致）；
+    被 cart_service 跨模块消费，故公开（design Decision 4c：跨模块消费不得是私有）；
     ordering 域内 service 与 deps 均可调用，router 不做 ORM 映射。
     """
     return OrderResponse(
@@ -124,7 +124,7 @@ class OrderService:
 
     # ── 创建（内核） ────────────────────────────────────────
 
-    async def _create_order_core(
+    async def create_order_core(
         self,
         buyer_user_id: uuid.UUID,
         items: list[tuple[str, int]],
@@ -136,6 +136,8 @@ class OrderService:
     ) -> Order:
         """建单内核：校验商品可购/库存 → 预留 → 建单。
 
+        被 cart_service 跨模块调用（checkout），故公开（design Decision 4c：
+        跨模块消费不得是私有）；参数显式传入，完整性由调用方编排。
         - buyer 路径：expected_shop_id=None，shop_id 由商品推导
         - seller 路径：expected_shop_id=卖家店铺，所有商品必须归属该店
         自购校验由内核统一处理（owner_id 从商品推导）。
@@ -265,12 +267,12 @@ class OrderService:
         items: list[tuple[str, int]],
     ) -> OrderResponse:
         """买家建单：委托内核（initiated_by=buyer，shop 由商品推导）。"""
-        order = await self._create_order_core(
+        order = await self.create_order_core(
             buyer_user_id,
             items,
             initiated_by="buyer",
         )
-        return _to_order_response(order)
+        return to_order_response(order)
 
     # ── 卖家建单 ────────────────────────────────────────────
 
@@ -320,13 +322,13 @@ class OrderService:
         # 校验买家存在且 active（不存在→404，禁用→422）
         await self._user_service.get_user_summary(str(buyer_user_id))
 
-        order = await self._create_order_core(
+        order = await self.create_order_core(
             buyer_user_id,
             items,
             initiated_by="seller",
             expected_shop_id=seller_shop_id,
         )
-        return _to_order_response(order)
+        return to_order_response(order)
 
     # ── 支付桩 ──────────────────────────────────────────────
 
@@ -357,7 +359,7 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = await self._item_repo.list_by_order_id(order.id)
-        return _to_order_response(order)
+        return to_order_response(order)
 
     # ── 发货 ────────────────────────────────────────────────
 
@@ -388,7 +390,7 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = await self._item_repo.list_by_order_id(order.id)
-        return _to_order_response(order)
+        return to_order_response(order)
 
     # ── 确认收货 ────────────────────────────────────────────
 
@@ -408,7 +410,7 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = await self._item_repo.list_by_order_id(order.id)
-        return _to_order_response(order)
+        return to_order_response(order)
 
     # ── 取消 ────────────────────────────────────────────────
 
@@ -447,7 +449,7 @@ class OrderService:
         await self._session.commit()
         await self._session.refresh(order)
         order.items = items
-        return _to_order_response(order)
+        return to_order_response(order)
 
     # ── 列表 ────────────────────────────────────────────────
 
@@ -468,7 +470,7 @@ class OrderService:
         for order in orders:
             await self.expire_if_needed(order)
             order.items = await self._item_repo.list_by_order_id(order.id)
-            items.append(_to_order_response(order))
+            items.append(to_order_response(order))
         return PaginatedOrders(items=items, total=total, limit=limit, offset=offset)
 
     async def list_shop_orders(
@@ -490,7 +492,7 @@ class OrderService:
         for order in orders:
             await self.expire_if_needed(order)
             order.items = await self._item_repo.list_by_order_id(order.id)
-            items.append(_to_order_response(order))
+            items.append(to_order_response(order))
         return PaginatedOrders(items=items, total=total, limit=limit, offset=offset)
 
     async def list_orders_by_checkout_batch(
@@ -543,7 +545,7 @@ class OrderService:
             order = await self._get_order_or_404(order.id)
 
         order.items = await self._item_repo.list_by_order_id(order.id)
-        return _to_order_response(order)
+        return to_order_response(order)
 
     # ── 批量支付 ──────────────────────────────────────────────
 
@@ -616,4 +618,4 @@ class OrderService:
             order.items = await self._item_repo.list_by_order_id(order.id)
             result.append(order)
 
-        return BatchPayResponse(orders=[_to_order_response(o) for o in result])
+        return BatchPayResponse(orders=[to_order_response(o) for o in result])

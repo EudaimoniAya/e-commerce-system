@@ -45,7 +45,7 @@
 
 ## 7. AST lint 强制
 
-- [ ] 7.1 新增 `scripts/check_app_layer_discipline.py`（Python AST）：`_*` 私有名不跨模块、跨域白名单（service/schemas/service-provider deps；current-object deps **禁跨域仓储/ORM、放行本域仓储直读**）、`get_current_*` 仅被本域 router 消费、**私有方法跨模块/跨域消费收编**（`cart_service → _create_order_core` 违规，design Decision 4c）
-- [ ] 7.2 Taskfile 新增 `check-app-layer-discipline` task 并挂进 `task ci`（仿 `check-test-imports` 模式）
-- [ ] 7.3 AST 脚本对 `app/` 全量跑通（放行域内、拦跨域违规）；启发式结构规则（薄 router / 上帝 service）降为警告或暂不启用
-- [ ] 7.4 全 change 收尾：`devbox run -- task ci` 全绿（pytest 406 量级 + 新 lint gate 全过），`refactor-regression` spec 验证通过
+- [x] 7.1 新增 `scripts/check_app_layer_discipline.py`（Python AST）：`_*` 私有名不跨模块、跨域白名单（service/schemas/service-provider deps；`require_admin` 显式白名单例外——纯横切鉴权 gate，design Decision 4 引为先例，用户拍板）、`get_current_*` 仅被本域 router 消费、私有方法跨模块消费（`self.<注入>.<_private>`）
+- [x] 7.2 Taskfile 新增 `check-app-layer-discipline` task 并挂进 `task ci`（仿 `check-test-imports` 模式）
+- [x] 7.3 AST 脚本对 `app/` 全量跑通（放行域内/白名单、拦违规；16 场景合成验证）；结构规则（薄 router / 上帝 service）暂不启用；**4c 收编**：`_create_order_core` → `create_order_core`、`_to_order_response` → `to_order_response`（被 cart_service 跨模块消费，改公开）
+- [x] 7.4 全 change 收尾：`devbox run -- task ci` 全绿（pytest 406 passed + 新 lint gate 全过），`refactor-regression` spec 验证通过
