@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.category_service import CategoryService
-from app.catalog.models import Shop
+from app.catalog.models import Product, Shop
 from app.catalog.product_service import ProductService
 from app.catalog.repository import (
     CategoryRepository,
@@ -20,6 +20,8 @@ from app.media.deps import get_media_service
 from app.media.service import MediaService
 
 _SHOP_NOT_FOUND_MSG = "Shop not found"
+_PRODUCT_NOT_FOUND_MSG = "Product not found"
+_FORBIDDEN_PRODUCT_MSG = "Not allowed to modify this product"
 
 
 def get_shop_repository(
@@ -89,3 +91,34 @@ async def get_current_shop(
             detail=_SHOP_NOT_FOUND_MSG,
         )
     return shop
+
+
+async def get_current_product(
+    product_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    product_repository: ProductRepository = Depends(get_product_repository),
+    shop_repository: ShopRepository = Depends(get_shop_repository),
+) -> Product:
+    """解析 JWT 并查库返回当前用户有权编辑的商品；商品不存在 404、非本店 403。
+
+    归属校验是鉴权不是业务：product 归属 shop、shop 归 owner 是无状态读比较，
+    按 design Decision 4b 归纯读解析，由组合根（本域仓储直读）完成，不经 service。
+    """
+    product = await product_repository.get_by_id(product_id)
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_PRODUCT_NOT_FOUND_MSG,
+        )
+    shop = await shop_repository.get_by_id(product.shop_id)
+    if shop is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_SHOP_NOT_FOUND_MSG,
+        )
+    if str(shop.owner_user_id) != str(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_PRODUCT_MSG,
+        )
+    return product

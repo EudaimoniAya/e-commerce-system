@@ -1,0 +1,114 @@
+---
+description: 应用层边界纪律：deps 组合根（装配自由 + 无副作用）、service 业务边界（schema 出口 + 业务方法）、current-object 解析判据、跨域白名单、`_*` 私有名不跨模块
+globs: app/**/*.py
+alwaysApply: false
+---
+
+# 应用层边界纪律（deps / service / router）
+
+本项目分层：**router（HTTP）→ deps（依赖装配 + 请求上下文解析）→ service（业务）→ repository → ORM**。本规则定稿三层的职责边界，防止 AI 在 deps / service / router 边界上做任意取舍（四反模式①建 schema ②跨域 ③跨域两步 ④上帝 service 的根因）。
+
+决策依据：[ADR-010](../../docs/decision/ADR-010-应用层边界纪律.md)；细则见 `openspec/changes/refactor-app-layer-discipline/design.md`（Decision 4 / 4b / 4c）。
+
+## 一、deps：组合根——装配自由 + 无副作用
+
+**deps 两大类**：
+
+| 类 | 成员 | 职责 | 消费方 |
+|----|------|------|--------|
+| 装配类 | `get_*_repository` / `get_*_service` | 构建依赖对象树 | 本域 service 构造器 / 本域 router / 其他 service deps |
+| 解析类 | `get_current_*` | 鉴权 + 解析请求上下文实体/原语 | **仅本域 router** |
+
+**铁律（deps 无副作用）**：deps 只做**注入 + 存在性定位（404）+ 状态无关的归属比较**；不触发写、不建 schema、不做业务数据准备。
+
+**装配自由**：deps 可直吃**本域仓储**做纯读解析；跨域只经对方 service 公开方法。**"本域"是硬边界**——跨域仓储/ORM import 仍禁（见 cross-domain-imports 规则）。
+
+**current-object 解析判据（三分类）**——先问"解析是否携带业务"：
+
+| 类 | 解析性质 | 走哪 |
+|----|---------|------|
+| 纯读解析 | 查实体 + 404 + 状态无关归属比较，无副作用 | 本域仓储直读 |
+| 业务读 | 解析伴随业务副作用（如懒释放） | deps 纯定位 + service 读方法内完成 |
+| 跨域解析 | 本域 deps 解析别域实体 | 对方 service 公开方法（schema），deps 只转发不建 schema |
+
+**鉴权切分**：状态无关归属比较（buyer/owner/user）→ deps；状态依赖校验（过期 / 可支付 / 店铺关闭）→ service 方法内。
+
+```python
+# ✓ 纯读：本域仓储直读（组合根职责）
+async def get_current_shop(user_id, repository=Depends(get_shop_repository)) -> Shop:
+    shop = await repository.get_by_owner_user_id(user_id)
+    if shop is None: raise HTTPException(status_code=404, detail="Shop not found")
+    return shop
+
+# ✓ 业务读：deps 纯定位，副作用在 service 读方法内
+async def get_current_order(order_id, repository=Depends(get_order_repository)) -> Order:
+    order = await repository.get_by_id(order_id)
+    if order is None: raise HTTPException(status_code=404, detail="Order not found")
+    return order  # 懒释放由 get_order_response(order) 内部做
+
+# ✗ 反向倒灌：让 service 为 deps 造透传 getter / deps 触发写
+async def get_current_order(order_id, service=Depends(get_order_service)):
+    order = await service.get_order_or_404(order_id)   # ✗ service 造返 ORM 公开 getter
+    await service.expire_if_needed(order)              # ✗ deps 触发写副作用
+```
+
+## 二、service：业务逻辑 + schema 权威出口
+
+**service 公开方法仅两类**：
+- **返 schema 的**（跨域/响应）：`get_my_shop` → `ShopResponse`。
+- **业务方法**（含业务读）：`expire_if_needed`；`get_order_response(order)` 收已鉴权实体后内部懒释放 + 数据准备 + 映射。
+
+**不为 deps 造返 ORM 的公开 getter**（`get_shop_or_404` 不新增、`get_order_or_404` 私有化 `_get_order_or_404`）。命名：`get_*` 公开 / `_to_*` 私有映射 / `_get_<entity>_or_404` 私有 helper。
+
+**铁律（方法自含业务完整性）**：service 方法不依赖调用方/deps 先触发业务前置（`cancel_order` 补 `expire_if_needed` 为模板）；**被跨模块/跨域消费的方法不得是私有，且自含完整性前置或显式参数传入**。
+
+```python
+# ✓ 方法自含业务完整性（cancel 模板）
+async def cancel_order(self, user_id, order) -> OrderResponse:
+    await self.expire_if_needed(order)  # 业务前置自含，不依赖 deps
+    ...
+
+# ✗ 私有方法被跨模块调用
+async def _create_order_core(self, ...): ...   # 被 cart_service 跨模块调 = 违规
+```
+
+## 三、router：薄，且不得直接序列化 deps 实体
+
+- router 拿 deps 实体必须传给 service 方法；**不得直接序列化**——deps 只保证"存在 + 有权"，不保证"新鲜 + 完整"（过期订单可能原样返回）；router 直接序列化 = 绕过业务完整性。
+- schema 权威出口只在 service；router 不做 ORM → schema 映射（无 `_to_*`）。
+- `get_current_*` 只被本域 router 消费（被别域 import = 违规）。
+
+## 四、跨域白名单（两维）
+
+跨域只碰对方：**service 接口 + schemas（含 deps 里 service-provider）**。
+
+```python
+# ✓ 跨域合法
+from catalog.schemas import ProductSummary          # schema
+from catalog.shop_service import ShopService        # service 接口
+from catalog.deps import get_shop_service           # service-provider deps（供注入）
+
+# ✗ 跨域禁止
+from catalog.models import Shop                      # ORM
+from catalog.repository import ShopRepository        # repository
+from catalog.deps import get_current_shop            # 对方 current-object deps
+from catalog.shop_service import _to_shop_response   # 私有 `_*`
+```
+
+## 五、`_*` 私有名不跨模块
+
+- `_` 前缀 = 模块（文件）级私有；生产代码禁止跨模块 import / 调用 `_*` 私有名，模块公共边界只有公开类/公开方法/公开 schema。
+- **tests 允许白盒访问私有**（单元测试需要）。
+- 检查：`rg 'from app\.[\w.]+ import .*_\w+' app/` 无命中。
+
+## 快速对照
+
+| 场景 | 做法 |
+|------|------|
+| current-object 纯读解析（shop / product / cart_item / checkout_batch / user） | 本域仓储直读 |
+| current-object 业务读（ordering `get_current_order`） | deps 仓储定位 + service 读方法内做副作用 |
+| current-object 跨域（support `get_current_support_shop`） | 转发对方 service 的 schema 方法，不建 schema |
+| service 需要 ORM 实体给 deps 用 | 不造公开 getter；deps 直吃本域仓储 |
+| router 拿到 deps 实体 | 传给 service 方法，不得直接序列化 |
+| 跨域拿数据 | 只经对方 service + schema |
+| 需要跨模块消费 service 内部方法 | 改为公开 + 自含完整性，不用 `_` 前缀 |

@@ -95,6 +95,24 @@ class ShopService:
         logo_url = await resolve_single_url(self._media_service, shop.logo_media_id)
         return _to_shop_response(shop, logo_url=logo_url)
 
+    async def get_my_shop_context(self, owner_user_id: uuid.UUID) -> ShopContext:
+        """返回当前用户店铺上下文（id / status / owner_user_id）；无店 404。
+
+        跨域 current-object deps 解析用（support `get_current_support_shop` 只转发本方法）：
+        返 ShopContext schema，非 Shop ORM（design Decision 4b 跨域解析）。
+        """
+        shop = await self._repository.get_by_owner_user_id(owner_user_id)
+        if shop is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=_SHOP_NOT_FOUND_MSG,
+            )
+        return ShopContext(
+            id=str(shop.id),
+            status=shop.status,
+            owner_user_id=str(shop.owner_user_id),
+        )
+
     async def update_my_shop(self, shop: Shop, data: ShopUpdate) -> ShopResponse:
         """店主更新自己的店铺。
 

@@ -26,6 +26,11 @@ tasks:
     cmds:
       - bash scripts/check_no_test_cross_imports.sh
 
+  check-app-layer-discipline:
+    desc: AST 强制应用层边界纪律（_* 私有名不跨模块 / 跨域白名单 / current-deps 仅本域 router）
+    cmds:
+      - uv run python scripts/check_app_layer_discipline.py
+
   test:
     desc: 运行全量 pytest（自动加载 `.env.test`）
     env:
@@ -51,11 +56,12 @@ tasks:
       - bash scripts/allure_open_report.sh
 
   ci:
-    desc: 本地 CI（format check + ruff + test-import 检查 + test）
+    desc: 本地 CI（format check + ruff + test-import + app-layer-discipline + test）
     cmds:
       - task: format:check
       - task: ruff
       - task: check-test-imports
+      - task: check-app-layer-discipline
       - task: test
 
   db:up:
