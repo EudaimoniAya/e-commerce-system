@@ -54,7 +54,7 @@ AI 赋能的**数据主干**按以下分层，Redis **不承担**行为持久化
 
 ```text
 MySQL（唯一业务写源）
-  ├─ engagement：browse_events、user_favorites（Phase 2，未实现）
+  ├─ engagement：user_browse_history、user_favorites（已实现）
   ├─ ordering：order_items（购买信号，已实现）
   └─ catalog：商品元数据（已实现）
 
@@ -149,14 +149,14 @@ Outbox **仅**用于「业务已成功、副作用可延迟、可重试」的下
 ## 演进路径
 
 ```text
-当前
-  Redis：SMS OTP
-  行为：无浏览/收藏埋点
+当前（v1.0.0 底座）
+  Redis：SMS OTP + media 上传限速
+  MySQL engagement：user_browse_history / user_favorites（已实现）
 
-Phase 2（优先）
-  engagement change → MySQL browse_events / user_favorites
+v1.x（底座完善）
+  infra-cd-compose → 生产 CD 部署
 
-AI 阶段
+AI 阶段（v2.0.0）
   events/outbox change → worker → pgvector
   ai change → Tool 调 service；按需 Redis task/session/ratelimit
 

@@ -282,8 +282,9 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task format` | 用 ruff formatter 格式化全库 Python |
 | `task format:check` | 校验全库是否已 ruff 格式化（CI 门禁） |
 | `task test` | 运行全量 pytest（自动 `APP_ENV_FILE=.env.test`） |
-| `task ci` | 本地 CI：format check + `ruff` + test-import 检查（**依赖 `rg`/ripgrep`）+ `test`（**不**自动 `db:up` / `redis:up`） |
+| `task ci` | 本地 CI：format check + `ruff` + test-import + app-layer-discipline + `test`（**不**自动 `db:up` / `redis:up`） |
 | `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
+| `task check-app-layer-discipline` | AST 检查应用层边界纪律（deps/service/router 跨模块私有名与跨域白名单） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
 | `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up`） |
 | `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |
@@ -434,6 +435,7 @@ Workflow：`.github/workflows/test.yaml`（name: `Run Tests`）
 ```text
 filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
 lint:   （code 变更或 workflow_dispatch）format check + ruff + check-test-imports（无 services，显式 apt install ripgrep）
+        注：本地 task ci 额外含 check-app-layer-discipline，远程 lint job 尚未纳入
 test:   （code 变更或 workflow_dispatch）单 job 全量 task test
         mysql + redis services → migrate → task test → upload artifact
 test-failure-alert:  上游 failure/cancelled 时 exit 1
@@ -512,8 +514,8 @@ Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 
 | Tag | 含义 |
 |-----|------|
-| `v1.0.0` | 电商底座 MVP 首次 release（本 change 合入 main 后） |
-| `v1.x.0` | 底座完善（engagement、support、infra-cd-compose 等） |
+| `v1.0.0` | 电商底座 MVP 首次 release（dev 合入 main 后打 tag） |
+| `v1.x.0` | 底座完善（infra-cd-compose 等） |
 | `v2.0.0` | AI 平台阶段 |
 
 ## Definition of Done（DoD）
@@ -530,6 +532,7 @@ Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 - [架构设计](docs/architecture.md)
 - [测试与数据库/Redis 策略（ADR）](docs/decision/ADR-002-测试与数据库策略.md)
 - [中间件栈与异常处理（ADR）](docs/decision/ADR-004-中间件栈与异常处理架构决策.md)
+- [应用层边界纪律（ADR）](docs/decision/ADR-010-应用层边界纪律.md)
 - [集成测试 AsyncClient 与 Event Loop 冲突（排错）](docs/troubleshooting/集成测试-AsyncClient与EventLoop线程冲突.md)
 - [devbox MySQL 竞态条件排查](docs/troubleshooting/devbox-mysql-竞态条件.md)
 - [OpenSpec 变更归档](openspec/changes/archive/)

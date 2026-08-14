@@ -6,9 +6,9 @@
 
 本项目是一个 **AI 赋能的电商平台**。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览**、**support 域店铺客服会话** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`；买家 `/support/shops/{shop_id}/*` lazy create 发消息、店主 `/support/inbox/*` inbox 与回复、可引用本店商品）
-- **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
-- **预估规模**：全项目约 1 万行，电商底座约 3000 行
+- **当前阶段（v1.0.0 底座）**：**user**（手机号 + SMS OTP 认证、JWT、资料/头像 attach）、**catalog**（店铺 + 类目/商品 + logo/主图 attach）、**ordering**（买家/卖家订单、购物车 checkout/batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹 + trim job）、**support**（店铺客服会话、inbox、product ref）、**media**（上传/下载/删除、FK attach + URL resolve）与 **infra** 横切能力均已交付；Alembic 至 migration `013`；全量 pytest **406 项**
+- **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用；v1.x 完善 CD（`infra-cd-compose`），v2.0.0 进入 AI 阶段
+- **预估规模**：`app/` 约 7500 行，全项目约 1 万行（含 tests）
 
 ## 2. 技术栈
 
@@ -58,10 +58,10 @@
 |----|------|----------|------|
 | `user` | 注册、登录、JWT、用户资料、`is_admin`（不对外暴露） | User | **MVP（已实现）** |
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
-| `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
-| `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **Phase 2（收藏 + 浏览已实现）** |
-| `support` | 店铺客服会话（shop 管辖、lazy create、inbox、product ref；预留 AI） | SupportConversation、SupportMessage | **Phase 2（已实现）** |
-| `media` | 媒体文件上传/下载/删除、**业务 attach（`*_media_id` FK + mark_public）**、元数据查询、所有权与可见性控制、本地存储抽象（双 backend） | MediaAsset | **Phase 3（已实现，见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md) 与 [media-attach change](../../openspec/changes/media-attach/specs/media-storage/spec.md)）** |
+| `ordering` | 买家/卖家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **已实现** |
+| `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **已实现** |
+| `support` | 店铺客服会话（shop 管辖、lazy create、inbox、product ref；预留 AI） | SupportConversation、SupportMessage | **已实现** |
+| `media` | 媒体文件上传/下载/删除、**业务 attach（`*_media_id` FK + mark_public）**、元数据查询、所有权与可见性控制、本地存储抽象（双 backend） | MediaAsset | **已实现**（见 [media-storage spec](../../openspec/specs/media-storage/spec.md)） |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -224,8 +224,9 @@ e-commerce-system/
 │       ├── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
 │       ├── 009_engagement_favorites.py  # user_favorites
 │       ├── 010_engagement_browse.py     # user_browse_history
-│       └── 011_support_conversations.py # support_conversations、support_messages
-│       └── b4fffd14db3c_012_media_assets.py  # media_assets
+│       ├── 011_support_conversations.py # support_conversations、support_messages
+│       ├── b4fffd14db3c_012_media_assets.py  # media_assets
+│       └── 25a1017514aa_013_media_attach_fk.py  # avatar/logo/primary_media_id FK
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -300,11 +301,11 @@ e-commerce-system/
 
 **`media_assets` 表（media 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`）、`visibility`（`owner_only` | `public`，默认 `owner_only`）、`content_type`（魔数检测后的 MIME）、`size_bytes`、`storage_key`（两级分片路径 `{hex[:2]}/{hex[2:4]}/{hex}`）、`original_filename`（客户端上传名）、`created_at`。字节由 `StorageBackend` 管理（`LocalFilesystemBackend` 落盘 / `InMemoryBackend` 测试用）；API URL 用 `id` 而非 `storage_key`。上传校验链：`file.size` 预检（413）→ MIME 白名单 → 魔数检测 → 禁 SVG。限速：Redis 固定窗口每用户计数。media **不得** import 业务域 ORM/repository。
 
-**attach（`media-attach` change 已交付）**：user/catalog 写路径存 `*_media_id` FK（`users.avatar_media_id` / `shops.logo_media_id` / `products.primary_media_id`）；attach 时 `assert_owned_by`（非本人 → 403）+ `assert_image_content_type`（非 `image/*` → 422，message 含 media_id）+ 同事务 `mark_public`；读路径 `resolve_urls(ids)` 批量把 FK 翻译为 `/media/{id}/file`，缺失行 → 对应 url 字段 `null`（列表批量防 N+1）；`GET /media/{id}` 返回 `MediaDetail` 元数据（读权限同 `/file`）；DELETE 前 `count_references` > 0 → 409（DB FK `ON DELETE RESTRICT` 为第二道保险）。URL 拼写规则仅存于 media 域；user/catalog 只调 `media.service` + schema，不 import media ORM/repository。见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md)。
+**attach（`media-attach` change 已交付）**：user/catalog 写路径存 `*_media_id` FK（`users.avatar_media_id` / `shops.logo_media_id` / `products.primary_media_id`）；attach 时 `assert_owned_by`（非本人 → 403）+ `assert_image_content_type`（非 `image/*` → 422，message 含 media_id）+ 同事务 `mark_public`；读路径 `resolve_urls(ids)` 批量把 FK 翻译为 `/media/{id}/file`，缺失行 → 对应 url 字段 `null`（列表批量防 N+1）；`GET /media/{id}` 返回 `MediaDetail` 元数据（读权限同 `/file`）；DELETE 前 `count_references` > 0 → 409（DB FK `ON DELETE RESTRICT` 为第二道保险）。URL 拼写规则仅存于 media 域；user/catalog 只调 `media.service` + schema，不 import media ORM/repository。见 [media-storage spec](../../openspec/specs/media-storage/spec.md)。
 
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`、`support/` 与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
+随垂直切片增量补充后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`、`support/`、`media/` 与 `infra/` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -471,7 +472,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 | 阶段 | 内容 | 实现 |
 |------|------|------|
-| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix） | `.github/workflows/test.yaml` |
+| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix）；本地 `task ci` 额外含 `check-app-layer-discipline` | `.github/workflows/test.yaml` |
 | **Build** | 多阶段 Dockerfile → GHCR；**仅** `vX.Y.Z` tag 触发（`workflow_dispatch` 可选） | `.github/workflows/build-push.yaml`；`Dockerfile` |
 | **Deploy** | CD 部署到云服务器 + alembic upgrade | 留给 `infra-cd-compose`（后续 change） |
 
@@ -515,6 +516,7 @@ workflow_dispatch → 输入 version（必填 semver）→ 同上
 - [ADR-007：多租户扩展——设计与暂缓计划](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)
 - [ADR-008：Git 分支生命周期与提交工作流规范](./decision/ADR-008-Git分支生命周期与提交工作流规范.md)
 - [ADR-009：Redis 业务扩展与 AI 数据分层策略](./decision/ADR-009-Redis业务扩展与AI数据分层策略.md)
+- [ADR-010：应用层边界纪律](./decision/ADR-010-应用层边界纪律.md)
 
 ### 相关笔记（`docs/notes/`，非 ADR）
 
