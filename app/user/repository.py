@@ -23,16 +23,12 @@ class UserRepository:
 
     async def get_by_email(self, email: str) -> User | None:
         """按邮箱查询用户。"""
-        result = await self._session.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self._session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def get_by_phone(self, phone: str) -> User | None:
         """按规范化手机号查询用户。"""
-        result = await self._session.execute(
-            select(User).where(User.phone == phone)
-        )
+        result = await self._session.execute(select(User).where(User.phone == phone))
         return result.scalar_one_or_none()
 
     async def create(
@@ -63,16 +59,19 @@ class UserRepository:
         *,
         email: Any = _UNSET,
         nickname: Any = _UNSET,
+        avatar_media_id: Any = _UNSET,
     ) -> User:
-        """更新用户资料字段（email / nickname）并提交。
+        """更新用户资料字段（email / nickname / avatar_media_id）并提交。
 
-        ``email`` 显式传 ``None`` 表示清空 email。
+        ``email`` / ``avatar_media_id`` 显式传 ``None`` 表示清空。
         未传的字段保持不变。
         """
         if email is not _UNSET:
             user.email = email
         if nickname is not _UNSET:
             user.nickname = nickname
+        if avatar_media_id is not _UNSET:
+            user.avatar_media_id = avatar_media_id
         await self._session.commit()
         await self._session.refresh(user)
         return user

@@ -7,6 +7,8 @@ from fastapi import HTTPException, status
 from pwdlib import PasswordHash
 
 from app.infra.auth import create_access_token
+from app.media.service import MediaService
+from app.user.models import User
 from app.user.phone import normalize_phone
 from app.user.repository import UserRepository
 from app.user.schemas import (
@@ -33,25 +35,43 @@ def _default_nickname() -> str:
     return f"用户_{now.strftime('%Y%m%d%H%M%S')}{now.microsecond // 1000:03d}"
 
 
-def _to_user_response(user) -> UserResponse:
+def _to_user_response(user, avatar_url: str | None = None) -> UserResponse:
     """ORM 用户转对外 DTO。"""
     return UserResponse(
         id=str(user.id),
         phone=user.phone or "",
         email=user.email,
         nickname=user.nickname,
+        avatar_url=avatar_url,
         created_at=user.created_at,
     )
 
 
-def _build_token_response(user) -> TokenResponse:
-    """签发 token 并组装响应。"""
+async def _resolve_avatar_url(
+    media_service: MediaService,
+    user,
+) -> str | None:
+    """解析 user.avatar_media_id → avatar_url（缺失 media 行 → None）。"""
+    media_id = getattr(user, "avatar_media_id", None)
+    if media_id is None:
+        return None
+    media_id_str = str(media_id)
+    urls = await media_service.resolve_urls([media_id_str])
+    return urls.get(media_id_str)
+
+
+async def _build_token_response(
+    user,
+    media_service: MediaService,
+) -> TokenResponse:
+    """签发 token 并组装响应（avatar_url 经 media 域 resolve）。"""
     user_uuid = uuid.UUID(str(user.id))
     access_token, expires_in = create_access_token(user_uuid)
+    avatar_url = await _resolve_avatar_url(media_service, user)
     return TokenResponse(
         access_token=access_token,
         expires_in=expires_in,
-        user=_to_user_response(user),
+        user=_to_user_response(user, avatar_url=avatar_url),
     )
 
 
@@ -73,9 +93,11 @@ class UserService:
         self,
         repository: UserRepository,
         sms: SmsOtpService,
+        media_service: MediaService,
     ) -> None:
         self._repository = repository
         self._sms = sms
+        self._media_service = media_service
 
     async def send_sms(self, data: SmsSendRequest) -> None:
         """发送 SMS OTP（不区分用户是否存在）。"""
@@ -116,7 +138,7 @@ class UserService:
             nickname=nickname,
         )
         await self._sms.clear_verify_fail(phone)
-        return _build_token_response(user)
+        return await _build_token_response(user, self._media_service)
 
     async def login_via_sms(self, data: SmsLoginRequest) -> TokenResponse:
         """SMS OTP 登录已有用户。"""
@@ -138,7 +160,7 @@ class UserService:
             )
 
         await self._sms.clear_verify_fail(phone)
-        return _build_token_response(user)
+        return await _build_token_response(user, self._media_service)
 
     async def get_user_summary(self, user_id: uuid.UUID | str) -> UserSummary:
         """查询用户摘要（跨域只读）。"""
@@ -154,6 +176,15 @@ class UserService:
                 detail="User account is disabled",
             )
         return UserSummary(id=str(user.id), nickname=user.nickname)
+
+    async def get_user_response(self, user: User) -> UserResponse:
+        """查询当前用户资料：解析 avatar → 私有映射。
+
+        读路径 schema 出口（`GET /users/me`）；实体由 deps `get_current_user`
+        解析（用户不存在 404，design Decision 4b 纯读解析），service 不再自解析。
+        """
+        avatar_url = await _resolve_avatar_url(self._media_service, user)
+        return _to_user_response(user, avatar_url=avatar_url)
 
     async def login(self, data: LoginRequest) -> TokenResponse:
         """通过手机号 + 密码校验凭据并返回 access token。"""
@@ -178,14 +209,18 @@ class UserService:
                 detail="User account is disabled",
             )
 
-        return _build_token_response(user)
+        return await _build_token_response(user, self._media_service)
 
     async def update_profile(
         self,
         user_id: uuid.UUID,
         data: UserProfileUpdateRequest,
     ) -> UserResponse:
-        """更新当前用户资料（email / nickname），校验 email 唯一性。"""
+        """更新当前用户资料（email / nickname / avatar_media_id），校验 email 唯一性。
+
+        avatar attach：设置 ``avatar_media_id`` 时校验 owner（403）+ ``image/*``（422），
+        成功后同事务 ``mark_public``；显式 null 表示清空头像引用。
+        """
         user = await self._repository.get_by_id(user_id)
         if user is None:
             raise HTTPException(
@@ -203,5 +238,14 @@ class UserService:
 
         # 仅更新客户端显式传入的字段（None = 清空）
         update_kwargs = data.model_dump(exclude_unset=True)
+        avatar_media_id = update_kwargs.get("avatar_media_id")
+
+        # attach 校验 + mark_public 须在 commit 前（与 FK 写同事务）
+        if avatar_media_id is not None:
+            await self._media_service.assert_owned_by(avatar_media_id, str(user_id))
+            await self._media_service.assert_image_content_type(avatar_media_id)
+            await self._media_service.mark_public(avatar_media_id)
+
         updated = await self._repository.update_profile(user, **update_kwargs)
-        return _to_user_response(updated)
+        avatar_url = await _resolve_avatar_url(self._media_service, updated)
+        return _to_user_response(updated, avatar_url=avatar_url)

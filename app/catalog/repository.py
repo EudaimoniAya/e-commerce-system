@@ -28,9 +28,7 @@ class ShopRepository:
 
     async def get_by_name(self, name: str) -> Shop | None:
         """按店名查询店铺。"""
-        result = await self._session.execute(
-            select(Shop).where(Shop.name == name)
-        )
+        result = await self._session.execute(select(Shop).where(Shop.name == name))
         return result.scalar_one_or_none()
 
     async def create(
@@ -40,7 +38,7 @@ class ShopRepository:
         owner_user_id: uuid.UUID,
         name: str,
         description: str | None,
-        logo_url: str | None,
+        logo_media_id: str | None,
     ) -> Shop:
         """创建店铺并提交事务。"""
         shop = Shop(
@@ -48,7 +46,7 @@ class ShopRepository:
             owner_user_id=str(owner_user_id),
             name=name,
             description=description,
-            logo_url=logo_url,
+            logo_media_id=logo_media_id,
             status="active",
         )
         self._session.add(shop)
@@ -98,9 +96,7 @@ class CategoryRepository:
             return 0
         id_strs = [str(item) for item in category_ids]
         result = await self._session.execute(
-            select(func.count())
-            .select_from(Category)
-            .where(Category.id.in_(id_strs))
+            select(func.count()).select_from(Category).where(Category.id.in_(id_strs))
         )
         return int(result.scalar_one())
 
@@ -133,6 +129,19 @@ class ProductRepository:
         """按主键查询商品。"""
         return await self._session.get(Product, str(product_id))
 
+    async def get_by_ids(self, product_ids: list[uuid.UUID]) -> list[Product]:
+        """按主键批量查询商品（供 support 域 product ref 校验）。
+
+        空列表输入返回 ``[]``；未命中的 id 不出现在结果中。
+        """
+        if not product_ids:
+            return []
+        id_strs = [str(item) for item in product_ids]
+        result = await self._session.execute(
+            select(Product).where(Product.id.in_(id_strs))
+        )
+        return list(result.scalars().all())
+
     async def create(
         self,
         *,
@@ -143,7 +152,7 @@ class ProductRepository:
         price: Decimal,
         stock: int,
         is_published: bool,
-        image_url: str | None,
+        primary_media_id: str | None,
         category_ids: list[uuid.UUID],
         primary_category_id: uuid.UUID,
     ) -> Product:
@@ -156,7 +165,7 @@ class ProductRepository:
             price=price,
             stock=stock,
             is_published=is_published,
-            image_url=image_url,
+            primary_media_id=primary_media_id,
         )
         self._session.add(product)
         await self._session.flush()
@@ -186,9 +195,7 @@ class ProductRepository:
     ) -> None:
         """全量替换商品类目关联。"""
         await self._session.execute(
-            delete(ProductCategory).where(
-                ProductCategory.product_id == str(product_id)
-            )
+            delete(ProductCategory).where(ProductCategory.product_id == str(product_id))
         )
         for category_id in category_ids:
             self._session.add(
@@ -287,7 +294,7 @@ class ProductRepository:
                 Product.price,
                 Product.stock,
                 Product.is_published,
-                Product.image_url,
+                Product.primary_media_id,
                 Shop.name.label("shop_name"),
                 Shop.status.label("shop_status"),
                 Shop.owner_user_id,
@@ -303,7 +310,7 @@ class ProductRepository:
                 "price": row.price,
                 "stock": row.stock,
                 "is_published": row.is_published,
-                "image_url": row.image_url,
+                "primary_media_id": row.primary_media_id,
                 "shop_name": row.shop_name,
                 "shop_status": row.shop_status,
                 "owner_user_id": str(row.owner_user_id),
@@ -311,9 +318,7 @@ class ProductRepository:
             for row in result.all()
         ]
 
-    async def get_purchasable_products(
-        self, product_ids: list[str]
-    ) -> list[dict]:
+    async def get_purchasable_products(self, product_ids: list[str]) -> list[dict]:
         """批量查询商品及所属店铺信息（供 ordering 下单校验用；行为与 history 一致）。"""
         return await self.fetch_products_with_shop_by_ids(product_ids)
 

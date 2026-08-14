@@ -15,6 +15,7 @@ dependencies = [
     "email-validator",
     "loguru",
     "redis>=5.2",
+    "python-multipart>=0.0.32",
 ]
 
 [dependency-groups]
@@ -40,7 +41,8 @@ target-version = "py313"
 
 [tool.ruff.lint]
 # tests/ 强制类型注解；app/alembic 暂不启用 ANN（见 per-file-ignores）
-extend-select = ["ANN"]
+# I: isort；UP: pyupgrade；B 子集 B006/B007/B904（不整包 B；理由见 change infra-ruff-style design.md）
+extend-select = ["ANN", "I", "UP", "B006", "B007", "B904"]
 
 [tool.ruff.lint.per-file-ignores]
 "app/**/*.py" = ["ANN"]

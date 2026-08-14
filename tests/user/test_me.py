@@ -11,9 +11,9 @@ import pytest
 from httpx import AsyncClient
 
 from app.user.schemas import UserResponse
-from tests.support.helper.auth import auth_headers
-from tests.support.contexts import AuthContext
-from tests.support.utils import bearer_headers
+from tests.testkit.contexts import AuthContext
+from tests.testkit.helper.auth import auth_headers
+from tests.testkit.utils import bearer_headers
 
 
 @allure.epic("user")

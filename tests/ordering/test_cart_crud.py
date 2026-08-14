@@ -2,21 +2,20 @@
 
 import uuid
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.ordering import seed_cart_item
-from tests.support.helper.ordering import (
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.ordering import seed_cart_item
+from tests.testkit.helper.ordering import (
     add_cart_item,
     arrange_purchasable_product,
     delete_cart_item,
     patch_cart_item,
 )
-from tests.support.utils import bearer_headers, decode_jwt_sub
-
+from tests.testkit.utils import bearer_headers, decode_jwt_sub
 
 # ── POST /cart/items ──────────────────────────────────────────
 
@@ -139,7 +138,9 @@ async def test_patch_cart_item_updates_qty_returns_200(
     )
     cart_item_id = await seed_cart_item(
         db_session,
-        user_id=decode_jwt_sub(authenticated_user.access_token),  # 注：seed 需 user_id，此处用 token 作为占位
+        user_id=decode_jwt_sub(
+            authenticated_user.access_token
+        ),  # 注：seed 需 user_id，此处用 token 作为占位
         product_id=product_id,
         qty=1,
     )

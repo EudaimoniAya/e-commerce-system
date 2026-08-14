@@ -7,11 +7,11 @@ import pytest
 from httpx import AsyncClient, Response
 
 from app.catalog.schemas import ShopResponse
-from tests.support.helper.auth import auth_headers, register_user_via_otp
-from tests.support.helper.catalog import register_and_open_shop
-from tests.support.builders import build_shop_create, unique_shop_name
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.utils import bearer_headers
+from tests.testkit.builders import build_shop_create, unique_shop_name
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.helper.auth import auth_headers, register_user_via_otp
+from tests.testkit.helper.catalog import register_and_open_shop
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration
@@ -25,7 +25,6 @@ async def test_create_shop_success_returns_201(
     """已认证用户提交有效店名开店成功，返回 201 与完整店铺资料。"""
     shop_request = build_shop_create(
         description="测试店铺简介",
-        logo_url="https://example.com/logo.png",
     )
     response: Response = await integration_client.post(
         "/shops",
@@ -37,7 +36,7 @@ async def test_create_shop_success_returns_201(
     body = ShopResponse.model_validate(response.json())
     assert body.name == shop_request.name
     assert body.description == shop_request.description
-    assert body.logo_url == shop_request.logo_url
+    assert body.logo_url is None  # 未提供 logo_media_id → logo_url 为 null
     assert body.status == "active"
     uuid.UUID(body.owner_user_id)
     uuid.UUID(body.id)

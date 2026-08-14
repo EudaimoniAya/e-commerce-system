@@ -9,7 +9,7 @@ import allure
 import pytest
 from httpx import AsyncClient
 
-from tests.support.builders import build_register_request
+from tests.testkit.builders import build_register_request
 
 
 @allure.epic("user")

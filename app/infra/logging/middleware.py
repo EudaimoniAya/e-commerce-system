@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Iterable
 from contextvars import ContextVar
-from typing import Iterable
 
 from loguru import logger
 from starlette.types import ASGIApp, Message, Receive, Scope, Send

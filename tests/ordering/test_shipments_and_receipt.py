@@ -1,24 +1,24 @@
 """ordering 域 shipments / confirm-receipt integration 测试（TDD 红阶段）。"""
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import (
+from tests.testkit.contexts import (
     AdminAuthContext,
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.helper.ordering import (
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.helper.ordering import (
     arrange_confirmed_order,
     arrange_purchasable_product,
     confirm_receipt,
     create_order,
     create_shipment,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration
@@ -61,15 +61,15 @@ async def test_create_shipment_by_shop_owner_returns_201(
 @pytest.mark.asyncio
 @allure.epic("ordering")
 @allure.feature("shipments_and_receipt")
-@allure.title("非本店店主发货返回 403。")
-async def test_create_shipment_non_owner_returns_403(
+@allure.title("非本店店主发货返回 404（不泄漏存在性）。")
+async def test_create_shipment_non_owner_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """非本店店主发货返回 403。"""
+    """非本店店主发货返回 404（design Decision 4c 归属失败统一 404）。"""
     category_id, product_id, paid = await arrange_confirmed_order(
         db_session,
         integration_client,
@@ -90,7 +90,7 @@ async def test_create_shipment_non_owner_returns_403(
         order_id=paid.body.id,
     )
 
-    assert shipped.status_code == 403
+    assert shipped.status_code == 404
     assert shipped.body is None
 
 

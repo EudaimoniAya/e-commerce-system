@@ -10,8 +10,8 @@ import allure
 import pytest
 from httpx import AsyncClient
 
-from tests.support.helper.auth import send_sms_otp
-from tests.support.builders import build_sms_send_request
+from tests.testkit.builders import build_sms_send_request
+from tests.testkit.helper.auth import send_sms_otp
 
 
 @allure.epic("user")
@@ -34,7 +34,8 @@ async def test_send_invalid_phone_returns_422(integration_client: AsyncClient) -
     """格式非法手机号返回 422（无法规范化为 11 位）。"""
     body = build_sms_send_request(phone="not-a-phone")
     response = await integration_client.post(
-        "/auth/sms/send", json=body.model_dump(mode="json"),
+        "/auth/sms/send",
+        json=body.model_dump(mode="json"),
     )
     assert response.status_code == 422
 

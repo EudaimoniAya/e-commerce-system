@@ -11,9 +11,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.helper.auth import login_user, register_user_via_otp
-from tests.support.builders import build_login_request
-from tests.support.db.user import seed_inactive_user
+from tests.testkit.builders import build_login_request
+from tests.testkit.db.user import seed_inactive_user
+from tests.testkit.helper.auth import login_user, register_user_via_otp
 
 
 @allure.epic("user")
@@ -77,9 +77,7 @@ async def test_login_nonexistent_phone_returns_422(
     """手机号不存在返回 422（与密码错误响应一致）。"""
     response = await integration_client.post(
         "/auth/login",
-        json=build_login_request(identifier="13800138000").model_dump(
-            mode="json"
-        ),
+        json=build_login_request(identifier="13800138000").model_dump(mode="json"),
     )
     assert response.status_code == 422
     body = response.json()
@@ -99,11 +97,15 @@ async def test_login_inactive_user_returns_403(
     phone = "13800138000"
     password = "password123"
     await seed_inactive_user(
-        db_session, phone=phone, password=password,
+        db_session,
+        phone=phone,
+        password=password,
     )
 
     result = await login_user(
-        integration_client, identifier=phone, password=password,
+        integration_client,
+        identifier=phone,
+        password=password,
     )
     assert result.status_code == 403
     assert result.body is None

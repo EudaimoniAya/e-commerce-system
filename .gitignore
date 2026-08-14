@@ -96,6 +96,7 @@ logs/
 *.sqlite
 *.sqlite3
 data/
+.data/
 mysql-data/
 redis-data/
 postgres-data/

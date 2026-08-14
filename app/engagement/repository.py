@@ -53,9 +53,7 @@ class FavoriteRepository:
         )
         total = int(count_result.scalar_one())
         result = await self._session.execute(
-            base.order_by(UserFavorite.created_at.desc())
-            .limit(limit)
-            .offset(offset)
+            base.order_by(UserFavorite.created_at.desc()).limit(limit).offset(offset)
         )
         return list(result.scalars().all()), total
 

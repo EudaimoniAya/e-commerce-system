@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针）。Alembic 至 migration `008`（users.phone）；本地与 CI integration 测试 **252 项**。
+AI 赋能的电商后端服务。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**media**（媒体资产 attach：头像 / 店铺 logo / 商品主图 + URL 解析）、**support**（店铺客服会话、inbox、product ref），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8**、readiness 双依赖探针、Ruff format/lint 门禁）。Alembic 至 migration `013`（media attach FK）；本地与 CI 全量 pytest **406 项**。
 
 ## 前置条件
 
@@ -9,7 +9,7 @@ AI 赋能电商个人练习项目。当前已交付 **user 域手机号 + SMS OT
 
 本地工具链由 devbox 提供：Python 3.13、uv、go-task、MySQL 8.0、**Redis 8.0**。
 
-> **`task check-test-imports` 依赖 `rg`（ripgrep）**：脚本 `scripts/check_no_test_cross_imports.sh` 使用 ripgrep 扫描 test 互 import。Implement `infra-ci-docker` §7 后，`devbox.json` 将包含 `ripgrep`；此前本地可 `sudo apt install ripgrep`。CI lint job 亦须在跑该 Task 前显式安装 ripgrep（不得假设 runner 预装）。
+> **`task check-test-imports` 依赖 `rg`（ripgrep）**：脚本 `scripts/check_no_test_cross_imports.sh` 使用 ripgrep 扫描 test 互 import。`devbox.json` 已包含 `ripgrep` 包，本地 `devbox run -- task check-test-imports` 可直接运行。CI lint job 亦须在跑该 Task 前显式安装 ripgrep（不得假设 runner 预装）。
 
 > **重要**：所有 `task` 命令（含 `db:*`、`redis:*`）须在 `devbox shell` 内执行（或使用 `devbox run -- task …`）。
 
@@ -234,6 +234,34 @@ curl -X POST http://127.0.0.1:8000/cart/checkout \
   -d '{"cart_item_ids":["<cart_item_id>"]}'
 ```
 
+店铺客服 API（须 Bearer token；买家路径按 `shop_id`；店主路径须 `get_current_shop`；一买家一店一会话；禁自购 403；closed 店买家 POST 422、店主可回复已有会话）：
+
+```bash
+# 买家查询与某店的会话（有 200，无 404 → 前端「发起咨询」）
+curl http://127.0.0.1:8000/support/shops/<shop_id>/conversation \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 买家发消息（201；首条 lazy create 会话 + 消息；可带 message_refs 引用本店商品）
+curl -X POST http://127.0.0.1:8000/support/shops/<shop_id>/conversation/messages \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <buyer_token>" \
+  -d '{"body":"请问这款还有货吗？","message_refs":[{"ref_type":"product","ref_id":"<product_id>"}]}'
+
+# 买家拉取消息历史（created_at 升序分页；无会话 404）
+curl "http://127.0.0.1:8000/support/shops/<shop_id>/conversation/messages?limit=20&offset=0" \
+  -H "Authorization: Bearer <buyer_token>"
+
+# 店主 inbox 列表（updated_at 降序，含 last_message_preview）
+curl "http://127.0.0.1:8000/support/inbox?limit=20&offset=0" \
+  -H "Authorization: Bearer <shop_owner_token>"
+
+# 店主回复
+curl -X POST http://127.0.0.1:8000/support/inbox/<conversation_id>/messages \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <shop_owner_token>" \
+  -d '{"body":"有的，欢迎下单"}'
+```
+
 > 上文 curl 示例仅供**手动调试**；业务主流程与回归由 `task ci` / `task test` 中的 pytest integration 覆盖。**不要**新增 `scripts/*_curl_smoke.sh` 类脚本（与 integration 测试重复且不进 CI）。
 
 验证 MySQL 双库（可选）：
@@ -251,12 +279,24 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 |------|------|
 | `task sync` | `uv sync`，同步 Python 依赖 |
 | `task ruff` | 运行 ruff lint |
+| `task format` | 用 ruff formatter 格式化全库 Python |
+| `task format:check` | 校验全库是否已 ruff 格式化（CI 门禁） |
 | `task test` | 运行全量 pytest（自动 `APP_ENV_FILE=.env.test`） |
-| `task ci` | 本地 CI：`ruff` + test-import 检查（**依赖 `rg`/ripgrep**）+ `test`（**不**自动 `db:up` / `redis:up`） |
+| `task ci` | 本地 CI：format check + `ruff` + test-import 检查（**依赖 `rg`/ripgrep`）+ `test`（**不**自动 `db:up` / `redis:up`） |
 | `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
 | `task dev` | 先 `db:up`，再 `uvicorn app.main:app --reload` |
 | `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up`） |
 | `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |
+
+### Git blame 忽略机械格式化提交
+
+仓库根目录 `.git-blame-ignore-revs` 记录全库 `ruff format` / lint fix 的 mechanical commit（无业务逻辑变更）。本地 blame 时跳过这些提交：
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+GitHub Web blame 对默认分支上的该文件自动生效。
 
 ### 数据库（本地 devbox）
 
@@ -302,7 +342,7 @@ task test:reports
 task latest:report
 ```
 
-`reports/` 目录已加入 `.gitignore`，不会提交到仓库。CI 每 matrix job 上传 `allure-results` artifact（14 天保留），供本地下载后 `allure generate` 查看。
+`reports/` 目录已加入 `.gitignore`，不会提交到仓库。CI test job 上传 `allure-results` artifact（保留 14 天），供本地下载后 `allure generate` 查看。
 
 ### `db:up` 预期输出
 
@@ -337,7 +377,7 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 - 本地连接：**unix socket**（非 TCP 3306），见 `.env.example` 与 `devbox.d/mysql80/my.cnf`
 - CI 使用 **TCP** `127.0.0.1:3306`（GitHub Actions mysql service container）
 
-本地与远程 CI 均执行 `task ci`（ruff + pytest）。本地须先 `task db:up` 与 `task redis:up`；CI 在 workflow 内自动启动 mysql + redis service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
+本地与远程 CI 均执行 `task ci`（format check + ruff + pytest）。本地须先 `task db:up` 与 `task redis:up`；CI 在 workflow 内自动启动 mysql + redis service、建库、`alembic upgrade head` 后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
 
 ## 本地 Redis 与逻辑库
 
@@ -393,11 +433,13 @@ Workflow：`.github/workflows/test.yaml`（name: `Run Tests`）
 
 ```text
 filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出 code=true/false
-lint:   （code 变更或 workflow_dispatch）ruff + check-test-imports（无 services，显式 apt install ripgrep）
+lint:   （code 变更或 workflow_dispatch）format check + ruff + check-test-imports（无 services，显式 apt install ripgrep）
 test:   （code 变更或 workflow_dispatch）单 job 全量 task test
         mysql + redis services → migrate → task test → upload artifact
 test-failure-alert:  上游 failure/cancelled 时 exit 1
 ```
+
+`dev` / `main` 的 branch protection required check 已更新为 **`Run Tests`** workflow（上游 job 失败时由 `test-failure-alert` 汇总为非零退出）。
 
 ### 路径筛选（paths-filter）
 
@@ -471,7 +513,7 @@ Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 | Tag | 含义 |
 |-----|------|
 | `v1.0.0` | 电商底座 MVP 首次 release（本 change 合入 main 后） |
-| `v1.x.0` | 底座完善（engagement、infra-cd-compose 等） |
+| `v1.x.0` | 底座完善（engagement、support、infra-cd-compose 等） |
 | `v2.0.0` | AI 平台阶段 |
 
 ## Definition of Done（DoD）

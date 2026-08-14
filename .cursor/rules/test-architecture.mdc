@@ -15,8 +15,10 @@ OpenSpec：`test-architecture-v4`。
 |----|------|------|
 | **Case** | `tests/**/test_*.py` | Assert-First；Act 在 Case 可见；主体是 assert |
 | **Fixture** | `tests/conftest.py` | 生命周期 + 注入瘦身 `*Context`；Setup **fail-fast** |
-| **Support** | `tests/support/` | helper（`auth.py`/`catalog.py`/`ordering.py`）、`build_*`、`*Result`、DB 断言（`db/`） |
-| **Utilities** | `tests/support/utils.py` | `bearer_headers`、`bootstrap_test_env` 等纯函数，无 HTTP/DB |
+| **Support** | `tests/testkit/` | helper（`auth.py`/`catalog.py`/`ordering.py`）、`build_*`、`*Result`、DB 断言（`db/`） |
+| **Utilities** | `tests/testkit/utils.py` | `bearer_headers`、`bootstrap_test_env` 等纯函数，无 HTTP/DB |
+
+> **目录命名**：`tests/support/` 仅放 **app/support 业务域** integration Case（如 `test_inbox.py`），**不是** Support 层。HTTP/DB helper 在 `tests/testkit/`；调 `/support/*` 的 helper 在 `tests/testkit/helper/support.py`。
 
 ## Case 层：禁止
 
@@ -34,7 +36,7 @@ async def _seed_inactive_user(database_url, ...): ...
 from app.ordering.repository import OrderRepository
 ```
 
-**允许**：`test_*` 函数、模块级常量；`tests/unit/**` 内 file-local baseline（如 `_valid_*_kwargs`），且 **不** import support。
+**允许**：`test_*` 函数、模块级常量；`tests/unit/**` 内 file-local baseline（如 `_valid_*_kwargs`），且 **不** import testkit。
 
 Case 参数 **MUST** 注解（如 `integration_client: AsyncClient`）。简单 GET 的 Act **MAY** inline `integration_client.get` + `model_validate`。
 
@@ -56,11 +58,12 @@ Case 参数 **MUST** 注解（如 `integration_client: AsyncClient`）。简单 
 
 ## Support：helper 与 orchestrator
 
-helper 按域拆分，位于 `tests/support/helper/`：
-- `tests/support/helper/auth.py` — `register_user`、`login_user`、`login_admin`、`register_authenticated`、`auth_headers`
-- `tests/support/helper/catalog.py` — `create_shop`、`register_and_open_shop`、`create_category`、`create_product`
-- `tests/support/helper/ordering.py` — `create_order`、`create_order_by_seller`、`pay_order`、`create_shipment`、`confirm_receipt`、`cancel_order`、`arrange_purchasable_product`、`arrange_confirmed_order`
-- `tests/support/db/` — DB 状态断言（`backdate_order_expires_at`、`get_product_stock` 等）
+helper 按域拆分，位于 `tests/testkit/helper/`：
+- `tests/testkit/helper/auth.py` — `register_user`、`login_user`、`login_admin`、`register_authenticated`、`auth_headers`
+- `tests/testkit/helper/catalog.py` — `create_shop`、`register_and_open_shop`、`create_category`、`create_product`
+- `tests/testkit/helper/ordering.py` — `create_order`、`create_order_by_seller`、`pay_order`、`create_shipment`、`confirm_receipt`、`cancel_order`、`arrange_purchasable_product`、`arrange_confirmed_order`
+- `tests/testkit/helper/support.py` — app/support 域 HTTP helper（`/support/*`）
+- `tests/testkit/db/` — DB 状态断言（`backdate_order_expires_at`、`get_product_stock` 等）
 
 **原子 helper**（一次 HTTP）→ 单步 `*Result`（`status_code`、`body`、可选 `request`）：
 
@@ -106,7 +109,7 @@ class ShopOwnerContext:
 ```
 
 - Context 仅持有直接字段（`access_token`、`shop_id`、`email`），**不持有** PipelineResult 或 headers 拷贝
-- `bearer_headers(access_token: str)` / `auth_headers(access_token: str)` 接受纯字符串 token，位于 `tests/support/utils.py`
+- `bearer_headers(access_token: str)` / `auth_headers(access_token: str)` 接受纯字符串 token，位于 `tests/testkit/utils.py`
 - Setup fixture 失败 → `pytest.fail`；失败场景在 Case 内调 helper assert
 - Setup fixture 依赖 `integration_client`（确保 SAVEPOINT 作用域）
 
@@ -125,21 +128,21 @@ return await register_and_open_shop(client)
 
 - **被测 API 以外皆为 Arrange**（fixture 内 `register_user` + `create_shop` 仍是 Arrange）
 - Setup fixture **MUST NOT** 替 Case 执行被测端点
-- Act 留在 Case：inline HTTP 或 Act 型 helper；Arrange 可厚，在 support/fixture
+- Act 留在 Case：inline HTTP 或 Act 型 helper；Arrange 可厚，在 testkit/fixture
 
 ## 目录
 
-- 业务 integration：`tests/{domain}/test_*.py`
-- schema 单测：`tests/unit/{domain}/`（不 import support）
+- 业务 integration Case：`tests/{domain}/test_*.py`（app/support 域 → `tests/support/test_*.py`）
+- schema 单测：`tests/unit/{domain}/`（不 import testkit）
 - 运维探针：`tests/ops/`（health、readiness、migration smoke）
-- helper 实现：`tests/support/helper/{auth,catalog,ordering}.py`
-- DB 断言：`tests/support/db/{ordering,catalog}.py`
+- helper 实现：`tests/testkit/helper/{auth,catalog,ordering,support,...}.py`
+- DB 断言 / seed：`tests/testkit/db/{ordering,catalog,...}.py`
 
 ## 生成/审查测试时
 
-1. 新 helper → `tests/support/{domain}.py`，不写入 `test_*.py`
+1. 新 helper → `tests/testkit/helper/{domain}.py`，不写入 `test_*.py`
 2. 跨步编排 → tuple 或显式 `*Result` 传参，不返胖 Context
 3. 新 fixture → fail-fast + 瘦身 `*Context(access_token=..., ...)`
 4. 写库测试 → `integration_client` + `db_session`（探针例外除外）
-5. 懒释放/过期 → `tests/support/db` backdate，不设 env TTL 或 sleep
+5. 懒释放/过期 → `tests/testkit/db` backdate，不设 env TTL 或 sleep
 6. **禁止** 在 `scripts/` 新增 `*_curl_smoke.sh` 或与 integration 重复的 bash HTTP 编排；本地/CI 验收用 `task ci` / `task test`

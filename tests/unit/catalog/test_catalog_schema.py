@@ -28,7 +28,9 @@ def _valid_product_create_kwargs(**overrides: object) -> dict[str, Any]:
 @pytest.mark.parametrize(
     "kwargs",
     [
-        pytest.param(_valid_product_create_kwargs(category_ids=[]), id="empty_category_ids"),
+        pytest.param(
+            _valid_product_create_kwargs(category_ids=[]), id="empty_category_ids"
+        ),
         pytest.param(
             _valid_product_create_kwargs(
                 category_ids=[str(uuid.uuid4())],

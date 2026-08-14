@@ -2,23 +2,55 @@
 
 import uuid
 from collections import defaultdict
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.product_service import ProductService
 from app.catalog.schemas import PurchasableProduct
-from app.catalog.service import ShopService
 from app.ordering.cart_repository import CartRepository
 from app.ordering.checkout_batch_repository import CheckoutBatchRepository
 from app.ordering.models import CartItem, CheckoutBatch
 from app.ordering.schemas import (
     CartInvalidItem,
+    CartItemResponse,
     CartListResponse,
     CartShopGroup,
     CartShopItem,
+    CheckoutBatchOrder,
+    CheckoutBatchOrderItem,
+    CheckoutBatchResponse,
+    CheckoutBatchShopGroup,
     CheckoutResponse,
 )
-from app.ordering.service import OrderService
+from app.ordering.service import OrderService, to_order_response
+
+
+def _to_cart_item_response(item) -> CartItemResponse:
+    """ORM CartItem → CartItemResponse。
+
+    模块级私有映射（与各域 `_to_*` 一致）；schema 归 service 产出，router 不做 ORM 映射。
+    """
+    return CartItemResponse(
+        id=str(item.id),
+        user_id=str(item.user_id),
+        product_id=str(item.product_id),
+        qty=item.qty,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def _derive_batch_status(statuses: set[str]) -> str:
+    """读时计算 batch 派生状态（随 get_checkout_batch 收进 service）。"""
+    has_awaiting = "awaiting_payment" in statuses
+    has_confirmed = "confirmed" in statuses
+    if has_awaiting and not has_confirmed:
+        return "pending_payment"
+    if has_awaiting and has_confirmed:
+        return "partially_paid"
+    return "closed"
 
 
 class CartService:
@@ -28,13 +60,13 @@ class CartService:
         self,
         session: AsyncSession,
         cart_repo: CartRepository,
-        catalog_service: ShopService,
+        product_service: ProductService,
         batch_repo: CheckoutBatchRepository,
         order_service: OrderService,
     ) -> None:
         self._session = session
         self._cart_repo = cart_repo
-        self._catalog = catalog_service
+        self._products = product_service
         self._batch_repo = batch_repo
         self._order_service = order_service
 
@@ -45,14 +77,14 @@ class CartService:
         user_id: uuid.UUID,
         product_id: uuid.UUID,
         qty: int,
-    ) -> tuple[CartItem, bool]:
+    ) -> tuple[CartItemResponse, bool]:
         """加购：校验商品存在 → 查重累加或新建。
 
         Returns:
-            (CartItem, created): ``created=True`` 表示新建行；``False`` 表示累加。
+            (CartItemResponse, created): ``created=True`` 表示新建行；``False`` 表示累加。
         """
         # 校验商品存在（通过可购查询）
-        products = await self._catalog.get_purchasable_products([str(product_id)])
+        products = await self._products.get_purchasable_products([str(product_id)])
         if not products:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -61,13 +93,14 @@ class CartService:
 
         # 查重：已存在则累加数量
         existing = await self._cart_repo.get_by_user_and_product(
-            user_id, product_id,
+            user_id,
+            product_id,
         )
         if existing is not None:
             existing.qty += qty
             await self._session.commit()
             await self._session.refresh(existing)
-            return existing, False
+            return _to_cart_item_response(existing), False
 
         item = CartItem(
             id=uuid.uuid4(),
@@ -78,38 +111,24 @@ class CartService:
         await self._cart_repo.save(item)
         await self._session.commit()
         await self._session.refresh(item)
-        return item, True
+        return _to_cart_item_response(item), True
 
     async def update_qty(
         self,
-        user_id: uuid.UUID,
-        cart_item_id: uuid.UUID,
+        item: CartItem,
         qty: int,
-    ) -> CartItem:
-        """修改数量：须属当前用户 → 更新 qty。"""
-        item = await self._cart_repo.get_by_id(cart_item_id)
-        if item is None or str(item.user_id) != str(user_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cart item not found",
-            )
+    ) -> CartItemResponse:
+        """修改数量：deps `get_current_cart_item` 已鉴权归属（非本人 404），仅更新 qty。"""
         item.qty = qty
         await self._session.commit()
         await self._session.refresh(item)
-        return item
+        return _to_cart_item_response(item)
 
     async def delete_item(
         self,
-        user_id: uuid.UUID,
-        cart_item_id: uuid.UUID,
+        item: CartItem,
     ) -> None:
-        """删除行：须属当前用户 → 删除。"""
-        item = await self._cart_repo.get_by_id(cart_item_id)
-        if item is None or str(item.user_id) != str(user_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cart item not found",
-            )
+        """删除行：deps `get_current_cart_item` 已鉴权归属（非本人 404），直接删除。"""
         await self._cart_repo.delete(item)
         await self._session.commit()
 
@@ -124,7 +143,7 @@ class CartService:
 
         # 批量查询商品信息（一次 SQL，避免 N+1）
         product_ids = [str(item.product_id) for item in cart_items]
-        products = await self._catalog.get_purchasable_products(product_ids)
+        products = await self._products.get_purchasable_products(product_ids)
         product_map: dict[str, PurchasableProduct] = {p.id: p for p in products}
 
         # 按 shop_id 分组
@@ -218,7 +237,7 @@ class CartService:
 
         # 2. 批量查询商品信息
         product_ids = [str(item.product_id) for item in cart_items]
-        products = await self._catalog.get_purchasable_products(product_ids)
+        products = await self._products.get_purchasable_products(product_ids)
         product_map: dict[str, PurchasableProduct] = {p.id: p for p in products}
 
         # 3. 校验每个商品可购、库存充足
@@ -256,7 +275,7 @@ class CartService:
         created_orders: list = []
         try:
             for shop_id, shop_items in items_by_shop.items():
-                order = await self._order_service._create_order_core(
+                order = await self._order_service.create_order_core(
                     user_id,
                     shop_items,
                     initiated_by="buyer",
@@ -273,36 +292,8 @@ class CartService:
         await self._cart_repo.delete_batch(cart_item_ids)
 
         # 7. 构建响应数据（在 commit 前收集，避免 commit 后 ORM 过期）
-        from app.ordering.schemas import OrderResponse
-
-        order_responses: list[OrderResponse] = []
-        for o in created_orders:
-            items_data = [
-                {
-                    "id": str(i.id),
-                    "product_id": str(i.product_id),
-                    "product_name": i.product_name,
-                    "unit_price": str(i.unit_price),
-                    "qty": i.qty,
-                }
-                for i in o.items
-            ]
-            order_responses.append(
-                OrderResponse(
-                    id=str(o.id),
-                    buyer_user_id=str(o.buyer_user_id),
-                    shop_id=str(o.shop_id),
-                    initiated_by=o.initiated_by,  # type: ignore[arg-type]
-                    status=o.status,  # type: ignore[arg-type]
-                    cancel_reason=o.cancel_reason,
-                    checkout_batch_id=str(o.checkout_batch_id) if o.checkout_batch_id else None,
-                    total_amount=str(o.total_amount),
-                    expires_at=o.expires_at,
-                    items=items_data,
-                    created_at=o.created_at,
-                    updated_at=o.updated_at,
-                )
-            )
+        # 复用 OrderService 的模块级映射，避免与 service.py `to_order_response` 双份维护
+        order_responses = [to_order_response(o) for o in created_orders]
 
         response = CheckoutResponse(
             checkout_batch_id=str(batch.id),
@@ -313,3 +304,70 @@ class CartService:
         await self._session.commit()
 
         return response
+
+    async def get_checkout_batch(
+        self,
+        batch: CheckoutBatch,
+    ) -> CheckoutBatchResponse:
+        """查看结算批次详情：子订单（懒释放+items）→ 聚合 → 派生状态 → build schema。
+
+        deps `get_current_checkout_batch` 已做买家鉴权（非本人 404，design Decision 4c）；
+        schema 由 service 产出。
+        子订单数据经 OrderService.list_orders_by_checkout_batch（方案 A：order 数据访问留在 OrderService）。
+        """
+        orders = await self._order_service.list_orders_by_checkout_batch(batch.id)
+
+        paid_total = Decimal("0.00")
+        remaining_total = Decimal("0.00")
+        statuses: set[str] = set()
+        shops_map: dict[str, list[CheckoutBatchOrder]] = {}
+
+        for order in orders:
+            statuses.add(order.status)
+
+            item_responses = [
+                CheckoutBatchOrderItem(
+                    id=str(i.id),
+                    product_id=str(i.product_id),
+                    product_name=i.product_name,
+                    unit_price=str(i.unit_price),
+                    qty=i.qty,
+                )
+                for i in order.items
+            ]
+
+            order_data = CheckoutBatchOrder(
+                id=str(order.id),
+                shop_id=str(order.shop_id),
+                status=order.status,
+                initiated_by=order.initiated_by,
+                total_amount=str(order.total_amount),
+                expires_at=order.expires_at,
+                items=item_responses,
+                created_at=order.created_at,
+            )
+
+            sid = str(order.shop_id)
+            if sid not in shops_map:
+                shops_map[sid] = []
+            shops_map[sid].append(order_data)
+
+            if order.status == "awaiting_payment":
+                remaining_total += order.total_amount
+            elif order.status == "confirmed":
+                paid_total += order.total_amount
+
+        shops = [
+            CheckoutBatchShopGroup(shop_id=sid, orders=ords)
+            for sid, ords in shops_map.items()
+        ]
+
+        return CheckoutBatchResponse(
+            id=str(batch.id),
+            buyer_user_id=str(batch.buyer_user_id),
+            created_at=batch.created_at,
+            shops=shops,
+            paid_total=str(paid_total),
+            remaining_total=str(remaining_total),
+            status=_derive_batch_status(statuses),
+        )

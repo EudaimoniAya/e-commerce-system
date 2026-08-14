@@ -1,12 +1,12 @@
 # 项目架构设计
 
-> 本文档描述 AI 赋能电商个人项目的整体架构。详细的设计决策见 [docs/decision/](./decision/)（ADR）；个人学习笔记见 [docs/notes/](./notes/)。
+> 本文档描述 AI 赋能电商后端服务的整体架构。详细的设计决策见 [docs/decision/](./decision/)（ADR）；内部笔记见 [docs/notes/](./notes/)。
 
 ## 1. 项目概述
 
-本项目是一个 **AI 赋能的电商平台** 个人练习项目。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
+本项目是一个 **AI 赋能的电商平台**。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`）
+- **当前阶段**：user 域**手机号 + SMS OTP 认证**、**catalog 域店铺 + 类目/商品**、**ordering 域买家订单与购物车**、**engagement 域用户收藏与浏览**、**support 域店铺客服会话** 已交付（SMS send/register/login、密码登录、PATCH `/users/me`、JWT；开店/me/patch/公开 GET、平台类目树、商品 CRUD/上下架、公开浏览；买家立即购买与购物车 checkout/batch-pay、支付桩/发货/确认收货/取消与懒释放；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`；`POST/GET /browse`、`DELETE /browse/{product_id}`、`task browse:trim`；买家 `/support/shops/{shop_id}/*` lazy create 发消息、店主 `/support/inbox/*` inbox 与回复、可引用本店商品）
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用，大版本完成后 CD 部署
 - **预估规模**：全项目约 1 万行，电商底座约 3000 行
 
@@ -38,10 +38,10 @@
           │  │   user   │ │ catalog  │ │ ordering │  │    ai    │ │
           │  │ 用户认证  │ │ 商品目录  │ │ 订单购物车│  │ RAG/推荐 │ │
           │  └──────────┘ └──────────┘ └──────────┘  │ 助手/搭子 │ │
-          │  ┌──────────┐                             └────┬─────┘ │
-          │  │engagement│                                   │       │
-          │  │收藏/浏览  │◄──────────────────────────────────┘       │
-          │  └──────────┘         Tool 调用业务 service              │
+          │  ┌──────────┐ ┌──────────┐                  └────┬─────┘ │
+          │  │engagement│ │ support  │                        │       │
+          │  │收藏/浏览  │ │店铺客服   │◄───────────────────────┘       │
+          │  └──────────┘ └──────────┘         Tool 调用业务 service   │
           └────────────────────────────┬─────────────────────────────┘
                                        │
                     ┌──────────────────┴──────────────────┐
@@ -60,6 +60,8 @@
 | `catalog` | 店铺（shop）、平台类目树、商品 CRUD/上下架 | Shop, Category, Product, ProductCategory | **MVP（已实现）** |
 | `ordering` | 买家订单、购物车、checkout 分组、库存预留/释放、支付桩、发货与确认收货 | Order, OrderItem, CartItem, CheckoutBatch | **MVP（买家路径 + 购物车已实现）** |
 | `engagement` | 用户收藏、浏览记录（upsert + 分页历史 + 单删 + 定时 trim） | UserFavorite、UserBrowseHistory | **Phase 2（收藏 + 浏览已实现）** |
+| `support` | 店铺客服会话（shop 管辖、lazy create、inbox、product ref；预留 AI） | SupportConversation、SupportMessage | **Phase 2（已实现）** |
+| `media` | 媒体文件上传/下载/删除、**业务 attach（`*_media_id` FK + mark_public）**、元数据查询、所有权与可见性控制、本地存储抽象（双 backend） | MediaAsset | **Phase 3（已实现，见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md) 与 [media-attach change](../../openspec/changes/media-attach/specs/media-storage/spec.md)）** |
 | `ai` | RAG、推荐、经营助手、购物搭子 | — | AI 阶段 |
 
 ### 3.2 邻接：AI 能力域
@@ -110,9 +112,35 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 单体阶段跨域 service 调用是函数调用 + 若干 SQL，性能影响可忽略。边界清晰带来的可维护性优先于 JOIN 便利。
 
+### 4.5 应用层边界纪律（deps / service / router）
+
+分层：router（HTTP）→ deps（装配 + 请求上下文解析）→ service（业务）→ repository → ORM。
+
+**deps = 组合根：装配自由 + 无副作用**
+
+- 两大类：**装配类**（`get_*_repository` / `get_*_service`）+ **解析类**（`get_current_*`，鉴权 + 实体解析，**只被本域 router 消费**）。
+- 无副作用：只做注入 + 存在性定位（404）+ 状态无关的归属比较；不触发写、不建 schema、不做业务数据准备。
+- **current-object 解析判据（三分类）**：
+  - **纯读解析**（查实体 + 404 + 归属比较，无副作用）→ 本域仓储直读（`get_current_shop` / `get_current_product` / `get_current_cart_item` / `get_current_checkout_batch` / `get_current_user`）
+  - **业务读**（解析伴随副作用，如 ordering 懒释放）→ deps 纯定位 + service 读方法内完成（`get_current_order` → `get_order_response(order)`）
+  - **跨域解析**（本域 deps 解析别域实体）→ 对方 service 公开方法（schema），deps 只转发不建 schema（support `get_current_support_shop` 转发 `get_my_shop_context`）
+- 鉴权切分：状态无关（buyer/owner/user 比较）→ deps；状态依赖（过期 / 可支付 / 店铺关闭）→ service 方法内。
+
+**service = 业务逻辑 + schema 权威出口**
+
+- 公开方法仅两类：返 schema（跨域/响应）+ 业务方法（含业务读）。**不为 deps 造返 ORM 公开 getter**（`get_shop_or_404` 不新增、`get_order_or_404` 私有化）。
+- 方法自含业务完整性（不依赖调用方/deps 先触发业务前置，cancel 补 expire 为模板）；被跨模块/跨域消费的方法不得私有。
+
+**router = 薄**
+
+- 拿 deps 实体必须传 service 方法，**不得直接序列化**（deps 只保证"存在 + 有权"，不保证"新鲜 + 完整"）。
+- 错误语义：归属失败统一 404（不泄漏存在性）；状态失败 409/422（service 内）。
+
+> 完整纪律与铁律见 [ADR-010](./decision/ADR-010-应用层边界纪律.md) 与 `.cursor/rules/app-layer-discipline.mdc`。
+
 ## 5. 目录结构
 
-### 5.1 当前骨架（user + catalog + ordering + engagement + infra）
+### 5.1 当前骨架（user + catalog + ordering + engagement + support + infra）
 
 ```text
 e-commerce-system/
@@ -164,6 +192,26 @@ e-commerce-system/
 │       ├── schemas.py
 │       ├── deps.py
 │       └── jobs/                 # trim_browse_history.py（task browse:trim，top N + retention 裁剪）
+│   └── support/                  # 店铺客服域（会话 + 消息已实现）
+│       ├── router.py             # 买家 /support/shops/{shop_id}/*；店主 /support/inbox/*
+│       ├── service.py            # lazy create、inbox、closed/禁自购/403404 规则
+│       ├── repository.py
+│       ├── models.py             # support_conversations、support_messages
+│       ├── schemas.py
+│       └── deps.py
+│   └── media/                    # 媒体平台域（上传/下载/删除/attach 已实现，见 media-storage spec）
+│       ├── router.py             # POST /media、GET /media/{id}（元数据）、GET /media/{id}/file、DELETE /media/{id}（引用 409）
+│       ├── service.py            # upload、delete、get_file_stream、can_read、get_detail、assert_owned_by、assert_image_content_type、mark_public、resolve_urls、count_references
+│       ├── repository.py         # MediaRepository（insert/get_by_id/get_many_by_ids/count_references/delete_by_id）
+│       ├── models.py             # media_assets（8 列）
+│       ├── schemas.py            # MediaSummary、MediaDetail
+│       ├── deps.py               # get_storage_backend、get_media_service
+│       ├── rate_limit.py         # Redis 固定窗口上传限速
+│       ├── validation.py         # 魔数检测 + MIME 白名单 + 大小校验
+│       └── storage/
+│           ├── protocol.py       # StorageBackend 协议
+│           ├── local.py          # LocalFilesystemBackend（落盘）
+│           └── memory.py         # InMemoryBackend（进程内，测试用）
 ├── alembic/
 │   └── versions/
 │       ├── 001_create_infra_migration_smoke.py
@@ -175,7 +223,9 @@ e-commerce-system/
 │       ├── ece9a7855313_007_ordering_cart.py  # cart_items、checkout_batches、orders.checkout_batch_id
 │       ├── 008_user_phone.py     # users.phone 唯一、email/password_hash 可空、admin phone 回填
 │       ├── 009_engagement_favorites.py  # user_favorites
-│       └── 010_engagement_browse.py     # user_browse_history
+│       ├── 010_engagement_browse.py     # user_browse_history
+│       └── 011_support_conversations.py # support_conversations、support_messages
+│       └── b4fffd14db3c_012_media_assets.py  # media_assets
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -187,25 +237,30 @@ e-commerce-system/
 │   ├── user/                     # SMS/密码认证、me/profile integration
 │   ├── catalog/                  # 店铺 + 类目/商品 + seed integration
 │   ├── ordering/                 # 买家订单 + 购物车 integration
-│   └── engagement/               # 用户收藏 integration
+│   ├── engagement/               # 用户收藏 + 浏览 integration
+│   ├── media/                     # media 域 integration（17 测例）
+│   ├── unit/
+│   │   └── media/                  # media 域单元测试（29 测例）
+│   └── support/                  # 店铺客服会话 integration
 ├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
 │   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
 │   ├── devbox_redis_up.sh / devbox_redis_down.sh
 │   ├── allure_open_report.sh     # Task latest:report
 │   └── check_no_test_cross_imports.sh  # Task check-test-imports；依赖 rg（ripgrep），见 test-architecture / infra-ci spec
-├── .github/workflows/ci.yml      # DATABASE_URL + REDIS_URL + JWT_SECRET_KEY；migrate + task ci
+├── .github/workflows/test.yaml       # Run Tests：paths-filter、lint、单 job task test
+├── .github/workflows/build-push.yaml # Build and Push Container Images：tag-only GHCR
 └── ...
 ```
 
 **应用入口（`create_app`）**：按序组装 `setup_logging(settings)` → `RequestIDMiddleware`（纯 ASGI，`X-Request-ID` 透传/生成）→ `register_exception_handlers(app)` → 各域 router。错误响应统一为 `{"error": {"code", "message", "request_id"}}`（详见 `infra-api-errors` spec）。日志经 loguru 输出至 stderr 与 `logs/app.log`（development/production；test 仅 stderr 且 level=WARNING）。详见 [中间件栈与异常处理架构决策（ADR-004）](./decision/ADR-004-中间件栈与异常处理架构决策.md)。
 
-**`users` 表（user 域）**：`id`（UUID PK，JWT `sub` 锚点）、`phone`（VARCHAR 20，UNIQUE，业务主标识）、`email`（可空，仅资料）、`password_hash`（可空，SMS 注册用户须设密码）、`nickname`、`is_active`、`is_admin`（不对外暴露）、`created_at`、`updated_at`。SMS OTP 存 Redis（`sms:otp:{phone}`、`sms:verify_fail:{phone}`、`sms:daily:{phone}:{date}`），见 `user/sms_service.py`。
+**`users` 表（user 域）**：`id`（UUID PK，JWT `sub` 锚点）、`phone`（VARCHAR 20，UNIQUE，业务主标识）、`email`（可空，仅资料）、`password_hash`（可空，SMS 注册用户须设密码）、`nickname`、`is_active`、`is_admin`（不对外暴露）、`avatar_media_id`（可空 FK → `media_assets.id`，attach 头像后写；响应 resolve 为 `avatar_url`）、`created_at`、`updated_at`。SMS OTP 存 Redis（`sms:otp:{phone}`、`sms:verify_fail:{phone}`、`sms:daily:{phone}:{date}`），见 `user/sms_service.py`。
 
-**`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_url`、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
+**`shops` 表（catalog 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`，UNIQUE，当前一用户一店）、`name`（UNIQUE）、`description`、`logo_media_id`（可空 FK → `media_assets.id`；响应 resolve 为 `logo_url`）、`status`（`active` | `closed`）、`created_at`、`updated_at`。跨域仅通过 `infra.auth.get_current_user_id` 解析 JWT，不在 `User` ORM 上声明跨域 relationship。
 
 **`categories` 表（catalog 域）**：`id`（UUID PK）、`parent_id`（FK → `categories.id`，NULL 为根）、`name`（VARCHAR 64）、`created_at`、`updated_at`；`UNIQUE(parent_id, name)` 同级不重名；**无 seed**，空库起步。
 
-**`products` 表（catalog 域）**：`id`（UUID PK）、`shop_id`（FK → `shops.id`）、`name`、`description`、`price`（DECIMAL 10,2，CNY）、`stock`、`is_published`（默认 false）、`image_url`、`created_at`、`updated_at`；索引 `ix_products_shop_id`、`ix_products_is_published`。
+**`products` 表（catalog 域）**：`id`（UUID PK）、`shop_id`（FK → `shops.id`）、`name`、`description`、`price`（DECIMAL 10,2，CNY）、`stock`、`is_published`（默认 false）、`primary_media_id`（可空 FK → `media_assets.id`，主图；响应 resolve 为 `image_url`）、`created_at`、`updated_at`；索引 `ix_products_shop_id`、`ix_products_is_published`。
 
 **`product_categories` 表（catalog 域）**：`(product_id, category_id)` 复合 PK、`is_primary`（BOOLEAN）；service 保证每个商品至多一个主类目；`primary_category_id` 必须 ∈ `category_ids`。
 
@@ -233,9 +288,23 @@ e-commerce-system/
 
 **定时 trim（`task browse:trim`）**：`app/engagement/jobs/trim_browse_history.py`，生产由 **cron 独立进程** 定时执行（非 HTTP worker）。算法：每用户按 `last_viewed_at DESC` 取 top `BROWSE_HISTORY_MAX_PER_USER` 保留（top N 内行即使超 retention 也保留）；其余行中 `last_viewed_at < now - BROWSE_HISTORY_RETENTION_DAYS` 删除。纯函数 `plan_browse_trim_deletes`（`BrowseTrimRow` 输入、返回应删行 id 集合）可单测；`__main__` 供 `task browse:trim` CLI。
 
+**`support_conversations` 表（support 域）**：`id`（UUID PK）、`shop_id`（FK 语义 → `shops.id`）、`buyer_user_id`（FK 语义 → `users.id`）、`handler_mode`（`ai` \| `human`，MVP 默认 `human`，供前端展示与后续 AI 路由）、`last_message_preview`（VARCHAR 200）、`created_at`、`updated_at`；`UNIQUE(shop_id, buyer_user_id)`（一买家一店一会话）；索引 `ix_support_conversations_shop_updated`（`(shop_id, updated_at)` 供 inbox 降序）。**不**跨域 ORM relationship。演进对齐 [ADR-007](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)：隔离键 `shop_id`；演示阶段店主兼客服（`ShopService.get_my_shop` 自解析）；后续 `ai-support-agent` 写 `author_role=ai` 消息。
+
+**`support_messages` 表（support 域）**：`id`（UUID PK）、`conversation_id`（FK → `support_conversations.id`）、`sender_role`（`buyer` \| `shop`）、`author_role`（`human` \| `ai`，MVP 恒 `human`）、`body`（TEXT 可空）、`message_refs`（JSON 可空，`[{ref_type, ref_id}]`，MVP 仅 `product`）、`created_at`；索引 `ix_support_messages_conversation_created`（`(conversation_id, created_at)` ASC 供历史）。`body` 与 `message_refs` 至少一项非空。
+
+**support 写路径（买家 `POST /support/shops/{shop_id}/conversation/messages`）**：JWT 买家 → `ShopService.get_shop_context`（不存在 404）→ 禁自购（`buyer == owner_user_id` → **403**）→ closed 店任意 POST → **422** → 校验 body/refs（空/超长/ order ref / refs>10 → 422）→ `validate_product_refs_for_shop` → lazy create 或追加消息（同事务）→ bump `updated_at` + `last_message_preview`。
+
+**support 读路径（买家）**：`GET .../conversation` 有会话 200 / 无 404；`GET .../messages` 分页 ASC / 无会话 404。非 buyer 且非店主 → **404**。
+
+**support 店主路径（`GET /support/inbox*`、`POST .../inbox/{id}/messages`）**：`ShopService.get_my_shop` 鉴权（service 内自解析）；inbox 按 `updated_at DESC` 含 `last_message_preview`；非本店会话 404；closed 店仍允许回复已有会话。support **不得** import catalog / ordering ORM；商品校验走 `ShopContext` + `validate_product_refs_for_shop`（catalog service，见 `catalog-products` spec）。
+
+**`media_assets` 表（media 域）**：`id`（UUID PK）、`owner_user_id`（FK → `users.id`）、`visibility`（`owner_only` | `public`，默认 `owner_only`）、`content_type`（魔数检测后的 MIME）、`size_bytes`、`storage_key`（两级分片路径 `{hex[:2]}/{hex[2:4]}/{hex}`）、`original_filename`（客户端上传名）、`created_at`。字节由 `StorageBackend` 管理（`LocalFilesystemBackend` 落盘 / `InMemoryBackend` 测试用）；API URL 用 `id` 而非 `storage_key`。上传校验链：`file.size` 预检（413）→ MIME 白名单 → 魔数检测 → 禁 SVG。限速：Redis 固定窗口每用户计数。media **不得** import 业务域 ORM/repository。
+
+**attach（`media-attach` change 已交付）**：user/catalog 写路径存 `*_media_id` FK（`users.avatar_media_id` / `shops.logo_media_id` / `products.primary_media_id`）；attach 时 `assert_owned_by`（非本人 → 403）+ `assert_image_content_type`（非 `image/*` → 422，message 含 media_id）+ 同事务 `mark_public`；读路径 `resolve_urls(ids)` 批量把 FK 翻译为 `/media/{id}/file`，缺失行 → 对应 url 字段 `null`（列表批量防 N+1）；`GET /media/{id}` 返回 `MediaDetail` 元数据（读权限同 `/file`）；DELETE 前 `count_references` > 0 → 409（DB FK `ON DELETE RESTRICT` 为第二道保险）。URL 拼写规则仅存于 media 域；user/catalog 只调 `media.service` + schema，不 import media ORM/repository。见 [media-storage spec](../../openspec/changes/media-storage/specs/media-storage/spec.md)。
+
 ### 5.2 规划中的完整结构
 
-随垂直切片增量补充 `engagement/`（浏览等）、后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`（收藏）与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
+随垂直切片增量补充后期的 `ai/`、`events/` 等。`user/`、`catalog/`、`ordering/`、`engagement/`、`support/` 与 `infra/auth.py` 已按 router → service → repository → model + schemas 分层实现。
 
 ```text
 app/
@@ -283,6 +352,26 @@ app/
 │   ├── schemas.py
 │   ├── deps.py
 │   └── jobs/                     # trim_browse_history（task browse:trim）
+├── support/                      # 店铺客服（会话 + inbox 已实现）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   └── deps.py
+├── media/                        # 媒体平台域（上传/下载/删除/attach 已实现）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── deps.py
+│   ├── rate_limit.py
+│   ├── validation.py
+│   └── storage/
+│       ├── protocol.py
+│       ├── local.py
+│       └── memory.py
 ├── events/                       # 后期
 └── ai/                           # 后期
 ```
@@ -298,6 +387,7 @@ app/
 - **购物车**（ordering 域）：`cart_items` 暂存、`POST /cart/checkout` 跨店单事务建单 + 轻量 `checkout_batches`、`POST /orders/batch-pay` 合并支付；与 `POST /orders` 立即购买并行
 - **收藏**（engagement 域）：`user_favorites`；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`（用户偏好，与购物车语义独立）
 - **浏览**（engagement 域）：`user_browse_history`；`POST/GET /browse`、`DELETE /browse/{product_id}`（202 异步 upsert、分页历史、单删）+ 配置化 top N + retention 定时 trim（`task browse:trim`，生产 cron 独立进程）
+- **店铺客服**（support 域）：`support_conversations`、`support_messages`；买家 `GET/POST /support/shops/{shop_id}/conversation*`（lazy create、product ref）；店主 `GET/POST /support/inbox*`（inbox、`last_message_preview`）；禁自购 403、closed 店买家 POST 422；为 `ai-support-agent` 预留 `handler_mode` / `author_role`
 
 ### 6.2 明确不做（MVP）
 
@@ -347,7 +437,8 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 | 功能 | 技术 | 说明 |
 |------|------|------|
-| 店铺 RAG 智能客服 | LangChain Retriever | 商品描述、FAQ 语义检索 |
+| 店铺客服对话 | support 域（已交付） | 买家↔店铺 lazy create 会话、inbox、product ref；见 ADR-007 |
+| 店铺 RAG 智能客服 | LangChain Retriever | 商品描述、FAQ 语义检索；后续 `ai-support-agent` change |
 | 推荐系统 | 协同过滤 → 自研模型 | 消费 order_items、engagement 行为数据 |
 | 店铺经营助手 | DeepAgents | 读 admin API 聚合数据，长上下文 |
 | 购物搭子 | LangGraph 精细编排 | 私域流量实验功能，严格控制 token 成本 |
@@ -380,7 +471,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 
 | 阶段 | 内容 | 实现 |
 |------|------|------|
-| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix） | `.github/workflows/test.yaml`（`feature/infra-ci-workflows`） |
+| **Validate** | paths-filter 按路径筛选；lint（ruff + check-test-imports）独立 job；单 job 全量 pytest（无 domain matrix） | `.github/workflows/test.yaml` |
 | **Build** | 多阶段 Dockerfile → GHCR；**仅** `vX.Y.Z` tag 触发（`workflow_dispatch` 可选） | `.github/workflows/build-push.yaml`；`Dockerfile` |
 | **Deploy** | CD 部署到云服务器 + alembic upgrade | 留给 `infra-cd-compose`（后续 change） |
 

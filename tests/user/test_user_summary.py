@@ -18,13 +18,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.user.repository import UserRepository
 from app.user.service import UserService
 from app.user.sms_service import SmsOtpService
-from tests.support.builders import unique_phone
-from tests.support.db.user import seed_active_user, seed_inactive_user
+from tests.testkit.builders import unique_phone
+from tests.testkit.db.user import seed_active_user, seed_inactive_user
 
 
 def _user_service(repo: UserRepository) -> UserService:
-    """纯 DB 测试用 UserService（SMS 依赖占位）。"""
-    return UserService(repo, SmsOtpService(AsyncMock()))
+    """纯 DB 测试用 UserService（SMS / media 依赖占位）。"""
+    return UserService(
+        repo,
+        SmsOtpService(AsyncMock()),
+        media_service=AsyncMock(),
+    )
 
 
 @allure.epic("user")

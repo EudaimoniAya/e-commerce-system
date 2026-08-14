@@ -13,12 +13,11 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.models import Shop
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.engagement import seed_favorite
-from tests.support.helper.engagement import add_favorite, list_favorites
-from tests.support.helper.ordering import arrange_purchasable_product
-from tests.support.utils import bearer_headers, decode_jwt_sub
-
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.engagement import seed_favorite
+from tests.testkit.helper.engagement import add_favorite, list_favorites
+from tests.testkit.helper.ordering import arrange_purchasable_product
+from tests.testkit.utils import bearer_headers, decode_jwt_sub
 
 # ── GET /favorites ───────────────────────────────────────────
 
@@ -162,9 +161,7 @@ async def test_favorites_list_closed_shop_in_unavailable(
 
     # 关闭店铺（DB 直写）
     await db_session.execute(
-        update(Shop)
-        .where(Shop.id == shop_owner.shop_id)
-        .values(status="closed")
+        update(Shop).where(Shop.id == shop_owner.shop_id).values(status="closed")
     )
     await db_session.flush()
 

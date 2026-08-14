@@ -1,4 +1,4 @@
-"""pytest 公共 fixture 与 support 符号 re-export。"""
+"""pytest 公共 fixture 与 testkit 符号 re-export。"""
 
 from collections.abc import AsyncIterator
 
@@ -7,27 +7,26 @@ from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from tests.support.helper.auth import (
-    _ADMIN_SEED_PHONE,
-    _ADMIN_SEED_PASSWORD,
-    auth_headers,
-    login_user,
-    register_user_via_otp,
-)
-from tests.support.builders import (
+from tests.testkit.builders import (
     unique_category_name,
     unique_email,
     unique_phone,
     unique_shop_name,
 )
-from tests.support.helper.catalog import (
+from tests.testkit.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.testkit.helper.auth import (
+    _ADMIN_SEED_PASSWORD,
+    _ADMIN_SEED_PHONE,
+    auth_headers,
+    login_user,
+    register_user_via_otp,
+)
+from tests.testkit.helper.catalog import (
     create_category,
     create_product,
     create_shop,
 )
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.utils import bootstrap_test_env
-from tests.support.results import (
+from tests.testkit.results import (
     BatchDeleteFavoritesResult,
     BatchPayResult,
     CartItemResult,
@@ -38,14 +37,16 @@ from tests.support.results import (
     FavoriteListResult,
     FavoriteResult,
     LoginResult,
+    MediaResult,
     ProductResult,
     ShopResult,
     SmsLoginResult,
     SmsRegisterResult,
     SmsSendResult,
 )
+from tests.testkit.utils import bootstrap_test_env
 
-# 公开 re-export（fixture + support 符号；Case 亦可直接 from tests.support.*）
+# 公开 re-export（fixture + testkit 符号；Case 亦可直接 from tests.testkit.*）
 __all__ = [
     "AdminAuthContext",
     "AuthContext",
@@ -59,6 +60,7 @@ __all__ = [
     "FavoriteListResult",
     "FavoriteResult",
     "LoginResult",
+    "MediaResult",
     "ProductResult",
     "ShopOwnerContext",
     "ShopResult",
@@ -191,6 +193,36 @@ async def integration_client(
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
         yield ac
+
+
+@pytest.fixture(autouse=True)
+async def _override_media_storage_backend(
+    request: pytest.FixtureRequest,
+) -> AsyncIterator[None]:
+    """integration 测试自动注入 InMemoryBackend，避免文件 IO 残留。
+
+    仅 ``@pytest.mark.integration`` 测例触发；单元测试不受影响。
+    ``app/media/`` 模块创建后自动激活；当前不存在则静默跳过。
+    """
+    if request.node.get_closest_marker("integration") is None:
+        yield
+        return
+
+    try:
+        from app.media.deps import get_storage_backend  # noqa: F401
+        from app.media.storage.memory import InMemoryBackend  # noqa: F401
+    except ImportError:
+        yield
+        return
+
+    from app.main import app as _app
+
+    backend = InMemoryBackend()
+    _app.dependency_overrides[get_storage_backend] = lambda: backend
+    try:
+        yield
+    finally:
+        _app.dependency_overrides.pop(get_storage_backend, None)
 
 
 @pytest.fixture

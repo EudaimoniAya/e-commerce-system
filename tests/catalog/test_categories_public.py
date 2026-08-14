@@ -9,8 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.catalog.schemas import CategoryResponse
-from tests.support.db.catalog import seed_category
-from tests.support.builders import unique_category_name
+from tests.testkit.builders import unique_category_name
+from tests.testkit.db.catalog import seed_category
 
 
 @pytest.mark.integration

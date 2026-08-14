@@ -6,7 +6,6 @@ import allure
 import pytest
 from redis.asyncio import Redis
 
-
 # ── Settings 必填 REDIS_URL ──────────────────────────────────────────────────
 
 

@@ -13,27 +13,37 @@ BDD 场景覆盖（对应 specs/ordering-seller-orders/spec.md）：
 
 import uuid
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.auth import decode_access_token
-from tests.support.builders import unique_email, unique_category_name
-from tests.support.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
-from tests.support.db.catalog import get_product_stock, seed_category, seed_product, seed_product_category
-from tests.support.helper.catalog import register_and_open_shop
-from tests.support.helper.ordering import arrange_purchasable_product, create_order_by_seller
-from tests.support.utils import bearer_headers
-from tests.support.db.user import seed_inactive_user
-from tests.support.helper.auth import register_user_via_otp
+from tests.testkit.builders import unique_category_name, unique_email
+from tests.testkit.contexts import AdminAuthContext, AuthContext, ShopOwnerContext
+from tests.testkit.db.catalog import (
+    get_product_stock,
+    seed_category,
+    seed_product,
+    seed_product_category,
+)
+from tests.testkit.db.user import seed_inactive_user
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.helper.catalog import register_and_open_shop
+from tests.testkit.helper.ordering import (
+    arrange_purchasable_product,
+    create_order_by_seller,
+)
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 @allure.epic("ordering")
 @allure.feature("create_order_by_seller")
-@allure.title("店主为本店已上架且库存充足的商品为另一有效用户建单成功，返回 201 + initiated_by=seller。")
+@allure.title(
+    "店主为本店已上架且库存充足的商品为另一有效用户建单成功，返回 201 + initiated_by=seller。"
+)
 async def test_create_order_by_seller_returns_201(
     integration_client: AsyncClient,
     db_session: AsyncSession,

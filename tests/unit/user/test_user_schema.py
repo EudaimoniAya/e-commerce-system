@@ -86,9 +86,7 @@ def test_sms_login_request_accepts_valid_data() -> None:
 def test_sms_register_request_code_too_short_rejected() -> None:
     """SmsRegisterRequest code 少于 6 位抛出 ValidationError。"""
     with pytest.raises(ValidationError):
-        SmsRegisterRequest(
-            phone="13800138000", code="12345", password="password123"
-        )
+        SmsRegisterRequest(phone="13800138000", code="12345", password="password123")
 
 
 @allure.epic("user")
@@ -105,5 +103,7 @@ def test_sms_login_request_code_too_long_rejected() -> None:
 @allure.title("SmsRegisterRequest password 为必填（schema 层）。")
 def test_sms_register_request_password_required() -> None:
     """SmsRegisterRequest password 为必填（schema 层）。"""
-    request = SmsRegisterRequest(phone="13800138000", code="123456", password="password123")
+    request = SmsRegisterRequest(
+        phone="13800138000", code="123456", password="password123"
+    )
     assert request.password == "password123"

@@ -10,9 +10,11 @@ from app.infra.auth import get_current_user_id
 from app.infra.config import get_settings
 from app.infra.database import get_db
 from app.infra.redis import get_redis
+from app.media.deps import get_media_service
+from app.media.service import MediaService
+from app.user.models import User
 from app.user.repository import UserRepository
-from app.user.schemas import UserResponse
-from app.user.service import UserService, _to_user_response
+from app.user.service import UserService
 from app.user.sms_service import SmsOtpService
 
 
@@ -33,24 +35,10 @@ def get_sms_service(
 def get_user_service(
     repository: UserRepository = Depends(get_user_repository),
     sms: SmsOtpService = Depends(get_sms_service),
+    media_service: MediaService = Depends(get_media_service),
 ) -> UserService:
     """注入 user 服务。"""
-    return UserService(repository, sms)
-
-
-async def get_current_user(
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    repository: UserRepository = Depends(get_user_repository),
-) -> UserResponse:
-    """解析 JWT 并查库返回当前用户；用户不存在时 401。"""
-    user = await repository.get_by_id(user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return _to_user_response(user)
+    return UserService(repository, sms, media_service)
 
 
 async def require_admin(
@@ -71,3 +59,21 @@ async def require_admin(
             detail="Admin access required",
         )
     return user_id
+
+
+async def get_current_user(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    repository: UserRepository = Depends(get_user_repository),
+) -> User:
+    """解析 JWT 并查库返回当前用户实体；用户不存在 404。
+
+    纯读解析（design Decision 4b）：本域仓储直读 + 404，无副作用；
+    返 User ORM 供本域 router 消费（推翻 Phase B service 内自解析）。
+    """
+    user = await repository.get_by_id(user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return user

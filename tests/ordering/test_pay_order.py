@@ -1,25 +1,25 @@
 """ordering 域 POST /orders/{id}/pay integration 测试（TDD 红阶段）。"""
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import (
+from tests.testkit.contexts import (
     AdminAuthContext,
     AuthContext,
     ShopOwnerContext,
 )
-from tests.support.db.catalog import get_product_stock
-from tests.support.db.ordering import backdate_order_expires_at, get_order_status
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.helper.ordering import (
+from tests.testkit.db.catalog import get_product_stock
+from tests.testkit.db.ordering import backdate_order_expires_at, get_order_status
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.helper.ordering import (
     arrange_purchasable_product,
     create_order,
     create_order_by_seller,
     pay_order,
 )
-from tests.support.utils import bearer_headers
+from tests.testkit.utils import bearer_headers
 
 
 @pytest.mark.integration
@@ -71,15 +71,15 @@ async def test_pay_order_stub_confirms_awaiting_payment(
 @pytest.mark.asyncio
 @allure.epic("ordering")
 @allure.feature("pay_order")
-@allure.title("非买家支付返回 403。")
-async def test_pay_order_non_buyer_returns_403(
+@allure.title("非买家支付返回 404（不泄漏存在性）。")
+async def test_pay_order_non_buyer_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
     authenticated_user: AuthContext,
 ) -> None:
-    """非买家支付返回 403。"""
+    """非买家支付返回 404（design Decision 4c 归属失败统一 404）。"""
     category_id, product_id = await arrange_purchasable_product(
         db_session,
         shop_id=shop_owner.shop_id,
@@ -104,7 +104,7 @@ async def test_pay_order_non_buyer_returns_403(
         order_id=created.body.id,
     )
 
-    assert paid.status_code == 403
+    assert paid.status_code == 404
     assert paid.body is None
 
 
@@ -285,14 +285,14 @@ async def test_pay_order_seller_initiated_by_buyer_returns_200(
 @pytest.mark.asyncio
 @allure.epic("ordering")
 @allure.feature("pay_order")
-@allure.title("店主（非买家）支付卖家发起的订单 → 403。")
-async def test_pay_order_seller_initiated_by_shop_owner_returns_403(
+@allure.title("店主（非买家）支付卖家发起的订单 → 404（不泄漏存在性）。")
+async def test_pay_order_seller_initiated_by_shop_owner_returns_404(
     integration_client: AsyncClient,
     db_session: AsyncSession,
     admin_auth_headers: AdminAuthContext,
     shop_owner: ShopOwnerContext,
 ) -> None:
-    """店主（非买家）支付卖家发起的订单 → 403。"""
+    """店主（非买家）支付卖家发起的订单 → 404（design Decision 4c 归属失败统一 404）。"""
     buyer = await register_user_via_otp(integration_client)
     assert buyer.status_code == 201
     assert buyer.body is not None
@@ -318,5 +318,5 @@ async def test_pay_order_seller_initiated_by_shop_owner_returns_403(
         order_id=seller_order.body.id,
     )
 
-    assert paid.status_code == 403
+    assert paid.status_code == 404
     assert paid.body is None

@@ -32,7 +32,9 @@ class OrderRepository:
     ) -> tuple[list[Order], int]:
         """返回买家订单分页列表及总数。"""
         uid = str(buyer_user_id)
-        count_stmt = select(func.count()).select_from(Order).where(Order.buyer_user_id == uid)
+        count_stmt = (
+            select(func.count()).select_from(Order).where(Order.buyer_user_id == uid)
+        )
         total_result = await self._session.execute(count_stmt)
         total = total_result.scalar_one()
 
@@ -145,7 +147,8 @@ class OrderItemRepository:
         self._session.add(item)
 
     async def list_by_order_id(
-        self, order_id: uuid.UUID,
+        self,
+        order_id: uuid.UUID,
     ) -> list[OrderItem]:
         """按订单 ID 查询所有行。"""
         stmt = select(OrderItem).where(OrderItem.order_id == str(order_id))

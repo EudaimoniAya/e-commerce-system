@@ -8,7 +8,7 @@ integration 测试 support 层约定：用 domain Pydantic schema 构造合法�
 
 ### Requirement: Domain schema builders for test data
 
-测试 support 层 SHALL 提供 `build_*` 函数（位于 `tests/support/builders.py`），用于构造 **合法** 的 domain request schema（如 `RegisterRequest`、`ShopCreate`、`ProductCreate`）。函数 SHALL 返回 `app/*/schemas.py` 中定义的 Pydantic 模型，并在构造时执行 Pydantic 校验。
+测试 support 层 SHALL 提供 `build_*` 函数（位于 `tests/testkit/builders.py`），用于构造 **合法** 的 domain request schema（如 `RegisterRequest`、`ShopCreate`、`ProductCreate`）。函数 SHALL 返回 `app/*/schemas.py` 中定义的 Pydantic 模型，并在构造时执行 Pydantic 校验。
 
 #### Scenario: build_shop_create 返回可用 ShopCreate
 
@@ -23,7 +23,7 @@ integration 测试 support 层约定：用 domain Pydantic schema 构造合法�
 
 ### Requirement: Setup Context for fixtures
 
-Setup fixture（如 `authenticated_user`、`shop_owner`、`admin_auth_headers`）SHALL 返回 `tests/support/contexts.py` 中定义的 `@dataclass` Context 类型。Context SHALL 为极薄容器，主字段为 `root: PipelineResult`（fail-fast 后的顺序链）。Context SHALL NOT 使用嵌套 Context 作为主模型（如 `ShopOwnerContext.auth: AuthContext`）。Context SHALL NOT 含存储型便利字段拷贝（如初始化后不与 Pipeline 同步的 `headers` dict）。多步前置状态 SHALL 通过 `context.root.step(ResultType)` 访问。
+Setup fixture（如 `authenticated_user`、`shop_owner`、`admin_auth_headers`）SHALL 返回 `tests/testkit/contexts.py` 中定义的 `@dataclass` Context 类型。Context SHALL 为极薄容器，主字段为 `root: PipelineResult`（fail-fast 后的顺序链）。Context SHALL NOT 使用嵌套 Context 作为主模型（如 `ShopOwnerContext.auth: AuthContext`）。Context SHALL NOT 含存储型便利字段拷贝（如初始化后不与 Pipeline 同步的 `headers` dict）。多步前置状态 SHALL 通过 `context.root.step(ResultType)` 访问。
 
 #### Scenario: shop owner context exposes pipeline root
 
@@ -46,7 +46,7 @@ Setup fixture（如 `authenticated_user`、`shop_owner`、`admin_auth_headers`�
 
 ### Requirement: ActionResult for HTTP helpers
 
-可复用 HTTP helper（如 `register_user`、`login_user`、`create_category`）SHALL 返回 `tests/support/results.py` 中定义的 Result dataclass。线性组合 orchestrator（如 `register_and_open_shop`）SHALL 返回 `PipelineResult` 而非 `*Context`。Helper SHALL NOT 返回 `*Context`。Result SHALL 包含 `status_code` 与 `body: XxxResponse | None`；非 2xx 时 `body` SHALL 为 `None`。Helper SHALL NOT 在内部 assert 成功状态码。
+可复用 HTTP helper（如 `register_user`、`login_user`、`create_category`）SHALL 返回 `tests/testkit/results.py` 中定义的 Result dataclass。线性组合 orchestrator（如 `register_and_open_shop`）SHALL 返回 `PipelineResult` 而非 `*Context`。Helper SHALL NOT 返回 `*Context`。Result SHALL 包含 `status_code` 与 `body: XxxResponse | None`；非 2xx 时 `body` SHALL 为 `None`。Helper SHALL NOT 在内部 assert 成功状态码。
 
 #### Scenario: register user success returns typed body
 

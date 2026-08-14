@@ -2,20 +2,20 @@
 
 import uuid
 
-import pytest
 import allure
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.support.contexts import AuthContext, ShopOwnerContext
-from tests.support.db.ordering import backdate_order_expires_at, seed_cart_item
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.helper.ordering import (
+from tests.testkit.contexts import AuthContext, ShopOwnerContext
+from tests.testkit.db.ordering import backdate_order_expires_at, seed_cart_item
+from tests.testkit.helper.auth import register_user_via_otp
+from tests.testkit.helper.ordering import (
     arrange_purchasable_product,
     checkout_cart,
     get_checkout_batch,
 )
-from tests.support.utils import bearer_headers, decode_jwt_sub
+from tests.testkit.utils import bearer_headers, decode_jwt_sub
 
 
 @pytest.mark.integration
@@ -161,7 +161,7 @@ async def test_get_checkout_batch_with_cancelled_order(
     assert len(orders) == 2
 
     # 取消第一个子订单
-    from tests.support.helper.ordering import cancel_order
+    from tests.testkit.helper.ordering import cancel_order
 
     cancel_result = await cancel_order(
         integration_client,

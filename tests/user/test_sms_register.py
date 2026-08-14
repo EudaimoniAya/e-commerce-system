@@ -16,8 +16,8 @@ import allure
 import pytest
 from httpx import AsyncClient
 
-from tests.support.helper.auth import register_user_via_otp
-from tests.support.builders import build_sms_register_request
+from tests.testkit.builders import build_sms_register_request
+from tests.testkit.helper.auth import register_user_via_otp
 
 _DEFAULT_NICKNAME_PATTERN = re.compile(r"^用户_\d{14,17}$")
 
@@ -90,7 +90,8 @@ async def test_register_wrong_otp_returns_422(
     phone = "13800138000"
     body = build_sms_register_request(phone=phone, code="000000")
     response = await integration_client.post(
-        "/auth/sms/register", json=body.model_dump(mode="json"),
+        "/auth/sms/register",
+        json=body.model_dump(mode="json"),
     )
     assert response.status_code == 422
 
@@ -126,11 +127,13 @@ async def test_register_exceed_fail_limit_returns_429(
     for _ in range(5):
         body = build_sms_register_request(phone=phone, code="000000")
         await integration_client.post(
-            "/auth/sms/register", json=body.model_dump(mode="json"),
+            "/auth/sms/register",
+            json=body.model_dump(mode="json"),
         )
 
     final = build_sms_register_request(phone=phone, code="000000")
     response = await integration_client.post(
-        "/auth/sms/register", json=final.model_dump(mode="json"),
+        "/auth/sms/register",
+        json=final.model_dump(mode="json"),
     )
     assert response.status_code == 429

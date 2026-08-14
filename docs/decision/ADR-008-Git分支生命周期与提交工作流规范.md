@@ -166,7 +166,7 @@ dev/main 双线永久增长；back-merge 是让两条永久分支尖端收敛的
 test(engagement) [browse]: Task 1 TDD 红
 
 - helper: record/list/delete_browse + Browse*Result
-- tests/engagement/test_browse_*.py；tests/support/db/engagement.py
+- tests/engagement/test_browse_*.py；tests/testkit/db/engagement.py
 ```
 
 ```text
@@ -178,7 +178,7 @@ feat(ordering) [buyer-cart]: Task 4 购物车 CRUD
 
 **要求：**
 
-- `type` 用 `feat`/`fix`/`refactor`/`docs`/`test`/`ci`/`chore`/`build`。
+- `type` 用 `feat`/`fix`/`refactor`/`docs`/`test`/`ci`/`chore`/`build`/`style`。
 - `scope` 用**业务域或模块**（`ordering`、`engagement`、`infra`、`openspec` 等），**不是** OpenSpec change 全名；跨域时写 `(catalog, engagement)`。
 - `[<short-change>]`：OpenSpec change 的**短标签**，便于 `git log --grep '\[browse\]'` 串联同一垂直切片。推导规则见下。
 - **标题行宜短**（建议 ≤72 字符）：只写 `Task N` + 一句摘要；**不要**在标题堆「——」和长说明。
@@ -193,6 +193,7 @@ feat(ordering) [buyer-cart]: Task 4 购物车 CRUD
 | `engagement-favorites` | `engagement` | `[favorites]` |
 | `ordering-buyer-cart` | `ordering` | `[buyer-cart]` |
 | `infra-ci-workflows` | `infra` | `[ci-workflows]` |
+| `infra-ruff-style` | `infra` | `[ruff-style]` |
 
 - 默认：change 名为 `{scope}-{capability}` 时，标签取 **去掉首个 `{scope}-` 前缀** 的剩余部分。
 - 若 change 名不以 scope 开头，取 change 名去掉常见前缀后的** distinctive 后缀**，或整段短名（如 `[infra-redis]` → `[redis]`）；**避免**与其它 change 标签撞名。
@@ -223,6 +224,38 @@ OpenSpec 模型中 change 是**待定的 delta**，不需要在等待期间与 d
 ### 代价
 
 - 归档瞬间需要完整核对 spec 与代码一致性——由 archive 流程的 DoD 检查覆盖。
+
+## 决策 8：分支前缀与 commit type 语义
+
+### 问题
+
+决策 1 已固化 `feature/*`、`docs/*`、`hotfix` 三种分支，决策 6 列出 commit type 列表。但工具链/格式类 change（如 `infra-ruff-style`）出现后，"无业务行为变更但会改 CI/workflow" 的提交需要与纯文档（`docs/*`）区分，且 `style` commit type 此前未定义。
+
+### 决策
+
+**分支前缀对照：**
+
+| 前缀 | 用途 | 是否可改 CI/workflow | 典型 |
+|------|------|----------------------|------|
+| `feature/*` | OpenSpec 垂直切片、**可演示功能** | 一般不 | 业务能力 change |
+| `docs/*` | ADR、架构文档等**无行为变更** | 否 | 文档 |
+| `style/*` | **工具链 / format / lint 门禁**，无 `app/` 业务行为变更 | **可** | `infra-ruff-style` |
+| `hotfix` | 从 `main`/tag 切出的紧急修复（决策 1 唯一例外） | — | 发版后回滚 |
+
+- `style/*` 与 `docs/*` 的边界：`style/*` 允许修改 CI/workflow、pyproject、Taskfile 等工具链文件；`docs/*` 只允许文档类文件，不碰 CI/workflow。若提交**只**涉及文档（ADR/README 纯说明），仍用 `docs/*`。
+- OpenSpec 惯例 change 用 `feature/*`；**纯工具链/format/lint 门禁**类 change 用 `style/*`（本 change 即 `style/infra-ruff-style`，自身践行该前缀）。
+
+**commit type `style`：**
+
+仅格式、import 排序、UP 语法替换、Ruff `--fix` 机械修复等**不改变运行时行为**的改动。与 `ci`（Taskfile / workflow / pyproject 规则配置）区分：`style` 是代码排版/机械修复，`ci` 是 CI 工具链配置。
+
+### 理由
+
+工具链/格式 change 的提交既非"功能"也非"纯文档"，需要独立前缀避免语义混淆；`style` commit type 让 `git log` 能一眼区分"改排版"与"改逻辑"。
+
+### 代价
+
+- 分支前缀种类增加，切分支时需按 change 性质选择——由 OpenSpec change 的 Non-goals 明确判定。
 
 ## 不做的决策
 
