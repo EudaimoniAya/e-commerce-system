@@ -17,10 +17,10 @@
 
 ## 3. AI 数据库与 Alembic 第二入口
 
-- [ ] 3.1 实现 `app/infra/ai_database.py`（`AiBase`、`get_ai_engine`、`get_ai_session_factory`、`reset_ai_engine`）
-- [ ] 3.2 新增 `app/infra/models/ai_migration_smoke.py` 与 `alembic_ai/`（`env.py`、revision 001：`vector` + smoke 表 `vector(1024)`）
-- [ ] 3.3 `tests/conftest.py`：integration autouse `reset_ai_engine()`；session `ai_database_url` fixture（若需要）
-- [ ] 3.4 跑绿 §1 migration smoke 与 PG 测试
+- [x] 3.1 实现 `app/infra/ai_database.py`（`AiBase`、`get_ai_engine`、`get_ai_session_factory`、`reset_ai_engine`）
+- [x] 3.2 新增 `app/infra/models/ai_migration_smoke.py` 与 `alembic_ai/`（`env.py`、revision 001：`vector` + smoke 表 `vector(1024)`）
+- [x] 3.3 `tests/conftest.py`：integration autouse `reset_ai_engine()`；session `ai_database_url` fixture（若需要）
+- [x] 3.4 跑绿 §1 migration smoke 与 PG 测试
 
 ## 4. Embedder
 

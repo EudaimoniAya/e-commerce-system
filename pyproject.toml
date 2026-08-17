@@ -49,6 +49,7 @@ extend-select = ["ANN", "I", "UP", "B006", "B007", "B904"]
 [tool.ruff.lint.per-file-ignores]
 "app/**/*.py" = ["ANN"]
 "alembic/**/*.py" = ["ANN"]
+"alembic_ai/**/*.py" = ["ANN"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
