@@ -44,12 +44,73 @@ class MockEmbedder:
         return vectors
 
 
+class ZhipuEmbedder:
+    """智谱（bigmodel.cn）Embedding API 骨架。
+
+    本 change 仅提供接口骨架（维度 + 参数装配），真实 HTTP 调用留给后续
+    需要 ``EMBEDDING_API_KEY`` 的 change / 手动验证。CI 固定 ``mock`` provider，
+    不会构造本类，也绝不触发外部 API。
+    """
+
+    _API_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
+
+    def __init__(self, dimension: int, api_key: str, model: str) -> None:
+        self.dimension = dimension
+        self._api_key = api_key
+        self._model = model
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        raise NotImplementedError(
+            "ZhipuEmbedder 为厂商 API 骨架：本 change 不实现真实调用，"
+            "CI 使用 EMBEDDING_PROVIDER=mock"
+        )
+
+
+class DashscopeEmbedder:
+    """阿里云百炼（dashscope）Embedding API 骨架。
+
+    与 ``ZhipuEmbedder`` 相同：仅提供接口骨架，真实 HTTP 调用留给后续
+    change；CI 固定 ``mock`` provider，不会构造本类。
+    """
+
+    _API_BASE_URL = (
+        "https://dashscope.aliyuncs.com/api/v1/services/"
+        "embeddings/text-embedding/text-embedding"
+    )
+
+    def __init__(self, dimension: int, api_key: str, model: str) -> None:
+        self.dimension = dimension
+        self._api_key = api_key
+        self._model = model
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        raise NotImplementedError(
+            "DashscopeEmbedder 为厂商 API 骨架：本 change 不实现真实调用，"
+            "CI 使用 EMBEDDING_PROVIDER=mock"
+        )
+
+
 def _build_embedder() -> Embedder:
-    """按配置 provider 构建 Embedder（当前仅 MockEmbedder）。"""
+    """按配置 provider 构建 Embedder。
+
+    ``mock`` 为 CI 与默认测试 provider；``zhipu`` / ``dashscope`` 为厂商骨架
+    （本 change 不实现真实 HTTP 调用，单测通过 mock 该类）。
+    """
     settings = get_settings()
     if settings.embedding_provider == "mock":
         return MockEmbedder(settings.embedding_dimension)
-    # zhipu / dashscope 厂商骨架在 Task 4.2 补齐
+    if settings.embedding_provider == "zhipu":
+        return ZhipuEmbedder(
+            dimension=settings.embedding_dimension,
+            api_key=settings.embedding_api_key or "",
+            model=settings.embedding_model,
+        )
+    if settings.embedding_provider == "dashscope":
+        return DashscopeEmbedder(
+            dimension=settings.embedding_dimension,
+            api_key=settings.embedding_api_key or "",
+            model=settings.embedding_model,
+        )
     raise ValueError(f"不支持的 embedding_provider: {settings.embedding_provider}")
 
 

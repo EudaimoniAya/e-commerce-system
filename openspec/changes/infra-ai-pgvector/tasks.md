@@ -24,10 +24,10 @@
 
 ## 4. Embedder
 
-- [ ] 4.1 实现 `app/infra/embedder.py`（`Embedder` 协议、`MockEmbedder`、`get_embedder()`、启动维度校验）
-- [ ] 4.2 厂商 API 骨架（`ZhipuEmbedder` / `DashscopeEmbedder` stub，单测 mock，CI 不调真 API）
-- [ ] 4.3 在 `create_app()` 或等价入口触发 embedder 维度校验
-- [ ] 4.4 跑绿 §1 embedder 测试
+- [x] 4.1 实现 `app/infra/embedder.py`（`Embedder` 协议、`MockEmbedder`、`get_embedder()`、启动维度校验）
+- [x] 4.2 厂商 API 骨架（`ZhipuEmbedder` / `DashscopeEmbedder` stub，单测 mock，CI 不调真 API）
+- [x] 4.3 在 `create_app()` 或等价入口触发 embedder 维度校验
+- [x] 4.4 跑绿 §1 embedder 测试
 
 ## 5. Readiness
 
