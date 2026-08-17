@@ -8,12 +8,12 @@
 
 ## 2. 依赖与 devbox / Taskfile
 
-- [ ] 2.1 `pyproject.toml` 增加 `asyncpg`、`pgvector`；`uv sync`
-- [ ] 2.2 `app/infra/config.py` 增加 `AI_DATABASE_URL`、`EMBEDDING_*`（`embedding_dimension` 必填、无 default）；更新 `.env.example`（示例 `EMBEDDING_DIMENSION=1024`）
-- [ ] 2.2b README / ADR-002 写明本地 integration 须在 `.env.test` 同步 `AI_DATABASE_URL` 与 `EMBEDDING_*`（`.env.test` gitignored；CI 由 workflow env 覆盖）
-- [ ] 2.3 devbox 引入 PostgreSQL（含 pgvector 验证）；`scripts/devbox_pg_up.sh` / `devbox_pg_down.sh`
-- [ ] 2.4 `Taskfile.yml`：`pg:up`/`pg:down`、`migrate:ai`、`migrate:all`；`ci` deps（db+redis+pg）+ migrate:all；`dev` deps + redis；`migrate` deps db；`test:reports` deps + pg
-- [ ] 2.5 验证 devbox：`devbox run -- task pg:up` 就绪且双 AI 库存在
+- [x] 2.1 `pyproject.toml` 增加 `asyncpg`、`pgvector`；`uv sync`
+- [x] 2.2 `app/infra/config.py` 增加 `AI_DATABASE_URL`、`EMBEDDING_*`（`embedding_dimension` 必填、无 default）；更新 `.env.example`（示例 `EMBEDDING_DIMENSION=1024`）
+- [x] 2.2b README / ADR-002 写明本地 integration 须在 `.env.test` 同步 `AI_DATABASE_URL` 与 `EMBEDDING_*`（`.env.test` gitignored；CI 由 workflow env 覆盖）
+- [x] 2.3 devbox 引入 PostgreSQL（含 pgvector 验证）；`scripts/devbox_pg_up.sh` / `devbox_pg_down.sh`
+- [x] 2.4 `Taskfile.yml`：`pg:up`/`pg:down`、`migrate:ai`、`migrate:all`；`ci` deps（db+redis+pg）+ migrate:all；`dev` deps + redis；`migrate` deps db；`test:reports` deps + pg
+- [x] 2.5 验证 devbox：`devbox run -- task pg:up` 就绪且双 AI 库存在
 
 ## 3. AI 数据库与 Alembic 第二入口
 

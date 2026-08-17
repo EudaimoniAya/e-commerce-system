@@ -5,12 +5,17 @@
     "go-task@latest",
     "mysql80@latest",
     "redis@8.0.3",
+    "postgresql_16@16.14",
+    "postgresql16Packages.pgvector@0.8.6",
     "ripgrep@latest"
   ],
   "env": {
     "UV_PROJECT_ENVIRONMENT": ".venv",
     "UV_INDEX_URL": "https://pypi.org/simple",
     "MYSQL_DATADIR": "./mysql-data",
-    "MYSQL_UNIX_PORT": "/tmp/e-commerce-system-mysql.sock"
+    "MYSQL_UNIX_PORT": "/tmp/e-commerce-system-mysql.sock",
+    "PGDATA": "./postgres-data",
+    "PGHOST": "127.0.0.1",
+    "PGPORT": "5433"
   }
 }

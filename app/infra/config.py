@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     # 每用户每窗口最多上传次数（Redis 滑动窗口限速）
     media_upload_rate_limit_per_minute: int = 60
 
+    # ── AI 读库（PostgreSQL + pgvector）────────────────────────────
+    ai_database_url: str
+    embedding_provider: str  # mock | zhipu | dashscope
+    embedding_model: str
+    embedding_dimension: int  # 须显式配置，无 default
+    embedding_api_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

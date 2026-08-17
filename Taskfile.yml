@@ -44,6 +44,7 @@ tasks:
     deps:
       - db:up
       - redis:up
+      - pg:up
     env:
       APP_ENV_FILE: .env.test
     cmds:
@@ -57,11 +58,16 @@ tasks:
 
   ci:
     desc: 本地 CI（format check + ruff + test-import + app-layer-discipline + test）
+    deps:
+      - db:up
+      - redis:up
+      - pg:up
     cmds:
       - task: format:check
       - task: ruff
       - task: check-test-imports
       - task: check-app-layer-discipline
+      - task: migrate
       - task: test
 
   db:up:
@@ -81,8 +87,23 @@ tasks:
 
   migrate:
     desc: 执行 Alembic 迁移至 head（默认 DATABASE_URL 指向 dev 库）
+    deps:
+      - db:up
     cmds:
       - uv run alembic upgrade head
+
+  migrate:ai:
+    desc: 执行 AI 库 Alembic 迁移至 head（alembic_ai.ini）
+    deps:
+      - pg:up
+    cmds:
+      - uv run alembic -c alembic_ai.ini upgrade head
+
+  migrate:all:
+    desc: 依次执行 MySQL 与 AI 库 migrate
+    cmds:
+      - task: migrate
+      - task: migrate:ai
 
   migrate:new:
     desc: 创建新 Alembic revision（autogenerate），用法 task migrate:new -- "描述"
@@ -104,9 +125,20 @@ tasks:
     cmds:
       - bash scripts/devbox_redis_down.sh
 
+  pg:up:
+    desc: 启动 devbox PostgreSQL 16（含 pgvector）并确保 AI dev/test 双库存在
+    cmds:
+      - bash scripts/devbox_pg_up.sh
+
+  pg:down:
+    desc: 停止 devbox PostgreSQL 服务
+    cmds:
+      - bash scripts/devbox_pg_down.sh
+
   dev:
     desc: 启动开发服务器（uvicorn --reload）
     deps:
       - db:up
+      - redis:up
     cmds:
       - uv run uvicorn app.main:app --reload

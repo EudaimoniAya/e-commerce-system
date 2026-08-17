@@ -31,13 +31,16 @@ task db:up
 # 5. 启动本地 Redis 8（readiness 与 integration 测试依赖）
 task redis:up
 
-# 6. 执行迁移（dev 库）
+# 6. 启动本地 PostgreSQL 16（AI 读库 + pgvector；integration 依赖）
+task pg:up
+
+# 7. 执行迁移（dev 库）
 task migrate
 
-# 7. 运行本地 CI（ruff + pytest；含 integration，需 db:up + redis:up）
+# 8. 运行本地 CI（ruff + pytest；含 integration，需 db:up + redis:up + pg:up）
 task ci
 
-# 8. 启动开发服务器（自动依赖 db:up；不自动 redis:up）
+# 9. 启动开发服务器（自动依赖 db:up + redis:up；不自动 pg:up）
 task dev
 ```
 

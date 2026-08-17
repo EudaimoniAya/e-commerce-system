@@ -11,10 +11,6 @@ def test_embedding_dimension_is_required_when_missing() -> None:
     """缺少 EMBEDDING_DIMENSION 时 Settings 构造会因字段必填而失败。"""
     from app.infra.config import Settings
 
-    assert "embedding_dimension" in Settings.model_fields, (
-        "Settings 尚未定义 embedding_dimension（Task 2 实现）"
-    )
-
     old = os.environ.pop("EMBEDDING_DIMENSION", None)
     try:
         with pytest.raises(ValidationError):

@@ -13,10 +13,6 @@ def test_ai_database_url_is_required_when_missing() -> None:
     """缺少 AI_DATABASE_URL 时 Settings 构造会因字段必填而失败。"""
     from app.infra.config import Settings
 
-    assert "ai_database_url" in Settings.model_fields, (
-        "Settings 尚未定义 ai_database_url（Task 2 实现）"
-    )
-
     old = os.environ.pop("AI_DATABASE_URL", None)
     try:
         with pytest.raises(ValidationError):
