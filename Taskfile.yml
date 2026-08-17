@@ -67,7 +67,7 @@ tasks:
       - task: ruff
       - task: check-test-imports
       - task: check-app-layer-discipline
-      - task: migrate
+      - task: migrate:all
       - task: test
 
   db:up:

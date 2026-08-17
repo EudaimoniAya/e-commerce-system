@@ -90,24 +90,24 @@ class DashscopeEmbedder:
         )
 
 
-def _build_embedder() -> Embedder:
-    """按配置 provider 构建 Embedder。
+def _build_embedder(dimension: int) -> Embedder:
+    """按配置 provider 构建 Embedder（``dimension`` 为 schema/配置维度）。
 
     ``mock`` 为 CI 与默认测试 provider；``zhipu`` / ``dashscope`` 为厂商骨架
     （本 change 不实现真实 HTTP 调用，单测通过 mock 该类）。
     """
     settings = get_settings()
     if settings.embedding_provider == "mock":
-        return MockEmbedder(settings.embedding_dimension)
+        return MockEmbedder(dimension)
     if settings.embedding_provider == "zhipu":
         return ZhipuEmbedder(
-            dimension=settings.embedding_dimension,
+            dimension=dimension,
             api_key=settings.embedding_api_key or "",
             model=settings.embedding_model,
         )
     if settings.embedding_provider == "dashscope":
         return DashscopeEmbedder(
-            dimension=settings.embedding_dimension,
+            dimension=dimension,
             api_key=settings.embedding_api_key or "",
             model=settings.embedding_model,
         )
@@ -115,16 +115,22 @@ def _build_embedder() -> Embedder:
 
 
 def get_embedder() -> Embedder:
-    """懒加载 Embedder 单例，并在每次调用时校验维度与 schema 配置一致（fail-fast）。"""
+    """懒加载 Embedder 单例，并在每次调用时校验维度与当前配置一致（fail-fast）。
+
+    ``_schema_dimension`` 于首个调用时锁定（对应 DB migration 的 vector 维度）；
+    Embedder 始终按该维度构建，避免重建时把配置漂移的错误维度永久留在单例里。
+    校验针对 ``settings.embedding_dimension``——运行时配置与 schema 不一致即 fail-fast。
+    """
     global _embedder_instance, _schema_dimension
     settings = get_settings()
+    if _schema_dimension is None:
+        _schema_dimension = settings.embedding_dimension
     if _embedder_instance is None:
-        _embedder_instance = _build_embedder()
-        if _schema_dimension is None:
-            _schema_dimension = settings.embedding_dimension
-    if _embedder_instance.dimension != _schema_dimension:
+        _embedder_instance = _build_embedder(_schema_dimension)
+    if _embedder_instance.dimension != settings.embedding_dimension:
         raise RuntimeError(
             "embedding dimension mismatch: "
-            f"provider={_embedder_instance.dimension}, configured={_schema_dimension}"
+            f"provider={_embedder_instance.dimension}, "
+            f"configured={settings.embedding_dimension}"
         )
     return _embedder_instance

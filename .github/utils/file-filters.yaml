@@ -6,6 +6,7 @@ code:
   - "app/**"
   - "tests/**"
   - "alembic/**"
+  - "alembic_ai/**"
   - "pyproject.toml"
   - "uv.lock"
   - "Taskfile.yml"

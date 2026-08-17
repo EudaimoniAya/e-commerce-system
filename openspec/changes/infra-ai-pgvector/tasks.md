@@ -35,12 +35,11 @@
 - [x] 5.2 更新 `router.py` / `schemas.py`：三库聚合 ready 逻辑
 - [x] 5.3 跑绿 §1 readiness 扩展测试
 
-## 6. CI 与本地 CI
+## 6. CI 调整与本地 CI 验证
 
-- [ ] 6.1 `.github/workflows/test.yaml`：增加 `services.postgres` + healthcheck；env `AI_DATABASE_URL`、`EMBEDDING_PROVIDER=mock`、`EMBEDDING_DIMENSION`；pytest 前 AI migrate
-- [ ] 6.2 `.github/utils/file-filters.yaml`（若需）：纳入 `alembic_ai/**`
-- [ ] 6.3 `devbox run -- task ci` 全绿（含 migrate:all + 三库 deps）
-- [ ] 6.4 远程 CI：`gh workflow run "Run Tests"` + 确认全绿；更新 `tasks.md` 勾选
+- [x] 6.1 `.github/workflows/test.yaml`：增加 `services.postgres` + healthcheck；env `AI_DATABASE_URL`、`EMBEDDING_PROVIDER=mock`、`EMBEDDING_DIMENSION`；pytest 前 AI migrate
+- [x] 6.2 `.github/utils/file-filters.yaml`（若需）：纳入 `alembic_ai/**`
+- [x] 6.3 `devbox run -- task ci` 全绿（含 migrate:all + 三库 deps）
 
 ## 7. 文档同步
 
