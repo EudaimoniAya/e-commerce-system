@@ -31,9 +31,9 @@
 
 ## 5. Readiness
 
-- [ ] 5.1 `app/infra/readiness/service.py` 增加 `_ping_postgresql()` + `is_postgresql_ready()`（镜像 `is_mysql_ready()`：独立 async engine + ThreadPoolExecutor/`asyncio.run`；不引入 psycopg2）
-- [ ] 5.2 更新 `router.py` / `schemas.py`：三库聚合 ready 逻辑
-- [ ] 5.3 跑绿 §1 readiness 扩展测试
+- [x] 5.1 `app/infra/readiness/service.py` 增加 `_ping_postgresql()` + `is_postgresql_ready()`（镜像 `is_mysql_ready()`：独立 async engine + ThreadPoolExecutor/`asyncio.run`；不引入 psycopg2）
+- [x] 5.2 更新 `router.py` / `schemas.py`：三库聚合 ready 逻辑
+- [x] 5.3 跑绿 §1 readiness 扩展测试
 
 ## 6. CI 与本地 CI
 

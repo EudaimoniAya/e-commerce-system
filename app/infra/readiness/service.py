@@ -1,4 +1,4 @@
-"""readiness 业务逻辑（MySQL + Redis 连通性检查）。"""
+"""readiness 业务逻辑（MySQL + Redis + PostgreSQL 连通性检查）。"""
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -34,6 +34,38 @@ def is_mysql_ready() -> bool:
     # pytest-asyncio 等场景下已有事件循环，在线程中运行独立 loop
     with ThreadPoolExecutor(max_workers=1) as executor:
         return executor.submit(asyncio.run, _ping_mysql()).result()
+
+
+async def _ping_postgresql() -> bool:
+    """使用独立 engine 探测 AI 读库（SELECT 1 + pgvector 扩展存在）。
+
+    与 ``_ping_mysql`` 同纪律：短生命周期独立 engine，避免与全局 engine
+    跨事件循环冲突；不引入 psycopg/psycopg2 等 sync 驱动（URL 为 asyncpg）。
+    """
+    settings = get_settings()
+    engine = create_async_engine(settings.ai_database_url)
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+            vector_ok = await conn.scalar(
+                text("SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'")
+            )
+        return bool(vector_ok)
+    except Exception:
+        return False
+    finally:
+        await engine.dispose()
+
+
+def is_postgresql_ready() -> bool:
+    """同步入口：检查 PostgreSQL（AI 读库）是否就绪（供路由与测试 mock 使用）。"""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(_ping_postgresql())
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(asyncio.run, _ping_postgresql()).result()
 
 
 async def _ping_redis() -> bool:
