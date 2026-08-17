@@ -1,10 +1,10 @@
 ## 1. TDD 红：失败测试
 
-- [ ] 1.1 新增 `tests/ops/test_ai_migration_smoke.py`：AI 库 migrate 后 `vector` 扩展与 `_infra_ai_migration_smoke` 表（红）
-- [ ] 1.2 新增 `tests/infra/test_pg.py`：AI 库 `SELECT 1`、向量 insert + 相似度查询 smoke（红）
-- [ ] 1.3 新增 `tests/infra/test_embedder.py`：`MockEmbedder` 维度、配置不一致 fail-fast（红）
-- [ ] 1.4 扩展 `tests/ops/test_readiness.py`：三库 checks（含 `postgresql` unavailable/ok 场景）（红）
-- [ ] 1.5 更新 `pyproject.toml` integration marker 文案（含 PG + `task pg:up`）
+- [x] 1.1 新增 `tests/ops/test_ai_migration_smoke.py`：AI 库 migrate 后 `vector` 扩展与 `_infra_ai_migration_smoke` 表（红）
+- [x] 1.2 新增 `tests/infra/test_pg.py`：AI 库 `SELECT 1`、向量 insert + 相似度查询 smoke（红）
+- [x] 1.3 新增 `tests/infra/test_embedder.py`：`MockEmbedder` 维度、配置不一致 fail-fast（红）
+- [x] 1.4 扩展 `tests/ops/test_readiness.py`：三库 checks（含 `postgresql` unavailable/ok 场景）（红）
+- [x] 1.5 更新 `pyproject.toml` integration marker 文案（含 PG + `task pg:up`）
 
 ## 2. 依赖与 devbox / Taskfile
 
