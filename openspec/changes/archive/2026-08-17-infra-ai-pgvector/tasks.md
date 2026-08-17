@@ -50,5 +50,5 @@
 
 ## 8. 收尾
 
-- [ ] 8.1 `devbox run -- uv run ruff check .` 与 `task format:check` 通过
-- [ ] 8.2 演示验收：`MockEmbedder` → 写入 `_infra_ai_migration_smoke` → 相似度检索命中；`GET /health/ready` 三库 ok
+- [x] 8.1 `devbox run -- uv run ruff check .` 与 `task format:check` 通过
+- [x] 8.2 演示验收：`MockEmbedder` → 写入 `_infra_ai_migration_smoke` → 相似度检索命中；`GET /health/ready` 三库 ok
