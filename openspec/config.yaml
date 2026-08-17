@@ -3,17 +3,17 @@ schema: spec-driven
 # 项目全局上下文 — 创建 OpenSpec artifact 时自动注入 AI
 # 完整架构文档见 docs/architecture.md，决策记录见 docs/decision/
 context: |
-  项目：AI 赋能电商个人项目（当前阶段：电商底座 v1.0.0，不含 AI 功能）
+  项目：AI 赋能电商个人项目（当前阶段：电商底座 v1.0.0 + AI 读库基础设施）
 
-  技术栈：FastAPI + SQLAlchemy + MySQL + Alembic + Redis 8 + pytest
-  后期 AI：LangChain 家族 + PostgreSQL/pgvector（MySQL 为唯一写源）
+  技术栈：FastAPI + SQLAlchemy + MySQL + Alembic + Redis 8 + PostgreSQL 16/pgvector（AI 读库）+ asyncpg + pgvector + pytest
+  后期 AI：LangChain 家族；AI 读库已由 infra 提供（ai_database / alembic_ai / embedder），MySQL 为唯一业务写源
 
   架构：简易版单体多域（Modular Monolith）
   - 按限界上下文纵切：user / catalog / ordering / engagement / support / media / ai（后期）
   - 每域内部：router → service → repository → model + schemas
   - 跨域协作：仅通过对方 service + Pydantic schema，禁止跨域 import ORM 或 repository
   - AI 域与业务域并列，Tool 调用业务 service，不直连 DB
-  - 共享设施：infra/（配置、DB、Redis、JWT、分页、日志、error JSON、readiness）
+  - 共享设施：infra/（配置、DB、Redis、AI 读库 PG（ai_database/embedder/alembic_ai）、JWT、分页、日志、error JSON、readiness 三库聚合）
   - 应用层边界：deps / service / router 纪律见 ADR-010
   - 详见 docs/architecture.md 和 docs/decision/ADR-001-单体多域架构.md
 
@@ -23,7 +23,7 @@ context: |
   后续 v1.x：infra-cd-compose（CD 部署）；v2.0.0：ai 域
 
   开发流程：垂直切片增量交付，SDD + TDD，一个 change = 一个可演示能力
-  工程纪律：CI lint + test（406 项 pytest）；本地 task ci 含 app-layer-discipline AST 检查
+  工程纪律：CI lint + test（423 项 pytest）；本地 task ci 经 deps 自动拉起三库（db:up + redis:up + pg:up）并 migrate:all，含 app-layer-discipline AST 检查
 
   预估规模：app/ ~7500 行，全项目 ~10000 行（含 tests）
 

@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.catalog.router import router as catalog_router
 from app.engagement.router import router as engagement_router
 from app.infra.config import get_settings
+from app.infra.embedder import get_embedder
 from app.infra.errors.register import register_exception_handlers
 from app.infra.health.router import router as health_router
 from app.infra.logging.middleware import RequestIDMiddleware
@@ -28,6 +29,10 @@ def create_app() -> FastAPI:
     """
     settings = get_settings()
     setup_logging(settings)
+
+    # 启动时校验 Embedder 维度与 Settings.embedding_dimension 一致（fail-fast），
+    # 避免向量写入后才发现与 AI 库 migration 维度不匹配。
+    get_embedder()
 
     app = FastAPI(title="e-commerce-system")
 

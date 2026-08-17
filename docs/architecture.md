@@ -18,7 +18,7 @@
 | 业务数据库 | MySQL | 唯一真实数据源（Single Source of Truth） |
 | ORM / 迁移 | SQLAlchemy + Alembic | 初期仅 business 迁移入口 |
 | AI 框架（后期） | LangChain / LangGraph / DeepAgents | 按功能分模块引入 |
-| 向量数据库（后期） | PostgreSQL + pgvector | AI 检索上下文，与业务库分离 |
+| 向量数据库（AI 读库） | PostgreSQL + pgvector | infra 已接入（`ai_database`/`alembic_ai`/`embedder`）；业务 RAG 检索后期 |
 | 工程规范 | OpenSpec (SDD) + pytest (TDD) + CI | 详见工程约定 |
 
 ## 3. 架构总览：二维结构
@@ -76,7 +76,7 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 | 模块 | 职责 |
 |------|------|
-| `infra/` | 配置、数据库 Session、**Redis 客户端**、JWT、健康/readiness 探针、**结构化日志**、**统一 error JSON**、**分页（已实现）**|
+| `infra/` | 配置、数据库 Session、**Redis 客户端**、**PostgreSQL AI 读库（`ai_database` + `embedder`）**、JWT、健康/readiness 探针（三库聚合）、**结构化日志**、**统一 error JSON**、**分页（已实现）**|
 | `events/`（后期） | Outbox、领域事件，驱动 MySQL → pgvector ACL 同步 |
 | `shared/`（可选） | 无业务含义的公共类型，保持极简 |
 
@@ -147,16 +147,18 @@ e-commerce-system/
 ├── app/
 │   ├── main.py                   # create_app() 工厂：logging → middleware → handlers → 路由
 │   ├── infra/
-│   │   ├── config.py             # DATABASE_URL、REDIS_URL、APP_ENV、jwt_*、sms_*、ORDER_RESERVATION_TTL_SECONDS
+│   │   ├── config.py             # DATABASE_URL、REDIS_URL、AI_DATABASE_URL、EMBEDDING_*、APP_ENV、jwt_*、sms_*、ORDER_RESERVATION_TTL_SECONDS
 │   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
+│   │   ├── ai_database.py        # AI 读库 async engine、AiBase、get_ai_engine/get_ai_session_factory/reset_ai_engine
+│   │   ├── embedder.py           # Embedder 协议、MockEmbedder、厂商骨架、get_embedder、启动维度校验
 │   │   ├── redis.py              # redis.asyncio 连接池、get_redis、reset_redis
 │   │   ├── auth.py               # PyJWT、OAuth2PasswordBearer、get_current_user_id
 │   │   ├── logging/              # loguru setup、InterceptHandler、RequestIDMiddleware
 │   │   ├── errors/               # 全局 exception handlers、统一 error JSON
 │   │   ├── health/               # 存活探针 GET /health
-│   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL + Redis 检查）
+│   │   ├── readiness/            # 就绪探针 GET /health/ready（MySQL + Redis + PostgreSQL 检查）
 │   │   ├── pagination/           # 分页基础设施（PaginationParams、get_pagination_params、Paginated[TResponse]）
-│   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke）
+│   │   └── models/               # infra 验证用 ORM（_infra_migration_smoke、_infra_ai_migration_smoke）
 │   ├── user/                     # 用户域（router → service → repository → model）
 │   │   ├── router.py             # POST /auth/sms/*、/auth/login，GET/PATCH /users/me
 │   │   ├── service.py            # SMS 注册/登录、密码登录、资料更新
@@ -227,6 +229,9 @@ e-commerce-system/
 │       ├── 011_support_conversations.py # support_conversations、support_messages
 │       ├── b4fffd14db3c_012_media_assets.py  # media_assets
 │       └── 25a1017514aa_013_media_attach_fk.py  # avatar/logo/primary_media_id FK
+├── alembic_ai/                  # AI 读库独立 Alembic 入口（alembic_ai.ini；仅管 PostgreSQL schema）
+│   └── versions/
+│       └── 001_create_infra_ai_migration_smoke.py  # CREATE EXTENSION vector + _infra_ai_migration_smoke（vector(1024)）
 ├── tests/
 │   ├── conftest.py               # httpx AsyncClient、reset_engine/reset_redis、Redis fixture、auth helper
 │   ├── ops/                        # health、readiness、migration smoke
@@ -312,12 +317,14 @@ app/
 ├── main.py                       # create_app()：setup_logging → middleware → handlers → routers
 ├── infra/
 │   ├── health/                   # 已实现
-│   ├── readiness/                # 已实现（MySQL + Redis 聚合检查）
+│   ├── readiness/                # 已实现（MySQL + Redis + PostgreSQL 聚合检查）
 │   ├── redis.py                  # 已实现（redis.asyncio、get_redis）
 │   ├── logging/                  # 已实现（loguru、request_id、logs/app.log）
 │   ├── errors/                   # 已实现（统一 error JSON、全局 handlers）
-│   ├── config.py                 # 已实现（含 jwt_*、app_env）
+│   ├── config.py                 # 已实现（含 jwt_*、app_env、AI_DATABASE_URL、EMBEDDING_*）
 │   ├── database.py               # 已实现
+│   ├── ai_database.py            # 已实现（AI 读库 async engine、AiBase、get_ai_engine）
+│   ├── embedder.py               # 已实现（Embedder 协议、MockEmbedder、get_embedder、维度校验）
 │   ├── auth.py                   # 已实现
 │   └── pagination/               # 已实现（PaginationParams、get_pagination_params、Paginated[TResponse]）
 ├── user/                         # 已实现（认证垂直切片）
@@ -483,7 +490,7 @@ filter: dorny/paths-filter → 读取 .github/utils/file-filters.yaml → 输出
         workflow_dispatch 时强制 code=true（跳过路径筛选）
 lint:   （if code=true）ruff + check-test-imports（无 services；显式 apt install ripgrep）
 test:   （if code=true）单 job，无 matrix
-        mysql + redis services → migrate → task test → upload artifact
+        mysql + redis + postgres services → migrate + AI migrate → task test → upload artifact
 test-failure-alert: 上游 failure/cancelled 时 exit 1
 ```
 

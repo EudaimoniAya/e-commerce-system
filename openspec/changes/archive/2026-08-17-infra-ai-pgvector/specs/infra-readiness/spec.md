@@ -1,9 +1,5 @@
-# infra-readiness
+## MODIFIED Requirements
 
-## Purpose
-
-聚合 readiness 探针，检查应用是否可接收依赖 MySQL 与 Redis 的业务流量；与 liveness（`GET /health`）职责分离。
-## Requirements
 ### Requirement: Aggregated readiness endpoint
 
 系统 SHALL 提供无需认证的聚合 readiness 端点 `GET /health/ready`，用于检查应用是否可接收依赖 **MySQL、Redis 与 PostgreSQL（AI 读库）** 的业务流量。该端点 SHALL 与 liveness 端点 `GET /health` 分离；liveness SHALL 不依赖数据库或 Redis 或 PostgreSQL。
@@ -60,4 +56,3 @@ readiness 响应 SHALL 使用统一结构：`status` 字段（`ready` | `not_rea
 
 - **WHEN** 测试客户端请求 `GET /health/ready` 且 MySQL、Redis 与 PostgreSQL 均可用
 - **THEN** 请求 SHALL 由 FastAPI 应用处理并返回 Requirement: Aggregated readiness endpoint 所定义的成功响应
-

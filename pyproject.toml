@@ -16,6 +16,8 @@ dependencies = [
     "loguru",
     "redis>=5.2",
     "python-multipart>=0.0.32",
+    "asyncpg",
+    "pgvector",
 ]
 
 [dependency-groups]
@@ -47,11 +49,12 @@ extend-select = ["ANN", "I", "UP", "B006", "B007", "B904"]
 [tool.ruff.lint.per-file-ignores]
 "app/**/*.py" = ["ANN"]
 "alembic/**/*.py" = ["ANN"]
+"alembic_ai/**/*.py" = ["ANN"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
-    "integration: 依赖 MySQL 与 Redis 的集成测试；需 task db:up + task redis:up，DATABASE_URL 指向 ecommerce_test，REDIS_URL 指向 /1",
+    "integration: 依赖 MySQL、Redis 与 PostgreSQL（AI 库）的集成测试；需 task db:up + task redis:up + task pg:up，DATABASE_URL 指向 ecommerce_test，REDIS_URL 指向 /1，AI_DATABASE_URL 指向 ecommerce_ai_test",
 ]

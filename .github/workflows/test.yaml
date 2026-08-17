@@ -29,6 +29,11 @@ env:
   # media 域：integration 测试强制进程内 backend（SAVEPOINT 不回滚文件 IO）
   MEDIA_STORAGE_BACKEND: memory
   MEDIA_STORAGE_ROOT: /tmp/runner-media
+  # AI 读库（PostgreSQL + pgvector service container，端口 5432）；Embedding 固定 mock，CI 不调真 API
+  AI_DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ecommerce_ai_test
+  EMBEDDING_PROVIDER: mock
+  EMBEDDING_MODEL: mock-embedding
+  EMBEDDING_DIMENSION: "1024"
 
 jobs:
   # ── filter：路径筛选，仅 code 变更时运行 lint + test ─────────────────
@@ -119,6 +124,18 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ecommerce_ai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout
@@ -153,6 +170,9 @@ jobs:
 
       - name: Run migrations
         run: uv run alembic upgrade head
+
+      - name: Run AI migrations
+        run: uv run alembic -c alembic_ai.ini upgrade head
 
       - name: Run full test suite
         env:
