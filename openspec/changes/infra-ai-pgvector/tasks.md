@@ -43,10 +43,10 @@
 
 ## 7. 文档同步
 
-- [ ] 7.1 更新 `README.md`（三库、`task ci`/`dev`/`pg:up` 纪律）
-- [ ] 7.2 更新 `docs/decision/ADR-002-测试与数据库策略.md`（PostgreSQL/pgvector 小节 + Task 表）
-- [ ] 7.3 更新 `docs/architecture.md`（infra AI 模块、readiness 三库、§8.3 CI）
-- [ ] 7.4 更新 `openspec/config.yaml` 项目上下文（AI 读库、Embedding、Task 约定）
+- [x] 7.1 更新 `README.md`（三库、`task ci`/`dev`/`pg:up` 纪律）
+- [x] 7.2 更新 `docs/decision/ADR-002-测试与数据库策略.md`（PostgreSQL/pgvector 小节 + Task 表）
+- [x] 7.3 更新 `docs/architecture.md`（infra AI 模块、readiness 三库、§8.3 CI）
+- [x] 7.4 更新 `openspec/config.yaml` 项目上下文（AI 读库、Embedding、Task 约定）
 
 ## 8. 收尾
 
