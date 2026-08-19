@@ -247,6 +247,85 @@ async def delete_document_chunks(source_kind: str, document_id: str) -> None: ..
 
 **理由**：异构跨库无法用数据库约束管理一致性（无 FK/无事务）；此设计让"事实源永远一份（MySQL）、读侧缓存（PG）、关联靠引用、一致性靠重建"成为本 change 以及未来所有 MySQL→PG 同步场景的统一原则。详见 ADR-011。
 
+### 17. RAG 前半段数据流（摄入 → IR → chunking，按文件/模块顺序）
+
+多源语料在进入向量库之前的完整流动。数据形态逐段变化：**业务域 DTO → DocumentIR（ai 内部中间态）→ ProductChunkDraft（chunk 段）**。数据流脉络如下，按文件/模块流动顺序展开。
+
+#### 17.1 media 源（非结构化文档，两步转换）
+
+```text
+app/media/service.py（MediaService，跨域数据提供接口）
+  ├─ list_documents_by_product(product_id)
+  │    → app/media/schemas.py::ProductDocumentInfo[]      # 元数据，不含正文
+  │      （asset_id / content_type / storage_key / original_filename）
+  └─ get_file_stream(asset_id) → (bytes, content_type)     # storage 原始字节，全量读入
+
+app/ai/rag/indexing/service.py（ai 域 adapter）
+  └─ media_documents_for_product(product_id, shop_id, media_service)
+       ├─ 调 media service 拉元数据 + get_file_stream 读字节
+       ├─ app/ai/rag/parsing.py::parse_document(content_type, bytes)
+       │    → 纯文本（PDF 经 pymupdf；TXT 经 UTF-8；失败记日志返回空串 → 跳过该 document）
+       └─ 构造 app/ai/rag/schemas.py::DocumentIR
+            （source_kind=media_document, document_id=附件 UUID, content_text=整篇解析文本）
+```
+
+- **两步转换**：先拉元数据（`ProductDocumentInfo`，不含正文），再读字节 + 解析（`parse_document`）得到文本——正文不随元数据返回。
+- **document_id 映射**：media_document → 附件 UUID（命名空间由 `source_kind` 消歧，design D5）。
+
+#### 17.2 catalog 源（结构化表数据，一步组装）
+
+```text
+app/catalog/product_service.py
+  └─ list_products_for_rag_indexing(shop_id, *, session)
+       → app/catalog/schemas.py::ProductRagSource[]       # 结构化表行，自带文本字段
+         （product_id / shop_id / name / description / price(仅元数据) / is_published）
+
+ai 域 adapter（Task 7 reindex 内实现）
+  └─ 组装 content_text = name + description（price 丢弃——design D2 不进语料）
+       → 构造 DocumentIR
+            （source_kind=catalog_text, document_id=product_id, content_text=组装文本）
+```
+
+- **一步转换**：`ProductRagSource` 自带 name/description 文本字段，直接组装；无「读字节 + 解析」环节。
+- **price 仅元数据传递，不进入 content_text**（交易属性由 Change 3 事实类意图经 Tool 直查）。
+
+#### 17.3 统一收敛与持久化边界
+
+两个源都收敛为 `DocumentIR[]`（**内存中间态，不落库**）：
+
+| DocumentIR 字段 | media 源 | catalog 源 |
+|---|---|---|
+| `document_id` | 附件 UUID | product_id |
+| `content_text` | 解析后的整篇文档全文 | name + description 组装 |
+| `source_kind` | `media_document` | `catalog_text` |
+| `price` | 无 | 丢弃（design D2） |
+
+`DocumentIR` 之后进入单管线（多源差异到此结束）：
+
+```text
+DocumentIR（整篇原文，内存中间态）
+  → app/ai/rag/chunking.py::split_document_to_chunks(document, *, max_chars)
+  → ProductChunkDraft[]（每段 ≤ RAG_CHUNK_MAX_CHARS=800，chunk_index 0..n-1）
+  → get_embedder().embed_texts → INSERT product_embedding_chunks
+```
+
+**持久化边界**：落库的是**每段 chunk**（`document_id` / `content_text`段 / `source_kind` / `chunk_index` / `embedding`），不是整篇全文。
+
+- `document_id` **必须落库**：溯源键（chunk 属于哪个文档），支撑 `delete_document_chunks`、检索展示关联、`UNIQUE(..., document_id, chunk_index)` 幂等。
+- `content_text` 段 **必须落库**：检索返回原文给 LLM 当上下文（`RetrievedChunk.content_text`）；存的文本 = 被 embed 的文本，保证语义对齐。
+- **DocumentIR 整篇全文只在内存存在一次**（切完即弃），不落库。
+
+#### 17.4 全量 vs 流式（为什么摄入/解析用全量加载，而非流式）
+
+摄入与解析采用**全量加载**（一次性读入 + 全量切分），不采用「边读边切」的流式管线，依据：
+
+1. **文件大小上限保护**：media 上传上限 `media_max_size_bytes`（5MB）锁死单文档内存量级 → 全量加载无内存压力 → 流式收益（省内存）不存在 → 全量是最简正确实现。这是「上游约束简化下游」的设计。
+2. **PDF 格式特性**：PDF 解析需完整文件（对象 / xref 随机访问），pymupdf 内部建完整文档结构；TXT 理论上可流式，但 5MB 上限下无收益。
+3. **批量 embed**：`embed_texts` 批量接收 `list[str]`，全量切完 → 一次批量 embed → 批量 insert，优于逐段 N 次 API 调用。
+4. **OCR 明确不做**（design D4）：OCR 比纯文本提取更重、更依赖全量（整页图像解码 + 识别），方向与流式相反；且是 Change 2 外边界。
+
+**未来内存压力点**：真正会触发内存压力的是 **reindex 总量**（整店几千文档堆叠），而非单文档。Task 7 reindex 实现应**逐文档处理**——加载一个 `DocumentIR` → 切分 → embed → 写库 → 回收，再处理下一个；不做文档级批量堆叠。数据量上来后以「文档级流式」演进（非单文档流式）。
+
 ## Risks / Trade-offs
 
 - **[Risk] 改商品/上传文档未 reindex → 检索 stale** → 文档 + Task help 强调；Change 3 可提示「知识库可能过期」
