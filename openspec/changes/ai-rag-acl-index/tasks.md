@@ -36,9 +36,9 @@
 
 ## 6. media 解析 adapter
 
-- [ ] 6.1 `app/ai/rag/parsing.py`：PDF（pymupdf）/ TXT → 文本；解析失败记日志并跳过（不阻塞 reindex）
-- [ ] 6.2 `app/ai/rag/indexing/service.py`：media 文档拉取（调 media service 按 product 取文档 + 文件读取）
-- [ ] 6.3 跑绿 §1.2
+- [x] 6.1 `app/ai/rag/parsing.py`：PDF（pymupdf）/ TXT → 文本；解析失败记日志并跳过（不阻塞 reindex）
+- [x] 6.2 `app/ai/rag/indexing/service.py`：media 文档拉取（调 media service 按 product 取文档 + 文件读取）
+- [x] 6.3 跑绿 §1.2
 
 ## 7. indexing 实现
 
