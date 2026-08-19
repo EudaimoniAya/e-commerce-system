@@ -115,6 +115,30 @@ tasks:
     cmds:
       - uv run python -m app.engagement.jobs.trim_browse_history
 
+  ai:reindex-shop:
+    desc: 整店重建 RAG 语料（catalog_text + media_document；含 orphan 清理）。用法：task ai:reindex-shop -- <shop_id>
+    deps:
+      - db:up
+      - pg:up
+    cmds:
+      - uv run python -m app.ai.jobs.reindex_cli shop --shop-id {{.CLI_ARGS}}
+
+  ai:reindex-product:
+    desc: 重建单商品全部文档（catalog_text + media_document）。用法：task ai:reindex-product -- <product_id>
+    deps:
+      - db:up
+      - pg:up
+    cmds:
+      - uv run python -m app.ai.jobs.reindex_cli product --product-id {{.CLI_ARGS}}
+
+  ai:reindex-document:
+    desc: 重建单文档（document_id 由 source_kind 消歧）。用法：task ai:reindex-document -- --source-kind catalog_text|media_document --document-id <uuid>
+    deps:
+      - db:up
+      - pg:up
+    cmds:
+      - uv run python -m app.ai.jobs.reindex_cli document {{.CLI_ARGS}}
+
   redis:up:
     desc: 启动 devbox Redis 8.0 并轮询就绪
     cmds:

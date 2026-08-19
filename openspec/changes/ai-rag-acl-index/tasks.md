@@ -56,8 +56,8 @@
 
 ## 9. Task CLI
 
-- [ ] 9.1 `app/ai/jobs/reindex_cli.py` + Taskfile `ai:reindex-shop` / `ai:reindex-product` / `ai:reindex-document --source-kind --document-id`（deps `pg:up`）
-- [ ] 9.2 README 片段：改商品/传文档后须 reindex；示例 devbox 命令
+- [x] 9.1 `app/ai/jobs/reindex_cli.py` + Taskfile `ai:reindex-shop` / `ai:reindex-product` / `ai:reindex-document --source-kind --document-id`（deps `pg:up`）
+- [x] 9.2 README 片段：改商品/传文档后须 reindex；示例 devbox 命令
 
 ## 10. 收尾与演示
 
