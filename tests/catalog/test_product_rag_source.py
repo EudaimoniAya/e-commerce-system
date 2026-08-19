@@ -50,9 +50,7 @@ async def test_list_products_for_rag_indexing_filters_published_and_shop(
         db_session, shop_id=shop_b, name="B店已上架", is_published=True
     )
 
-    items = await list_products_for_rag_indexing(
-        shop_id=shop_a, session=db_session
-    )
+    items = await list_products_for_rag_indexing(shop_id=shop_a, session=db_session)
 
     returned_ids = {item.product_id for item in items}
     assert pub_a in returned_ids

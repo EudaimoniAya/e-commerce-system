@@ -57,7 +57,9 @@ def _split(document: object) -> list:
 def test_catalog_short_text_single_chunk() -> None:
     """catalog 短文本：name+description 合并后 ≤ 800 → 单 chunk，content 含商品名与描述。"""
     chunks = _split(
-        _catalog_document(name="红测试商品", description="这是一段商品描述，用于验证单 chunk 行为。")
+        _catalog_document(
+            name="红测试商品", description="这是一段商品描述，用于验证单 chunk 行为。"
+        )
     )
 
     assert len(chunks) == 1

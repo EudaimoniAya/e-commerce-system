@@ -61,6 +61,6 @@
 
 ## 10. 收尾与演示
 
-- [ ] 10.1 `devbox run -- task ci` 全绿
-- [ ] 10.2 演示：`ai:reindex-shop`（双源）→ `retrieve_chunks` 命中本店 chunk；跨店 ACL 单测/集成绿
-- [ ] 10.3 `uv run ruff check .` 与 `task format:check` 通过
+- [x] 10.1 `devbox run -- task ci` 全绿
+- [x] 10.2 演示：`ai:reindex-shop`（双源）→ `retrieve_chunks` 命中本店 chunk；跨店 ACL 单测/集成绿
+- [x] 10.3 `uv run ruff check .` 与 `task format:check` 通过

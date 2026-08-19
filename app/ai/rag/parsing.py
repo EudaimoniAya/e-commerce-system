@@ -22,9 +22,7 @@ def parse_document(content_type: str, data: bytes) -> str:
         # 其它 content_type（图片等）不解析——本 change 仅商品文档 PDF/TXT
         return ""
     except Exception:
-        logger.warning(
-            "文档解析失败，跳过该 document（content_type={})", content_type
-        )
+        logger.warning("文档解析失败，跳过该 document（content_type={})", content_type)
         return ""
 
 
