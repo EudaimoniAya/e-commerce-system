@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog._media import resolve_single_url, resolve_urls_batch
 from app.catalog.models import Product, Shop
@@ -13,6 +14,7 @@ from app.catalog.schemas import (
     PaginatedProducts,
     ProductCategoryItem,
     ProductCreate,
+    ProductRagSource,
     ProductResponse,
     ProductUpdate,
     PurchasableProduct,
@@ -55,6 +57,33 @@ def _to_product_response(
 def _parse_category_ids(category_ids: list[str]) -> list[uuid.UUID]:
     """将请求体中的类目 ID 转为 UUID 列表。"""
     return [uuid.UUID(item) for item in category_ids]
+
+
+async def list_products_for_rag_indexing(
+    shop_id: str | None = None,
+    *,
+    session: AsyncSession,
+) -> list[ProductRagSource]:
+    """跨域只读接口：供 ai 域索引拉取已上架商品文本语料（source_kind=catalog_text）。
+
+    仅返回 ``is_published=True`` 的商品（可选按店过滤）；price 仅元数据传递、
+    不进索引语料（design D2 语料边界）。ai 域经此接口取数，**不** import catalog ORM。
+    """
+    repository = ProductRepository(session)
+    products = await repository.list_for_rag_indexing(
+        shop_id=uuid.UUID(shop_id) if shop_id is not None else None
+    )
+    return [
+        ProductRagSource(
+            product_id=str(product.id),
+            shop_id=str(product.shop_id),
+            name=product.name,
+            description=product.description,
+            price=_format_price(product.price),
+            is_published=product.is_published,
+        )
+        for product in products
+    ]
 
 
 class ProductService:

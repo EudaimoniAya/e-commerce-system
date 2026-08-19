@@ -269,6 +269,21 @@ class ProductRepository:
         )
         return list(result.scalars().all()), total
 
+    async def list_for_rag_indexing(
+        self,
+        shop_id: uuid.UUID | None = None,
+    ) -> list[Product]:
+        """拉取 RAG 索引语料商品：仅 ``is_published=True``，可选按店过滤。
+
+        与 ``list_public`` 不同——**不**要求店铺 active（RAG 语料面向所有已上架
+        商品；店级隔离键 shop_id 由调用方 ai 域 reindex 携带）。
+        """
+        stmt = select(Product).where(Product.is_published.is_(True))
+        if shop_id is not None:
+            stmt = stmt.where(Product.shop_id == str(shop_id))
+        result = await self._session.execute(stmt)
+        return list(result.scalars())
+
     async def get_public_by_id(self, product_id: uuid.UUID) -> Product | None:
         """查询公开可见的商品详情。"""
         query = self._public_base_query(None).where(Product.id == str(product_id))

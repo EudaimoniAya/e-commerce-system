@@ -8,14 +8,13 @@ retrieve 契约：retrieve_chunks(shop_id: str, query: str, top_k: int = 5) -> l
 （design D13）
 """
 
-import uuid
-
 import allure
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
+from tests.testkit.db.user import seed_active_user
 
 
 @pytest.mark.integration
@@ -32,10 +31,14 @@ async def test_retrieve_chunks_acl_no_cross_shop_leak(
     from app.ai.rag.retrieval.service import retrieve_chunks
 
     shop_a = await seed_shop(
-        db_session, owner_user_id=str(uuid.uuid4()), name=unique_shop_name("acl-a")
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("acl-a"),
     )
     shop_b = await seed_shop(
-        db_session, owner_user_id=str(uuid.uuid4()), name=unique_shop_name("acl-b")
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("acl-b"),
     )
     product_a = await seed_product(
         db_session, shop_id=shop_a, name="店铺A独有商品", is_published=True

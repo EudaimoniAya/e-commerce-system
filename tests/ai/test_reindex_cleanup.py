@@ -4,8 +4,6 @@
 - 商品下架（is_published=false）后 reindex → PG SHALL NOT 含该 product_id 的任何 chunk
 """
 
-import uuid
-
 import allure
 import pytest
 from sqlalchemy import text, update
@@ -13,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
+from tests.testkit.db.user import seed_active_user
 
 
 @pytest.mark.integration
@@ -29,7 +28,9 @@ async def test_reindex_after_unpublish_clears_chunks(
     from app.ai.rag.indexing.service import reindex_product
 
     shop_id = await seed_shop(
-        db_session, owner_user_id=str(uuid.uuid4()), name=unique_shop_name("ai-cleanup")
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("ai-cleanup"),
     )
     product_id = await seed_product(
         db_session, shop_id=shop_id, name="即将下架商品", is_published=True

@@ -16,9 +16,9 @@
 
 ## 3. catalog 跨域只读 DTO
 
-- [ ] 3.1 `app/catalog/schemas.py` 增加 `ProductRagSource`（`product_id`、`shop_id`、`name`、`description`、`price`（元数据，不进语料）、`is_published`）
-- [ ] 3.2 `product_service.list_products_for_rag_indexing(shop_id: str | None)` + repository 查询（仅 `is_published=True`）
-- [ ] 3.3 跑绿 §1.5
+- [x] 3.1 `app/catalog/schemas.py` 增加 `ProductRagSource`（`product_id`、`shop_id`、`name`、`description`、`price`（元数据，不进语料）、`is_published`）
+- [x] 3.2 `product_service.list_products_for_rag_indexing(shop_id: str | None)` + repository 查询（仅 `is_published=True`）
+- [x] 3.3 跑绿 §1.5
 
 ## 4. AI 库 migration 与 ORM
 

@@ -10,14 +10,13 @@
 - ``session`` 为 MySQL 业务 session 注入（对齐 reindex 共享 SAVEPOINT 事务模式）。
 """
 
-import uuid
-
 import allure
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
+from tests.testkit.db.user import seed_active_user
 
 
 @pytest.mark.integration
@@ -32,10 +31,14 @@ async def test_list_products_for_rag_indexing_filters_published_and_shop(
     from app.catalog.product_service import list_products_for_rag_indexing
 
     shop_a = await seed_shop(
-        db_session, owner_user_id=str(uuid.uuid4()), name=unique_shop_name("rag-a")
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("rag-a"),
     )
     shop_b = await seed_shop(
-        db_session, owner_user_id=str(uuid.uuid4()), name=unique_shop_name("rag-b")
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("rag-b"),
     )
     pub_a = await seed_product(
         db_session, shop_id=shop_a, name="A店已上架", is_published=True
@@ -76,10 +79,14 @@ async def test_list_products_for_rag_indexing_all_platform(
     from app.catalog.product_service import list_products_for_rag_indexing
 
     shop_a = await seed_shop(
-        db_session, owner_user_id=str(uuid.uuid4()), name=unique_shop_name("all-a")
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("all-a"),
     )
     shop_b = await seed_shop(
-        db_session, owner_user_id=str(uuid.uuid4()), name=unique_shop_name("all-b")
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("all-b"),
     )
     pub_a = await seed_product(
         db_session, shop_id=shop_a, name="A店已上架", is_published=True
