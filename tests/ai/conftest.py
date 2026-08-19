@@ -1,0 +1,42 @@
+"""ai 域测试公共 fixture（红阶段）。
+
+- ``ai_database_url``：AI PG 连接串（对齐 Change 1 tests/ops、tests/infra 同名 fixture）。
+- ``clean_ai_chunks``：integration 测试前后清空 ``product_embedding_chunks``，
+  避免 reindex（经全局 AI session factory 真实写入）跨用例残留；表尚不存在（002 未建）时静默跳过。
+"""
+
+from collections.abc import AsyncIterator
+
+import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+_CHUNKS_TABLE = "product_embedding_chunks"
+
+
+@pytest.fixture(scope="session")
+def ai_database_url() -> str:
+    """当前测试会话使用的 AI PostgreSQL 连接串（从 Settings 读取）。"""
+    from app.infra.config import get_settings
+
+    return get_settings().ai_database_url
+
+
+@pytest.fixture
+async def clean_ai_chunks(ai_database_url: str) -> AsyncIterator[None]:
+    """integration 测试前后清空 product_embedding_chunks（表未建时容忍）。"""
+    engine = create_async_engine(ai_database_url)
+
+    async def _purge() -> None:
+        async with engine.begin() as conn:
+            try:
+                await conn.execute(text(f"DELETE FROM {_CHUNKS_TABLE}"))
+            except Exception:
+                pass  # 表尚不存在（002 未应用）——红阶段容忍
+
+    await _purge()
+    try:
+        yield
+    finally:
+        await _purge()
+    await engine.dispose()

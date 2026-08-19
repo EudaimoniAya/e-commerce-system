@@ -1,12 +1,12 @@
 ## 1. TDD 红：失败测试
 
-- [ ] 1.1 新增 `tests/ai/test_chunking.py`：catalog 策略（单/多 chunk、header、空 description）+ media 策略（段落切分、超长硬切）（红）
-- [ ] 1.2 新增 `tests/ai/test_parsing.py`：PDF/TXT 解析 smoke（mock 文件）（红）
-- [ ] 1.3 新增 `tests/ai/test_indexing_integration.py`：reindex 单商品（catalog_text + media_document）→ PG 有 chunk 行（红）
-- [ ] 1.4 新增 `tests/ai/test_retrieval_acl_integration.py`：两店各 reindex 双源 → shop A query 不返回 shop B（红）
-- [ ] 1.5 新增 `tests/catalog/test_product_rag_source.py`：`list_products_for_rag_indexing` 仅已上架、shop 过滤（红）
-- [ ] 1.6 新增 `tests/media/test_asset_product_link.py`：`MediaAsset` 写入 `product_id` 关联 + 非法 UUID 拒绝（存在性校验在 ai 域 reindex，见 §1.3）（红）
-- [ ] 1.7 下架商品 reindex 清理测试：`is_published=false` 后 reindex → PG 无该 product chunk（红）
+- [x] 1.1 新增 `tests/ai/test_chunking.py`：catalog 策略（单/多 chunk、header、空 description）+ media 策略（段落切分、超长硬切）（红）
+- [x] 1.2 新增 `tests/ai/test_parsing.py`：PDF/TXT 解析 smoke（mock 文件）（红）
+- [x] 1.3 新增 `tests/ai/test_indexing_integration.py`：reindex 单商品（catalog_text + media_document）→ PG 有 chunk 行（红）
+- [x] 1.4 新增 `tests/ai/test_retrieval_acl_integration.py`：两店各 reindex 双源 → shop A query 不返回 shop B（红）
+- [x] 1.5 新增 `tests/catalog/test_product_rag_source.py`：`list_products_for_rag_indexing` 仅已上架、shop 过滤（红）
+- [x] 1.6 新增 `tests/media/test_asset_product_link.py`：`MediaAsset` 写入 `product_id` 关联 + 非法 UUID 拒绝（存在性校验在 ai 域 reindex，见 §1.3）（红）
+- [x] 1.7 下架商品 reindex 清理测试：`is_published=false` 后 reindex → PG 无该 product chunk（红）
 
 ## 2. media 商品-文档关联
 
