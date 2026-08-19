@@ -14,7 +14,7 @@ from fastapi import HTTPException, status
 
 from app.media.models import MediaAsset
 from app.media.repository import MediaRepository
-from app.media.schemas import MediaDetail, MediaSummary
+from app.media.schemas import MediaDetail, MediaSummary, ProductDocumentInfo
 from app.media.storage.protocol import StorageBackend
 
 
@@ -47,12 +47,15 @@ class MediaService:
         owner_user_id: str,
         content_type: str,
         visibility: str = "owner_only",
+        product_id: str | None = None,
     ) -> MediaSummary:
         """上传文件：生成 id → save 字节 → INSERT 元数据。
 
         Args:
             content_type: router 经 ``validate_media_upload`` 注入的魔数检测 MIME
                          （**禁止** service 硬编码）。
+            product_id: 可空商品关联（逻辑外键，无 FK——ADR-011）；router 已做 UUID
+                       格式校验，media 不做跨域存在性校验（校验沿消费方向）。
 
         DB 写入失败时 best-effort 补偿 delete storage 字节。
         """
@@ -69,6 +72,7 @@ class MediaService:
             size_bytes=len(file_bytes),
             storage_key=storage_key,
             original_filename=original_filename,
+            product_id=uuid.UUID(product_id) if product_id is not None else None,
         )
         try:
             await self._persist(asset)
@@ -157,6 +161,35 @@ class MediaService:
             created_at=asset.created_at,
         )
 
+    async def list_documents_by_product(
+        self,
+        product_id: str,
+    ) -> list[ProductDocumentInfo]:
+        """按商品查询关联文档元数据（ai 域 indexing 拉取解析用）。
+
+        纯 product_id 查询、无店级过滤（MediaAsset 无 shop_id，design D3）；
+        店级隔离由 ai 侧 catalog 已上架商品列表保证（ADR-011 §6 校验沿消费方向）。
+        """
+        pid = uuid.UUID(product_id)
+        if self._repo is not None:
+            assets = await self._repo.list_by_product(pid)
+        else:
+            assets = [
+                asset
+                for asset in self._assets.values()
+                if asset.product_id is not None and str(asset.product_id) == str(pid)
+            ]
+        return [
+            ProductDocumentInfo(
+                asset_id=str(asset.id),
+                content_type=asset.content_type,
+                storage_key=asset.storage_key,
+                original_filename=asset.original_filename,
+                created_at=asset.created_at,
+            )
+            for asset in assets
+        ]
+
     async def assert_owned_by(self, media_id: str, user_id: str) -> None:
         """断言 media 存在且属于当前用户。
 
@@ -232,6 +265,15 @@ class MediaService:
         if self._repo is None:
             return 0
         return await self._repo.count_references(uuid.UUID(media_id))
+
+    async def asset_exists(self, media_id: str) -> bool:
+        """单资产存在性查询（无权限检查，供 ai 域 reindex orphan 扫描校验）。
+
+        复用既有单资产加载路径（repository.get_by_id / 内存 dict），不新建批量接口
+        （MVP 逐条 N 次调用可接受，见 design Open Questions）。
+        """
+        asset = await self._load(uuid.UUID(media_id))
+        return asset is not None
 
     # ── 内部：双路径（DB repository 或进程内 dict）───────────────────────
 

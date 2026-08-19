@@ -409,6 +409,22 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 - AI 库 schema 由**独立 Alembic 入口 `alembic_ai/`** 管理（`task migrate:ai`；`task migrate:all` 双库顺序 migrate）；首条 revision 001：`CREATE EXTENSION vector` + `_infra_ai_migration_smoke`（`vector(1024)`）
 - 业务域与未来 `ai/` 模块经 `app/infra/ai_database.py`（`AiBase` / `get_ai_engine`）与 `app/infra/embedder.py`（`Embedder` / `get_embedder`）访问；**禁止**业务域自行 `create_async_engine` 连 AI 库
 
+### RAG 语料重建（reindex）
+
+商品语义语料（`catalog_text` 商品文本 + `media_document` 商品文档）写入 PG 向量库后
+**不会自动同步**——改商品描述 / 上传新文档 / 下架商品 / 删除附件后，须手动 reindex
+相应范围，否则 AI 检索将短暂返回过期内容（stale 窗口，设计文档化接受）：
+
+| 命令 | 作用 |
+|------|------|
+| `task ai:reindex-shop -- <shop_id>` | 整店双源重建 + orphan 清理（下架商品 / 已删附件遗留 chunk 一并清除） |
+| `task ai:reindex-product -- <product_id>` | 重建单商品全部文档（catalog_text + 关联 media_document） |
+| `task ai:reindex-document -- --source-kind catalog_text --document-id <product_id>` | 重建单个 catalog 文本 |
+| `task ai:reindex-document -- --source-kind media_document --document-id <asset_id>` | 重建单个媒体文档 |
+
+reindex 语义：**per document delete-then-insert**（先删该文档既有 chunk 再写入，重复执行
+幂等、不产生重复）。命令对 **dev 库**执行（`.env` 的 `DATABASE_URL` / `AI_DATABASE_URL`）。
+
 ## 环境变量
 
 仓库只提交 `.env.example`；每人本地复制为 `.env`：

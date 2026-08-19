@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     embedding_dimension: int  # 须显式配置，无 default
     embedding_api_key: str | None = None
 
+    # RAG chunking：单 chunk 最大字符数（catalog_text 短文本 / media_document 段落切分）
+    rag_chunk_max_chars: int = 800
+
 
 @lru_cache
 def get_settings() -> Settings:

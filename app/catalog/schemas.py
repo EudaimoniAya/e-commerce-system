@@ -184,6 +184,21 @@ class EngagementProduct(BaseModel):
     shop_active: bool
 
 
+class ProductRagSource(BaseModel):
+    """跨域只读 DTO：供 ai 域 RAG 语料索引拉取（source_kind=catalog_text）。
+
+    ``price`` 仅元数据传递，**不进入索引语料**（design D2 语料边界：交易属性有
+    结构化源且易变，由 Change 3 事实类意图经 Tool 直查业务域）。
+    """
+
+    product_id: str
+    shop_id: str
+    name: str
+    description: str | None
+    price: str
+    is_published: bool
+
+
 class ShopContext(BaseModel):
     """跨域 DTO：店铺上下文（id / status / owner_user_id）。
 

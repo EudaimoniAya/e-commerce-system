@@ -18,6 +18,7 @@ dependencies = [
     "python-multipart>=0.0.32",
     "asyncpg",
     "pgvector",
+    "pymupdf>=1.28.2",
 ]
 
 [dependency-groups]
