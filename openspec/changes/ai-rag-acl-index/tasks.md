@@ -42,11 +42,11 @@
 
 ## 7. indexing 实现
 
-- [ ] 7.1 `app/ai/rag/indexing/repository.py`：delete_by_document、bulk_insert、list_documents_for_shop（扫 orphan）
-- [ ] 7.2 `app/ai/rag/indexing/service.py`：`reindex_shop`、`reindex_product`、`reindex_document`（delete-then-insert per document；catalog + media 双源）
-- [ ] 7.3 `app/ai/service.py`（或等价门面）：`delete_product_chunks(product_id)`、`delete_document_chunks(source_kind, document_id)`（ai 域内部接口，无业务域调用方）
-- [ ] 7.4 reindex-shop orphan 扫描：按商品上架状态清理下架商品 chunk；`source_kind=media_document` 从 PG 反枚举 document_id → 经 media 单资产查询逐条校验附件存在性 → 不存在则删 chunk（业务域零 ai 依赖，无 catalog/media → ai 调用）
-- [ ] 7.5 跑绿 §1.3、§1.7
+- [x] 7.1 `app/ai/rag/indexing/repository.py`：delete_by_document、bulk_insert、list_documents_for_shop（扫 orphan）
+- [x] 7.2 `app/ai/rag/indexing/service.py`：`reindex_shop`、`reindex_product`、`reindex_document`（delete-then-insert per document；catalog + media 双源）
+- [x] 7.3 `app/ai/service.py`（或等价门面）：`delete_product_chunks(product_id)`、`delete_document_chunks(source_kind, document_id)`（ai 域内部接口，无业务域调用方）
+- [x] 7.4 reindex-shop orphan 扫描：按商品上架状态清理下架商品 chunk；`source_kind=media_document` 从 PG 反枚举 document_id → 经 media 单资产查询逐条校验附件存在性 → 不存在则删 chunk（业务域零 ai 依赖，无 catalog/media → ai 调用）
+- [x] 7.5 跑绿 §1.3、§1.7
 
 ## 8. retrieval 实现
 
