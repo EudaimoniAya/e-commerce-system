@@ -22,11 +22,11 @@
 
 ## 4. AI 库 migration 与 ORM
 
-- [ ] 4.1 `app/ai/rag/models/product_embedding_chunk.py`（继承 `AiBase`；含 `document_id`、`source_kind`）
-- [ ] 4.2 `alembic_ai/versions/002_product_embedding_chunks.py`（`vector(1024)`、`UNIQUE(shop_id, product_id, document_id, chunk_index)`）
-- [ ] 4.3 `pyproject.toml` 新增 `pymupdf`
-- [ ] 4.4 `tests/conftest.py`（若需）：ai 模块 import / session 与现有 integration 纪律对齐
-- [ ] 4.5 `devbox run -- task migrate:ai` 验证 002
+- [x] 4.1 `app/ai/rag/models/product_embedding_chunk.py`（继承 `AiBase`；含 `document_id`、`source_kind`）
+- [x] 4.2 `alembic_ai/versions/002_product_embedding_chunks.py`（`vector(1024)`、`UNIQUE(shop_id, product_id, document_id, chunk_index)`）
+- [x] 4.3 `pyproject.toml` 新增 `pymupdf`
+- [x] 4.4 `tests/conftest.py`（若需）：ai 模块 import / session 与现有 integration 纪律对齐
+- [x] 4.5 `devbox run -- task migrate:ai` 验证 002
 
 ## 5. IR 与 chunking
 
