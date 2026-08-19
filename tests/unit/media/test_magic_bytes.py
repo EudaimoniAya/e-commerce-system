@@ -27,13 +27,15 @@ from tests.testkit.helper.media import (
         pytest.param(MINI_JPEG_BYTES, "image/jpeg", id="full_jpeg"),
         pytest.param(MINI_PNG_BYTES, "image/png", id="full_png"),
         pytest.param(MINI_WEBP_BYTES, "image/webp", id="full_webp"),
+        # TXT 商品文档：无固定魔数，UTF-8 可解码即判 text/plain（design D4）
+        pytest.param(TEXT_BYTES, "text/plain", id="plain_text"),
     ],
 )
 @allure.epic("media")
 @allure.feature("validation")
-@allure.title("detect_content_type 识别合法魔数返回正确 MIME")
+@allure.title("detect_content_type 识别合法类型返回正确 MIME")
 def test_detect_content_type_valid(data: bytes, expected_mime: str) -> None:
-    """合法魔数应被检测为正确的 MIME 类型。"""
+    """合法魔数 / 可解码文本应被检测为正确的 MIME 类型。"""
     assert detect_content_type(data) == expected_mime
 
 
@@ -41,7 +43,6 @@ def test_detect_content_type_valid(data: bytes, expected_mime: str) -> None:
     "data",
     [
         pytest.param(SVG_BYTES, id="svg_xml"),
-        pytest.param(TEXT_BYTES, id="plain_text"),
         pytest.param(b"", id="empty"),
         pytest.param(b"\x00\x00\x00\x00", id="null_bytes"),
         pytest.param(b"GIF89a\x00\x00\x00", id="gif_unsupported"),
@@ -51,7 +52,7 @@ def test_detect_content_type_valid(data: bytes, expected_mime: str) -> None:
 @allure.feature("validation")
 @allure.title("detect_content_type 对不支持格式返回 None")
 def test_detect_content_type_invalid(data: bytes) -> None:
-    """不支持或非法的魔数应返回 None。"""
+    """空字节 / 纯控制字符 / 已知但不支持的二进制与标记格式（GIF、SVG-XML）应返回 None。"""
     assert detect_content_type(data) is None
 
 

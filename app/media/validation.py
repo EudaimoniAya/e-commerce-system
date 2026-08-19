@@ -33,16 +33,26 @@ _MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
 ]
 
 
+# 已知但**不支持**的二进制/标记格式魔数（白名单外；避免被文本兜底误判为 text/plain）。
+# GIF 为图片格式、`<?xml` 开头为 SVG/XML 标记——两者均非合法 TXT 商品文档。
+_KNOWN_UNSUPPORTED_BINARY = (b"GIF87a", b"GIF89a", b"<?xml")
+
+
 def _is_plain_text(data: bytes) -> bool:
     """判定字节是否为可解码的 UTF-8 文本（text/plain 无固定魔数）。
 
-    二进制（图片/PDF/乱码）通常无法完整按 UTF-8 解码 → False。
+    空字节、已知但不支持的格式（GIF / SVG-XML）或纯控制字符（NUL 填充）不算文本；
+    其余 UTF-8 可解码 → 判为 text/plain（支持 TXT 商品文档上传，design D4）。
     """
+    if not data:
+        return False
+    if data.startswith(_KNOWN_UNSUPPORTED_BINARY):
+        return False
     try:
-        data.decode("utf-8")
-        return True
+        text = data.decode("utf-8")
     except UnicodeDecodeError:
         return False
+    return any(char.isprintable() for char in text)
 
 
 def detect_content_type(data: bytes) -> str | None:
