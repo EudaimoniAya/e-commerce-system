@@ -50,9 +50,9 @@
 
 ## 8. retrieval 实现
 
-- [ ] 8.1 `app/ai/rag/retrieval/repository.py`：`vector_search(shop_id, embedding, top_k)` 强制 shop 过滤
-- [ ] 8.2 `app/ai/rag/retrieval/service.py` + ai 门面：`retrieve_chunks`（返回 `RetrievedChunk` 含 `document_id`）
-- [ ] 8.3 跑绿 §1.4
+- [x] 8.1 `app/ai/rag/retrieval/repository.py`：`vector_search(shop_id, embedding, top_k)` 强制 shop 过滤
+- [x] 8.2 `app/ai/rag/retrieval/service.py` + ai 门面：`retrieve_chunks`（返回 `RetrievedChunk` 含 `document_id`）
+- [x] 8.3 跑绿 §1.4
 
 ## 9. Task CLI
 

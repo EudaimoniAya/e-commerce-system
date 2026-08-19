@@ -9,7 +9,22 @@
 import uuid
 
 from app.ai.rag.indexing.repository import ProductEmbeddingChunkRepository
+from app.ai.rag.retrieval.service import retrieve_chunks as _retrieve_chunks
+from app.ai.rag.schemas import RetrievedChunk
 from app.infra.ai_database import get_ai_session_factory
+
+
+async def retrieve_chunks(
+    shop_id: str,
+    query: str,
+    top_k: int = 5,
+) -> list[RetrievedChunk]:
+    """Change 3 客服 agent 知识类意图消费入口（design D13）。
+
+    转发至 retrieval service（ACL 强制 shop 过滤）；**NOT** support 域直调
+    （业务域不 import ai，support 经 Change 3 handler 注册表分派）。
+    """
+    return await _retrieve_chunks(shop_id=shop_id, query=query, top_k=top_k)
 
 
 async def delete_product_chunks(product_id: str) -> None:
