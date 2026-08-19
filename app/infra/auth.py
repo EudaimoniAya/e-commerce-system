@@ -50,6 +50,10 @@ def decode_access_token(token: str) -> uuid.UUID:
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
             issuer=settings.jwt_issuer,
+            # 容忍时钟偏移/回拨（iat 微幅未来 / exp 微幅已过）：WSL/沙箱时钟偶发
+            # 回拨会让 `int(now.timestamp())` 签发的 iat 短暂"在未来"，导致全量测试
+            # 偶发 401（The token is not yet valid）。5 秒 leeway 为 JWT 标准容错。
+            leeway=5,
         )
     except InvalidTokenError as exc:
         raise _CREDENTIALS_EXCEPTION from exc
