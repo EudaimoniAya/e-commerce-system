@@ -23,6 +23,24 @@ from tests.testkit.helper.media import MINI_PNG_BYTES
 from tests.testkit.utils import bearer_headers
 
 
+async def _upload_doc(
+    client: AsyncClient,
+    auth: AuthContext,
+    filename: str,
+    product_id: str | None,
+) -> None:
+    """上传 txt 商品文档（带/不带 product_id），断言 201。"""
+    files = {"file": (filename, f"hello {filename}".encode(), "text/plain")}
+    data = {"product_id": product_id} if product_id else {}
+    response = await client.post(
+        "/media",
+        files=files,
+        data=data,
+        headers=bearer_headers(auth.access_token),
+    )
+    assert response.status_code == 201, response.text
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
 @allure.epic("media")
@@ -76,3 +94,37 @@ async def test_upload_with_invalid_product_id_rejected(
     )
 
     assert response.status_code in (400, 422)
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@allure.epic("media")
+@allure.feature("asset_product_link")
+@allure.title("list_documents_by_product 仅返回关联商品文档")
+async def test_list_documents_by_product(
+    integration_client: AsyncClient,
+    db_session: AsyncSession,
+    authenticated_user: AuthContext,
+) -> None:
+    """按 product 查询文档接口：仅返回关联该商品的文档（含 storage_key，供 ai 域解析）。"""
+    from app.media.repository import MediaRepository
+    from app.media.service import MediaService
+    from app.media.storage.memory import InMemoryBackend
+
+    product_x = str(uuid.uuid4())
+    product_y = str(uuid.uuid4())
+
+    await _upload_doc(integration_client, authenticated_user, "doc-a.txt", product_x)
+    await _upload_doc(integration_client, authenticated_user, "doc-b.txt", product_y)
+    await _upload_doc(integration_client, authenticated_user, "doc-c.txt", None)
+
+    service = MediaService(
+        storage=InMemoryBackend(),
+        repository=MediaRepository(db_session),
+    )
+    docs = await service.list_documents_by_product(product_x)
+
+    assert len(docs) == 1
+    assert docs[0].original_filename == "doc-a.txt"
+    assert docs[0].content_type == "text/plain"
+    assert docs[0].storage_key

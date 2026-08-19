@@ -10,9 +10,9 @@
 
 ## 2. media 商品-文档关联
 
-- [ ] 2.1 media 域 migration：`media_assets` 加 `product_id`（可空，**无 FK**，普通列 + 索引；**不加** `shop_id`——chunk ACL 键单一事实源为商品归属）
-- [ ] 2.2 `app/media/schemas.py` + service：上传商品文档时写入关联；按 product 查询文档接口（纯 product_id 查询，无店级过滤）；确认/复用单资产查询接口（供 ai 域 orphan 逐条校验附件存在性）
-- [ ] 2.3 跑绿 §1.6
+- [x] 2.1 media 域 migration：`media_assets` 加 `product_id`（可空，**无 FK**，普通列 + 索引；**不加** `shop_id`——chunk ACL 键单一事实源为商品归属）
+- [x] 2.2 `app/media/schemas.py` + service：上传商品文档时写入关联；按 product 查询文档接口（纯 product_id 查询，无店级过滤）；确认/复用单资产查询接口（供 ai 域 orphan 逐条校验附件存在性）
+- [x] 2.3 跑绿 §1.6
 
 ## 3. catalog 跨域只读 DTO
 

@@ -31,3 +31,17 @@ class MediaDetail(BaseModel):
     visibility: str = Field(description="public | owner_only")
     original_filename: str = Field(description="上传时文件名")
     created_at: datetime = Field(description="创建时间")
+
+
+class ProductDocumentInfo(BaseModel):
+    """按 product 查询的商品文档元数据（供 ai 域 indexing 拉取解析）。
+
+    含 ``storage_key``（ai 域解析需读取原始字节）；仅 media→ai 数据提供接口使用，
+    **不**作为对外 HTTP 响应体（对外 MediaDetail 不暴露 storage_key）。
+    """
+
+    asset_id: str = Field(description="媒体 UUID")
+    content_type: str = Field(description="魔数检测后的 MIME")
+    storage_key: str = Field(description="StorageBackend 内对象键（读取字节用）")
+    original_filename: str = Field(description="上传时文件名")
+    created_at: datetime = Field(description="创建时间")

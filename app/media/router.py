@@ -8,7 +8,15 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 from starlette.responses import Response as StarletteResponse
@@ -51,22 +59,44 @@ async def _optional_user_id(
         return None
 
 
+def _parse_optional_product_id(product_id: str | None) -> uuid.UUID | None:
+    """product_id 仅做 UUID 格式校验（media 不跨域校验存在性——ADR-011 校验分层）。
+
+    - None / 空串 → None（未关联）
+    - 非合法 UUID → 422
+    """
+    if product_id is None or product_id == "":
+        return None
+    try:
+        return uuid.UUID(product_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="product_id 必须是合法 UUID",
+        ) from None
+
+
 # ── 端点 ─────────────────────────────────────────────────────────────────
 
 
 @router.post("", response_model=MediaSummary, status_code=status.HTTP_201_CREATED)
 async def upload_media(
     file: UploadFile,
+    product_id: str | None = Form(default=None),
     user_id: uuid.UUID = Depends(_required_user_id),
     _rate_ok: None = Depends(check_upload_rate_limit),
     service: MediaService = Depends(get_media_service),
     settings: Settings = Depends(get_settings),
 ) -> MediaSummary:
-    """上传媒体文件（multipart/form-data，字段 ``file``）。
+    """上传媒体文件（multipart/form-data，字段 ``file``，可选 ``product_id``）。
 
     校验链：大小上限 → MIME 白名单 → 魔数检测。
+    ``product_id`` 仅做 UUID 格式校验（商品存在性校验在 ai 域 reindex，ADR-011）。
     返回 201 与 ``MediaSummary``（含相对 URL ``/media/{id}/file``）。
     """
+    # product_id 格式校验（无跨域存在性校验——ADR-011 校验分层）
+    product_id_uuid = _parse_optional_product_id(product_id)
+
     if file.filename is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -96,6 +126,7 @@ async def upload_media(
         original_filename=file.filename,
         owner_user_id=str(user_id),
         content_type=_content_type,  # 魔数检测真实 MIME（spec 禁止 service 硬编码）
+        product_id=str(product_id_uuid) if product_id_uuid is not None else None,
     )
 
 

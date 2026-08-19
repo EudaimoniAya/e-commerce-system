@@ -17,7 +17,7 @@ from app.infra.database import Base
 class MediaAsset(Base):
     """映射 ``media_assets`` 表——上传媒体文件元数据。
 
-    列（8 列）：
+    列（9 列）：
     - id: UUID v4 PK
     - owner_user_id: FK → users.id
     - visibility: owner_only | public，默认 owner_only
@@ -25,6 +25,7 @@ class MediaAsset(Base):
     - size_bytes: 实际上传字节数
     - storage_key: StorageBackend 内对象键（两级分片路径）
     - original_filename: 客户端上传文件名
+    - product_id: 可空关联商品（逻辑外键，无 FK 约束——ADR-011；chunk ACL 键 shop_id 单一事实源为商品归属，不冗余到 media）
     - created_at: 创建时间
     """
 
@@ -61,6 +62,11 @@ class MediaAsset(Base):
     original_filename: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
+    )
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        String(36),
+        index=True,
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DATETIME(fsp=6),

@@ -48,6 +48,20 @@ class MediaRepository:
         result = await self._session.execute(stmt)
         return list(result.scalars())
 
+    async def list_by_product(self, product_id: uuid.UUID) -> list[MediaAsset]:
+        """按商品查询关联文档（纯 product_id 查询，无店级过滤——MediaAsset 无 shop_id）。
+
+        供 ai 域 indexing 拉取商品文档（source_kind=media_document）；
+        店级隔离由 ai 侧 catalog 已上架商品列表保证（ADR-011 §6 校验沿消费方向）。
+        """
+        stmt = (
+            select(MediaAsset)
+            .where(MediaAsset.product_id == str(product_id))
+            .order_by(MediaAsset.created_at)
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars())
+
     async def count_references(self, media_id: uuid.UUID) -> int:
         """统计 media_id 被业务表 FK 引用的数量。
 
