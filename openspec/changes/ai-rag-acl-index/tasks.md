@@ -30,9 +30,9 @@
 
 ## 5. IR 与 chunking
 
-- [ ] 5.1 `app/ai/rag/schemas.py`：`DocumentIR`、`ProductChunkDraft`、`RetrievedChunk`、`ReindexStats`
-- [ ] 5.2 `app/ai/rag/chunking.py`：`split_document_to_chunks`（catalog_text 短文本 / media_document 段落切分）+ Settings `RAG_CHUNK_MAX_CHARS`（默认 800）
-- [ ] 5.3 跑绿 §1.1
+- [x] 5.1 `app/ai/rag/schemas.py`：`DocumentIR`、`ProductChunkDraft`、`RetrievedChunk`、`ReindexStats`
+- [x] 5.2 `app/ai/rag/chunking.py`：`split_document_to_chunks`（catalog_text 短文本 / media_document 段落切分）+ Settings `RAG_CHUNK_MAX_CHARS`（默认 800）
+- [x] 5.3 跑绿 §1.1
 
 ## 6. media 解析 adapter
 
