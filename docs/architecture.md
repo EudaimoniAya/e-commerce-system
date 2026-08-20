@@ -446,7 +446,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 | 功能 | 技术 | 说明 |
 |------|------|------|
 | 店铺客服对话 | support 域（已交付） | 买家↔店铺 lazy create 会话、inbox、product ref；见 ADR-007 |
-| 店铺 RAG 智能客服 | LangChain Retriever | 商品描述、FAQ 语义检索；后续 `ai-support-agent` change |
+| 店铺 RAG 智能客服 | 自研检索管线（pgvector 暴力 top-K） | catalog 文本 + media 文档双源语料 → DocumentIR 落库，`ai:reindex` CLI 重建；读侧检索仓储见 ADR-012；`ai-support-agent` change 实现问答闭环 |
 | 推荐系统 | 协同过滤 → 自研模型 | 消费 order_items、engagement 行为数据 |
 | 店铺经营助手 | DeepAgents | 读 admin API 聚合数据，长上下文 |
 | 购物搭子 | LangGraph 精细编排 | 私域流量实验功能，严格控制 token 成本 |
@@ -457,6 +457,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 - **PostgreSQL + pgvector**：AI 检索上下文，通过 Outbox + 异步 ACL 从 MySQL 同步
 - **Alembic 双入口**：business（MySQL）与 ai（PostgreSQL）独立迁移
 - **Tool 封装**：AI Agent 的所有数据操作通过 Tool → 业务 service，不直连数据库
+- **RAG 写读分离（[ADR-012](./decision/ADR-012-RAG读写分离与change宏观安排.md)）**：写路径（离线 ingest：多源 → DocumentIR → chunk/embed → pgvector 落库）与读路径（在线检索：`vector_search` + SQL 层 shop_id ACL）仓储级分离；写/读/评测三路径复杂度正交、独立演进；change 1=底座、change 2=写侧（均已归档）、change 3=读侧闭环（`ai-support-agent`，未开）
 
 ## 8. 开发流程
 
@@ -524,6 +525,8 @@ workflow_dispatch → 输入 version（必填 semver）→ 同上
 - [ADR-008：Git 分支生命周期与提交工作流规范](./decision/ADR-008-Git分支生命周期与提交工作流规范.md)
 - [ADR-009：Redis 业务扩展与 AI 数据分层策略](./decision/ADR-009-Redis业务扩展与AI数据分层策略.md)
 - [ADR-010：应用层边界纪律](./decision/ADR-010-应用层边界纪律.md)
+- [ADR-011：异构数据架构的数据一致性设计](./decision/ADR-011-异构数据架构的数据一致性设计.md)
+- [ADR-012：RAG 读写分离——CQS 谱系定位、仓储判据与 change 宏观安排](./decision/ADR-012-RAG读写分离与change宏观安排.md)
 
 ### 相关笔记（`docs/notes/`，非 ADR）
 
