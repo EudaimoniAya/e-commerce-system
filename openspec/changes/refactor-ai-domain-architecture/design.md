@@ -140,11 +140,12 @@ ADR-013 应写明、apply 时落盘：
 ## Migration Plan
 
 1. 规范：ADR-013 + ADR-012 用词 + architecture + rule。
-2. catalog DTO/接口 + 测试（TDD）。
-3. AI deps + 删自装配 + CLI/fixture 接线 + 删门面。
-4. retrieve `product_id` + 测试。
-5. AST R2/R5 + 合成用例。
-6. `devbox run -- task ci`。
+2. 失败测试（红，一门禁）：catalog / 组合根 / 检索 / AST 测例写齐后再实现。
+3. catalog DTO/接口（绿）。
+4. AI deps + 删自装配 + CLI/fixture 接线 + 删门面 + `source_kind` 常量（绿）。
+5. retrieve 可选 `product_id`（绿）。
+6. AST R2/R5（绿）。
+7. `devbox run -- task ci`。
 
 无库迁移。回滚：恢复门面与可选 `media_service`（不推荐）。
 
