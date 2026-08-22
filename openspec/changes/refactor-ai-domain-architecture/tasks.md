@@ -29,8 +29,8 @@
 
 ## 5. 检索按会话范围过滤（绿）
 
-- [ ] 5.1 `vector_search` / `retrieve_chunks` 增加可选 `product_id`；SQL 按需 AND
-- [ ] 5.2 跑绿 §2.3
+- [x] 5.1 `vector_search` / `retrieve_chunks` 增加可选 `product_id`；SQL 按需 AND
+- [x] 5.2 跑绿 §2.3
 
 ## 6. AST 门禁（绿）
 

@@ -1,4 +1,4 @@
-"""检索按会话范围过滤 integration 测试（TDD 红：product_id 参数尚未实现）。
+"""检索按会话范围过滤 integration 测试（可选 product_id）。
 
 覆盖 spec ai-rag-retrieval「Conversation-scoped product filter」：
 - 传入 product_id=A 时不含同店商品 B

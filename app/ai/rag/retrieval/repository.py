@@ -1,4 +1,4 @@
-"""ai 域 retrieval 仓储：pgvector 暴力 top-K 检索（强制 shop ACL 过滤）。
+"""ai 域 retrieval 仓储：pgvector 暴力 top-K 检索（按会话范围过滤）。
 
 MVP 暴力 top-K（``<=>`` + ORDER BY + LIMIT），**无** HNSW/IVFFlat 向量索引
 （design D9，Change 4+ 评估 ANN）。
@@ -40,17 +40,28 @@ class ProductEmbeddingChunkSearchRepository:
         shop_id: str | uuid.UUID,
         embedding: list[float],
         top_k: int,
+        product_id: str | uuid.UUID | None = None,
     ) -> list[SearchHit]:
-        """按店 top-K 检索。
+        """按会话范围 top-K 检索。
 
         - **SQL 层强制 ``WHERE shop_id``**（spec「SQL 层 shop_id 过滤」）——即便其它店
           向量更相似也 SHALL NOT 返回（design D10 / ADR-007 店铺隔离）。
+        - 传入 ``product_id`` 时再 AND 该列（商品对话）；省略则仅按店（店铺泛咨询）。
         - score 为余弦距离（``<=>`` 语义：**越小越相关**），结果按 score 升序返回
           （design D13）。
         """
         score_expr = ProductEmbeddingChunk.embedding.cosine_distance(embedding).label(
             "score"
         )
+        shop_uuid = shop_id if isinstance(shop_id, uuid.UUID) else uuid.UUID(shop_id)
+        filters = [ProductEmbeddingChunk.shop_id == shop_uuid]
+        if product_id is not None:
+            product_uuid = (
+                product_id
+                if isinstance(product_id, uuid.UUID)
+                else uuid.UUID(product_id)
+            )
+            filters.append(ProductEmbeddingChunk.product_id == product_uuid)
         stmt = (
             select(
                 ProductEmbeddingChunk.shop_id,
@@ -60,10 +71,7 @@ class ProductEmbeddingChunkSearchRepository:
                 ProductEmbeddingChunk.content_text,
                 score_expr,
             )
-            .where(
-                ProductEmbeddingChunk.shop_id
-                == (shop_id if isinstance(shop_id, uuid.UUID) else uuid.UUID(shop_id))
-            )
+            .where(*filters)
             .order_by(score_expr.asc())
             .limit(top_k)
         )
