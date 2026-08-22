@@ -7,18 +7,18 @@
 
 ## 2. TDD — 失败测试（红）
 
-> 只写测、不写实现。§2 完成前不得开始 §4–§6。catalog 测例已在先前 apply 落地（现已绿），其余本节省勾。
+> 只写测、不写实现。§2 完成前不得开始 §4–§6。2.1 测例已写（现红，待 §3 绿）。
 
 - [x] 2.1 扩展 `tests/catalog/test_product_rag_source.py`：`ProductRagSource` 无 `price`；`get_product_for_rag_indexing` 上架返回源、下架/不存在返回 `None`
-- [ ] 2.2 改 CLI / indexing 测试：`media_service` 必传；断言 `reindex_product` 不调用 `list_products_for_rag_indexing(shop_id=None)`；断言不存在 `app.ai.service` 门面导出；**不编写** deps / 删门面实现
-- [ ] 2.3 编写检索测例：同店两商品 chunk 时 `retrieve_chunks(..., product_id=A)` 不含 B；省略 `product_id` 仍可返回多商品；**不编写** retrieve 实现
-- [ ] 2.4 编写 AST 合成用例：业务域 import `app.ai.*` 应违规；`app/ai/**` 除 `deps.py` 外 import 别域 `deps` 应违规、`deps.py` 取 `get_media_service` 应放行；**不编写** `DOMAINS` / R5 实现
-- [ ] 2.5 `devbox run -- task db:up` 后跑 §2.2–2.4，确认失败（红）
+- [x] 2.2 改 CLI / indexing 测试：`media_service` 必传；断言 `reindex_product` 不调用 `list_products_for_rag_indexing(shop_id=None)`；断言不存在 `app.ai.service` 门面导出；**不编写** deps / 删门面实现
+- [x] 2.3 编写检索测例：同店两商品 chunk 时 `retrieve_chunks(..., product_id=A)` 不含 B；省略 `product_id` 仍可返回多商品；**不编写** retrieve 实现
+- [x] 2.4 编写 AST 合成用例：业务域 import `app.ai.*` 应违规；`app/ai/**` 除 `deps.py` 外 import 别域 `deps` 应违规、`deps.py` 取 `get_media_service` 应放行；**不编写** `DOMAINS` / R5 实现
+- [x] 2.5 `devbox run -- task db:up` 后跑 §2.2–2.4，确认失败（红）
 
 ## 3. catalog 单商品语料接口（绿）
 
-- [x] 3.1 `ProductRagSource` 去掉 `price`；实现 `get_product_for_rag_indexing`（catalog service + 仓储按 id 且已上架；不存在/未上架返回 `None`）
-- [x] 3.2 跑绿 §2.1（`devbox run -- uv run pytest tests/catalog/test_product_rag_source.py -q`）
+- [ ] 3.1 `ProductRagSource` 去掉 `price`；实现 `get_product_for_rag_indexing`（catalog service + 仓储按 id 且已上架；不存在/未上架返回 `None`）
+- [ ] 3.2 跑绿 §2.1（`devbox run -- uv run pytest tests/catalog/test_product_rag_source.py -q`）
 
 ## 4. AI 组合根与砍门面（绿）
 
@@ -43,4 +43,4 @@
 - [ ] 7.1 `devbox run -- task ci` 全绿
 - [ ] 7.2 确认 GitHub Actions CI 全绿（`workflow_dispatch` 或 PR）
 
-> **Apply 约定**：严格 TDD，§2 完成前不得开始 §4–§6；§3 已随先前 apply 完成。每个 apply 会话建议只完成 1 个 Task 节。
+> **Apply 约定**：严格 TDD，§2 完成前不得开始 §4–§6。每个 apply 会话建议只完成 1 个 Task 节。

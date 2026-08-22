@@ -4,10 +4,12 @@
 - 已上架商品 reindex → PG product_embedding_chunks 至少一行 chunk（catalog_text 源即可成立）
 
 reindex 契约（红阶段定义，绿阶段实现按此落地）：
-    reindex_product(product_id: str, *, db_session: AsyncSession) -> ReindexStats
+    reindex_product(product_id: str, *, db_session: AsyncSession, media_service) -> ReindexStats
 - ``db_session`` 为 MySQL 业务 session 注入：reindex 经 catalog 数据提供接口读取商品，
   与测试共享同一 SAVEPOINT 事务（对齐项目「跨域共享 DB 事务」模式）；PG 侧经全局 AI session 真实写入。
 """
+
+from unittest.mock import AsyncMock
 
 import allure
 import pytest
@@ -28,6 +30,7 @@ async def test_reindex_published_product_writes_chunks(
     db_session: AsyncSession,
     ai_database_url: str,
     clean_ai_chunks: None,
+    stub_media_service: AsyncMock,
 ) -> None:
     """已上架商品 reindex 后 PG product_embedding_chunks 含该 (shop_id, product_id) 至少一行。"""
     from app.ai.rag.indexing.service import reindex_product
@@ -41,7 +44,11 @@ async def test_reindex_published_product_writes_chunks(
         db_session, shop_id=shop_id, name="红阶段上架商品", is_published=True
     )
 
-    await reindex_product(product_id=product_id, db_session=db_session)
+    await reindex_product(
+        product_id=product_id,
+        db_session=db_session,
+        media_service=stub_media_service,
+    )
 
     engine = create_async_engine(ai_database_url)
     async with engine.connect() as conn:

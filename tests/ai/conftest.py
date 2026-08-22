@@ -6,6 +6,7 @@
 """
 
 from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import text
@@ -40,3 +41,12 @@ async def clean_ai_chunks(ai_database_url: str) -> AsyncIterator[None]:
     finally:
         await _purge()
     await engine.dispose()
+
+
+@pytest.fixture
+def stub_media_service() -> AsyncMock:
+    """catalog_text 路径用的 MediaService 桩：无文档、附件视为存在。"""
+    media = AsyncMock()
+    media.list_documents_by_product.return_value = []
+    media.asset_exists.return_value = True
+    return media

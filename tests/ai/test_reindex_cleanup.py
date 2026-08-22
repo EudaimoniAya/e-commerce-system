@@ -4,6 +4,8 @@
 - 商品下架（is_published=false）后 reindex → PG SHALL NOT 含该 product_id 的任何 chunk
 """
 
+from unittest.mock import AsyncMock
+
 import allure
 import pytest
 from sqlalchemy import text, update
@@ -23,6 +25,7 @@ async def test_reindex_after_unpublish_clears_chunks(
     db_session: AsyncSession,
     ai_database_url: str,
     clean_ai_chunks: None,
+    stub_media_service: AsyncMock,
 ) -> None:
     """先 reindex 上架商品写入 chunk，模拟下架（is_published=false）后 reindex → chunk 被清除。"""
     from app.ai.rag.indexing.service import reindex_product
@@ -36,7 +39,11 @@ async def test_reindex_after_unpublish_clears_chunks(
         db_session, shop_id=shop_id, name="即将下架商品", is_published=True
     )
 
-    await reindex_product(product_id=product_id, db_session=db_session)
+    await reindex_product(
+        product_id=product_id,
+        db_session=db_session,
+        media_service=stub_media_service,
+    )
 
     # 模拟商家下架：PATCH is_published=false（项目无 DELETE /products，见 catalog-products spec）
     from app.catalog.models import Product
@@ -45,7 +52,11 @@ async def test_reindex_after_unpublish_clears_chunks(
         update(Product).where(Product.id == product_id).values(is_published=False)
     )
 
-    await reindex_product(product_id=product_id, db_session=db_session)
+    await reindex_product(
+        product_id=product_id,
+        db_session=db_session,
+        media_service=stub_media_service,
+    )
 
     engine = create_async_engine(ai_database_url)
     async with engine.connect() as conn:
