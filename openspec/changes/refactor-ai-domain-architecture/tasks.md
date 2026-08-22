@@ -7,7 +7,7 @@
 
 ## 2. TDD — 失败测试（红）
 
-> 只写测、不写实现。§2 完成前不得开始 §4–§6。2.1 测例已写（现红，待 §3 绿）。
+> 只写测、不写实现。§2 完成前不得开始 §4–§6。§2.1 已由 §3 跑绿。
 
 - [x] 2.1 扩展 `tests/catalog/test_product_rag_source.py`：`ProductRagSource` 无 `price`；`get_product_for_rag_indexing` 上架返回源、下架/不存在返回 `None`
 - [x] 2.2 改 CLI / indexing 测试：`media_service` 必传；断言 `reindex_product` 不调用 `list_products_for_rag_indexing(shop_id=None)`；断言不存在 `app.ai.service` 门面导出；**不编写** deps / 删门面实现
@@ -17,8 +17,8 @@
 
 ## 3. catalog 单商品语料接口（绿）
 
-- [ ] 3.1 `ProductRagSource` 去掉 `price`；实现 `get_product_for_rag_indexing`（catalog service + 仓储按 id 且已上架；不存在/未上架返回 `None`）
-- [ ] 3.2 跑绿 §2.1（`devbox run -- uv run pytest tests/catalog/test_product_rag_source.py -q`）
+- [x] 3.1 `ProductRagSource` 去掉 `price`；实现 `get_product_for_rag_indexing`（catalog service + 仓储按 id 且已上架；不存在/未上架返回 `None`）
+- [x] 3.2 跑绿 §2.1（`devbox run -- uv run pytest tests/catalog/test_product_rag_source.py -q`）
 
 ## 4. AI 组合根与砍门面（绿）
 

@@ -59,6 +59,17 @@ def _parse_category_ids(category_ids: list[str]) -> list[uuid.UUID]:
     return [uuid.UUID(item) for item in category_ids]
 
 
+def _to_product_rag_source(product: Product) -> ProductRagSource:
+    """已上架商品 ORM → RAG 语料源 DTO（不含 price）。"""
+    return ProductRagSource(
+        product_id=str(product.id),
+        shop_id=str(product.shop_id),
+        name=product.name,
+        description=product.description,
+        is_published=product.is_published,
+    )
+
+
 async def list_products_for_rag_indexing(
     shop_id: str | None = None,
     *,
@@ -66,24 +77,27 @@ async def list_products_for_rag_indexing(
 ) -> list[ProductRagSource]:
     """跨域只读接口：供 ai 域索引拉取已上架商品文本语料（source_kind=catalog_text）。
 
-    仅返回 ``is_published=True`` 的商品（可选按店过滤）；price 仅元数据传递、
-    不进索引语料（design D2 语料边界）。ai 域经此接口取数，**不** import catalog ORM。
+    仅返回 ``is_published=True`` 的商品（可选按店过滤）。ai 域经此接口取数，
+    **不** import catalog ORM。
     """
     repository = ProductRepository(session)
     products = await repository.list_for_rag_indexing(
         shop_id=uuid.UUID(shop_id) if shop_id is not None else None
     )
-    return [
-        ProductRagSource(
-            product_id=str(product.id),
-            shop_id=str(product.shop_id),
-            name=product.name,
-            description=product.description,
-            price=_format_price(product.price),
-            is_published=product.is_published,
-        )
-        for product in products
-    ]
+    return [_to_product_rag_source(product) for product in products]
+
+
+async def get_product_for_rag_indexing(
+    product_id: str,
+    *,
+    session: AsyncSession,
+) -> ProductRagSource | None:
+    """按 id 取已上架语料源；不存在或未上架返回 None（不抛 HTTP）。"""
+    repository = ProductRepository(session)
+    product = await repository.get_by_id(uuid.UUID(product_id))
+    if product is None or not product.is_published:
+        return None
+    return _to_product_rag_source(product)
 
 
 class ProductService:
