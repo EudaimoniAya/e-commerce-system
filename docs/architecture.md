@@ -28,7 +28,7 @@
 ```text
                     ┌─────────────────────────────────────┐
                     │         路由 / 编排层               │
-                    │   HTTP 路由 + 意图识别 / AI 分流    │
+                    │   HTTP（前端功能级）+ 后端 agent 意图 │
                     └──────────┬──────────────┬───────────┘
                                │              │
           ┌────────────────────┼──────────────┼────────────────────┐
@@ -70,14 +70,15 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 
 - Agent 通过 **Tool** 调用各业务域的 **service**，不直连 repository 或 ORM
 - RAG 检索读 PostgreSQL 向量副本，强一致数据（库存、价格、订单状态）走 Tool 实时查 MySQL
-- 路由层负责 **传统 API 与 AI 的分流编排**（意图识别等）
+- **前端**只做功能级路由（进 AI 客服 vs 人工 support vs 经营助手）；**消息级意图**留在后端 agent（NLU），见 [ADR-013](./decision/ADR-013-AI域组合根与消费边界.md)
+- RAG 是叶子库（无 HTTP）；组合根为 `app/ai/deps.py` 装配类。业务域 **SHALL NOT** import `app.ai`
 
 ### 3.3 横轴：平台能力
 
 | 模块 | 职责 |
 |------|------|
 | `infra/` | 配置、数据库 Session、**Redis 客户端**、**PostgreSQL AI 读库（`ai_database` + `embedder`）**、JWT、健康/readiness 探针（三库聚合）、**结构化日志**、**统一 error JSON**、**分页（已实现）**|
-| `events/`（后期） | Outbox、领域事件，驱动 MySQL → pgvector ACL 同步 |
+| `events/`（后期） | Outbox、领域事件，驱动 MySQL → pgvector **防腐层**同步（异构库，非查询过滤） |
 | `shared/`（可选） | 无业务含义的公共类型，保持极简 |
 
 ## 4. 域间协作规则
@@ -87,11 +88,12 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 ```text
 ✓ 跨域：ordering.service → catalog.service → 返回 schema（DTO）
 ✓ 域内：router → service → repository → ORM model
-✓ AI：ai.tools → 各域 service
+✓ AI：ai.tools / indexing / retrieval → 各域 service + schema；AI `deps.py` 可取业务域 service-provider
 ✓ 各域 → infra
 
 ✗ 跨域 import 对方的 ORM model 或 repository
-✗ 业务域 import ai
+✗ 业务域 import ai（含 service / schemas / deps，与 ADR-010 业务域互取不对称，见 ADR-013）
+✗ AI service 自装配别域 deps（接线只在 `app/ai/deps.py`）
 ✗ infra import 任何业务域
 ```
 
@@ -136,7 +138,12 @@ AI **不是** 横切进每个业务域的内部，而是与业务域 **并列** 
 - 拿 deps 实体必须传 service 方法，**不得直接序列化**（deps 只保证"存在 + 有权"，不保证"新鲜 + 完整"）。
 - 错误语义：归属失败统一 404（不泄漏存在性）；状态失败 409/422（service 内）。
 
-> 完整纪律与铁律见 [ADR-010](./decision/ADR-010-应用层边界纪律.md) 与 `.cursor/rules/app-layer-discipline.mdc`。
+**AI 组合根（相对 ADR-010 不对称，见 [ADR-013](./decision/ADR-013-AI域组合根与消费边界.md)）**
+
+- 落点：`app/ai/deps.py` 仅装配类；CLI / 测试当普通函数调用，有 AI router 后再 `Depends` 同一函数。
+- 无 AI HTTP 时不建空 router、不写 `get_current_*`。indexing 的 `MediaService` 必传，service 不得 import `app.media.deps`。
+
+> 完整纪律与铁律见 [ADR-010](./decision/ADR-010-应用层边界纪律.md)、[ADR-013](./decision/ADR-013-AI域组合根与消费边界.md) 与 `.cursor/rules/app-layer-discipline.mdc`。
 
 ## 5. 目录结构
 
@@ -446,7 +453,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 | 功能 | 技术 | 说明 |
 |------|------|------|
 | 店铺客服对话 | support 域（已交付） | 买家↔店铺 lazy create 会话、inbox、product ref；见 ADR-007 |
-| 店铺 RAG 智能客服 | 自研检索管线（pgvector 暴力 top-K） | catalog 文本 + media 文档双源语料 → DocumentIR 落库，`ai:reindex` CLI 重建；读侧检索仓储见 ADR-012；`ai-support-agent` change 实现问答闭环 |
+| 店铺 RAG 智能客服 | 自研检索管线（pgvector 暴力 top-K） | catalog 文本 + media 文档双源语料 → DocumentIR 落库，`ai:reindex` CLI 重建；读侧按会话范围过滤（店 / 店+商品）见 ADR-012/013；`ai-support-agent` 实现问答闭环（NLU 只办事，转人工前端 → support） |
 | 推荐系统 | 协同过滤 → 自研模型 | 消费 order_items、engagement 行为数据 |
 | 店铺经营助手 | DeepAgents | 读 admin API 聚合数据，长上下文 |
 | 购物搭子 | LangGraph 精细编排 | 私域流量实验功能，严格控制 token 成本 |
@@ -454,10 +461,10 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 ### 7.1 AI 数据架构（后期）
 
 - **MySQL**：唯一写源，业务操作只写 MySQL
-- **PostgreSQL + pgvector**：AI 检索上下文，通过 Outbox + 异步 ACL 从 MySQL 同步
+- **PostgreSQL + pgvector**：AI 检索上下文，通过 Outbox + worker（**防腐层**）从 MySQL 同步；现况为 CLI 全量/按店重建
 - **Alembic 双入口**：business（MySQL）与 ai（PostgreSQL）独立迁移
 - **Tool 封装**：AI Agent 的所有数据操作通过 Tool → 业务 service，不直连数据库
-- **RAG 写读分离（[ADR-012](./decision/ADR-012-RAG读写分离与change宏观安排.md)）**：写路径（离线 ingest：多源 → DocumentIR → chunk/embed → pgvector 落库）与读路径（在线检索：`vector_search` + SQL 层 shop_id ACL）仓储级分离；写/读/评测三路径复杂度正交、独立演进；change 1=底座、change 2=写侧（均已归档）、change 3=读侧闭环（`ai-support-agent`，未开）
+- **RAG 写读分离（[ADR-012](./decision/ADR-012-RAG读写分离与change宏观安排.md)）**：写路径（离线 ingest：多源 → DocumentIR → chunk/embed → pgvector 落库）与读路径（在线检索：`vector_search` + 按会话范围过滤）仓储级分离；写/读/评测三路径复杂度正交、独立演进；change 1=底座、change 2=写侧（均已归档）、change 2.1=形状修缮（`refactor-ai-domain-architecture`）、change 3=读侧闭环（`ai-support-agent`，未开）。组合根与消费边界见 [ADR-013](./decision/ADR-013-AI域组合根与消费边界.md)。
 
 ## 8. 开发流程
 
@@ -527,6 +534,7 @@ workflow_dispatch → 输入 version（必填 semver）→ 同上
 - [ADR-010：应用层边界纪律](./decision/ADR-010-应用层边界纪律.md)
 - [ADR-011：异构数据架构的数据一致性设计](./decision/ADR-011-异构数据架构的数据一致性设计.md)
 - [ADR-012：RAG 读写分离——CQS 谱系定位、仓储判据与 change 宏观安排](./decision/ADR-012-RAG读写分离与change宏观安排.md)
+- [ADR-013：AI 域组合根与消费边界](./decision/ADR-013-AI域组合根与消费边界.md)
 
 ### 相关笔记（`docs/notes/`，非 ADR）
 

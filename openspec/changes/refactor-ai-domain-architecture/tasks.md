@@ -1,9 +1,9 @@
 ## 1. 规范成文
 
-- [ ] 1.1 新增 `docs/decision/ADR-013-AI域组合根与消费边界.md`：组合根=`deps.py`、业务域不准 import ai、查询过滤 vs 防腐层、NLU 只办事 / 转人工前端发起（实现留给 `ai-support-agent`）、不建空 router
-- [ ] 1.2 修订 ADR-012：读路径用词改为按会话范围过滤；Change 3 行不再把 `handler_mode` 注入写成唯一路径
-- [ ] 1.3 修订 `docs/architecture.md` §3/§4/§7：意图识别留后端 agent；前端功能级路由；AI 组合根说明
-- [ ] 1.4 更新 `.cursor/rules/app-layer-discipline.mdc` 与 `cross-domain-imports.mdc`：AI 不对称白名单 + service 禁止自装配
+- [x] 1.1 新增 `docs/decision/ADR-013-AI域组合根与消费边界.md`：组合根=`deps.py`、业务域不准 import ai、查询过滤 vs 防腐层、NLU 只办事 / 转人工前端发起（实现留给 `ai-support-agent`）、不建空 router
+- [x] 1.2 修订 ADR-012：读路径用词改为按会话范围过滤；Change 3 行不再把 `handler_mode` 注入写成唯一路径
+- [x] 1.3 修订 `docs/architecture.md` §3/§4/§7：意图识别留后端 agent；前端功能级路由；AI 组合根说明
+- [x] 1.4 更新 `.cursor/rules/app-layer-discipline.mdc` 与 `cross-domain-imports.mdc`：AI 不对称白名单 + service 禁止自装配
 
 ## 2. catalog 单商品语料接口（TDD）
 

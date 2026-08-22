@@ -8,7 +8,7 @@ alwaysApply: false
 
 本项目分层：**router（HTTP）→ deps（依赖装配 + 请求上下文解析）→ service（业务）→ repository → ORM**。本规则定稿三层的职责边界，防止 AI 在 deps / service / router 边界上做任意取舍（四反模式①建 schema ②跨域 ③跨域两步 ④上帝 service 的根因）。
 
-决策依据：[ADR-010](../../docs/decision/ADR-010-应用层边界纪律.md)；细则见 `openspec/changes/refactor-app-layer-discipline/design.md`（Decision 4 / 4b / 4c）。
+决策依据：[ADR-010](../../docs/decision/ADR-010-应用层边界纪律.md)；AI 不对称例外见 [ADR-013](../../docs/decision/ADR-013-AI域组合根与消费边界.md)；细则见 `openspec/changes/refactor-app-layer-discipline/design.md`（Decision 4 / 4b / 4c）。
 
 ## 一、deps：组合根——装配自由 + 无副作用
 
@@ -95,6 +95,12 @@ from catalog.deps import get_current_shop            # 对方 current-object dep
 from catalog.shop_service import _to_shop_response   # 私有 `_*`
 ```
 
+**AI 例外（相对上表白名单不对称，ADR-013）**：
+
+- 业务域 **SHALL NOT** import `app.ai.*`（含 service / schemas / `get_*_service`）。
+- AI 组合根是 `app/ai/deps.py`（仅装配类）。`app/ai/**/service.py` **SHALL NOT** import 别域 `deps`、不得自装配（`_build_media_service` 反模式）。
+- 无 AI HTTP 时不建空 router；CLI / 测试直接调用 `deps.py` 装配函数。
+
 ## 五、`_*` 私有名不跨模块
 
 - `_` 前缀 = 模块（文件）级私有；生产代码禁止跨模块 import / 调用 `_*` 私有名，模块公共边界只有公开类/公开方法/公开 schema。
@@ -111,4 +117,6 @@ from catalog.shop_service import _to_shop_response   # 私有 `_*`
 | service 需要 ORM 实体给 deps 用 | 不造公开 getter；deps 直吃本域仓储 |
 | router 拿到 deps 实体 | 传给 service 方法，不得直接序列化 |
 | 跨域拿数据 | 只经对方 service + schema |
+| 业务域要用 AI | **禁止** import `app.ai`；AI 只被自己的入口消费 |
+| AI 装配 MediaService | 只在 `app/ai/deps.py`；service 必传、不自装配 |
 | 需要跨模块消费 service 内部方法 | 改为公开 + 自含完整性，不用 `_` 前缀 |
