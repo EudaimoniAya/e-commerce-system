@@ -15,6 +15,8 @@ import allure
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.media.service import MediaService
+
 
 @allure.epic("ai")
 @allure.feature("composition")
@@ -63,7 +65,7 @@ def test_reindex_cli_assembles_media_via_deps() -> None:
 async def test_reindex_product_does_not_list_all_platform(
     db_session: AsyncSession,
     clean_ai_chunks: None,
-    stub_media_service: AsyncMock,
+    media_service: MediaService,
 ) -> None:
     """单商品重建禁止全平台 list；应走 get_product_for_rag_indexing。"""
     from app.ai.rag.indexing.service import reindex_product
@@ -76,7 +78,7 @@ async def test_reindex_product_does_not_list_all_platform(
         await reindex_product(
             product_id=str(uuid.uuid4()),
             db_session=db_session,
-            media_service=stub_media_service,
+            media_service=media_service,
         )
 
     for call in listed.await_args_list:

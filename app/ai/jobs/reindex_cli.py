@@ -19,15 +19,14 @@ import argparse
 import asyncio
 import uuid
 
+from app.ai.deps import build_media_service
 from app.ai.rag.indexing.service import (
     reindex_document,
     reindex_product,
     reindex_shop,
 )
-from app.ai.rag.schemas import ReindexStats
+from app.ai.rag.schemas import SOURCE_KIND_CHOICES, ReindexStats
 from app.infra.database import get_session_factory
-
-_SOURCE_KIND_CHOICES = ("catalog_text", "media_document")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -48,7 +47,7 @@ def _build_parser() -> argparse.ArgumentParser:
     document_parser.add_argument(
         "--source-kind",
         required=True,
-        choices=_SOURCE_KIND_CHOICES,
+        choices=SOURCE_KIND_CHOICES,
         help="document_id 命名空间消歧：catalog_text=product_id；media_document=附件 UUID",
     )
     document_parser.add_argument("--document-id", type=uuid.UUID, required=True)
@@ -59,16 +58,24 @@ def _build_parser() -> argparse.ArgumentParser:
 async def _run(args: argparse.Namespace) -> ReindexStats:
     """以独立 MySQL session 执行对应 reindex（PG 侧由 reindex 内部经 AI session 写入）。"""
     async with get_session_factory()() as session:
+        media_service = build_media_service(session)
         if args.command == "shop":
-            return await reindex_shop(shop_id=str(args.shop_id), db_session=session)
+            return await reindex_shop(
+                shop_id=str(args.shop_id),
+                db_session=session,
+                media_service=media_service,
+            )
         if args.command == "product":
             return await reindex_product(
-                product_id=str(args.product_id), db_session=session
+                product_id=str(args.product_id),
+                db_session=session,
+                media_service=media_service,
             )
         return await reindex_document(
             source_kind=args.source_kind,
             document_id=str(args.document_id),
             db_session=session,
+            media_service=media_service,
         )
 
 

@@ -9,13 +9,12 @@ reindex 契约（红阶段定义，绿阶段实现按此落地）：
   与测试共享同一 SAVEPOINT 事务（对齐项目「跨域共享 DB 事务」模式）；PG 侧经全局 AI session 真实写入。
 """
 
-from unittest.mock import AsyncMock
-
 import allure
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from app.media.service import MediaService
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
 from tests.testkit.db.user import seed_active_user
@@ -30,7 +29,7 @@ async def test_reindex_published_product_writes_chunks(
     db_session: AsyncSession,
     ai_database_url: str,
     clean_ai_chunks: None,
-    stub_media_service: AsyncMock,
+    media_service: MediaService,
 ) -> None:
     """已上架商品 reindex 后 PG product_embedding_chunks 含该 (shop_id, product_id) 至少一行。"""
     from app.ai.rag.indexing.service import reindex_product
@@ -47,7 +46,7 @@ async def test_reindex_published_product_writes_chunks(
     await reindex_product(
         product_id=product_id,
         db_session=db_session,
-        media_service=stub_media_service,
+        media_service=media_service,
     )
 
     engine = create_async_engine(ai_database_url)

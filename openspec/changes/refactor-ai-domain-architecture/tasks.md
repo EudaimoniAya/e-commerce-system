@@ -22,10 +22,10 @@
 
 ## 4. AI 组合根与砍门面（绿）
 
-- [ ] 4.1 新增 `app/ai/deps.py` 的 `build_media_service`；删除 `_build_media_service`；`reindex_*` 的 `media_service` 必传；CLI `_run` 与测试 fixture 经 deps 装配
-- [ ] 4.2 `reindex_product` / catalog_text 单文档改走 `get_product_for_rag_indexing`；删除 `app/ai/service.py`；调用方改 import `app.ai.rag.retrieval.service.retrieve_chunks`
-- [ ] 4.3 `source_kind` 常量落入 `app/ai/rag/schemas.py`；chunking / indexing / CLI 改用常量
-- [ ] 4.4 跑绿 §2.2
+- [x] 4.1 新增 `app/ai/deps.py` 的 `build_media_service`；删除 `_build_media_service`；`reindex_*` 的 `media_service` 必传；CLI `_run` 与测试 fixture 经 deps 装配
+- [x] 4.2 `reindex_product` / catalog_text 单文档改走 `get_product_for_rag_indexing`；删除 `app/ai/service.py`；调用方改 import `app.ai.rag.retrieval.service.retrieve_chunks`
+- [x] 4.3 `source_kind` 常量落入 `app/ai/rag/schemas.py`；chunking / indexing / CLI 改用常量
+- [x] 4.4 跑绿 §2.2
 
 ## 5. 检索按会话范围过滤（绿）
 
@@ -38,9 +38,9 @@
 - [ ] 6.2 新增 R5：`app/ai/**` 除 `deps.py` 外禁止 import 别域 `deps`
 - [ ] 6.3 跑绿 §2.4；`uv run python scripts/check_app_layer_discipline.py` 全绿
 
-## 7. 本地验证与 CI
+## 7. 本地 CI 与归档
 
 - [ ] 7.1 `devbox run -- task ci` 全绿
-- [ ] 7.2 确认 GitHub Actions CI 全绿（`workflow_dispatch` 或 PR）
+- [ ] 7.2 执行 `opsx-archive` 归档，同步 `README`
 
 > **Apply 约定**：严格 TDD，§2 完成前不得开始 §4–§6。每个 apply 会话建议只完成 1 个 Task 节。

@@ -6,12 +6,12 @@
 """
 
 import inspect
-from unittest.mock import AsyncMock
 
 import allure
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.media.service import MediaService
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
 from tests.testkit.db.user import seed_active_user
@@ -37,7 +37,7 @@ def test_retrieve_chunks_accepts_product_id() -> None:
 async def test_retrieve_chunks_filters_by_product_id(
     db_session: AsyncSession,
     clean_ai_chunks: None,
-    stub_media_service: AsyncMock,
+    media_service: MediaService,
 ) -> None:
     """同店 A/B 各有 chunk 时，product_id=A 的检索行全为 A，不含 B 文案。"""
     from app.ai.rag.indexing.service import reindex_shop
@@ -58,7 +58,7 @@ async def test_retrieve_chunks_filters_by_product_id(
     await reindex_shop(
         shop_id=shop_id,
         db_session=db_session,
-        media_service=stub_media_service,
+        media_service=media_service,
     )
 
     chunks = await retrieve_chunks(
@@ -83,7 +83,7 @@ async def test_retrieve_chunks_filters_by_product_id(
 async def test_retrieve_chunks_without_product_id_returns_multiple(
     db_session: AsyncSession,
     clean_ai_chunks: None,
-    stub_media_service: AsyncMock,
+    media_service: MediaService,
 ) -> None:
     """未传 product_id 时按店过滤，结果可含多个 product_id。"""
     from app.ai.rag.indexing.service import reindex_shop
@@ -104,7 +104,7 @@ async def test_retrieve_chunks_without_product_id_returns_multiple(
     await reindex_shop(
         shop_id=shop_id,
         db_session=db_session,
-        media_service=stub_media_service,
+        media_service=media_service,
     )
 
     chunks = await retrieve_chunks(shop_id=shop_id, query="过滤商品", top_k=20)

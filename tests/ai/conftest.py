@@ -6,11 +6,12 @@
 """
 
 from collections.abc import AsyncIterator
-from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+from app.media.service import MediaService
 
 _CHUNKS_TABLE = "product_embedding_chunks"
 
@@ -44,9 +45,8 @@ async def clean_ai_chunks(ai_database_url: str) -> AsyncIterator[None]:
 
 
 @pytest.fixture
-def stub_media_service() -> AsyncMock:
-    """catalog_text 路径用的 MediaService 桩：无文档、附件视为存在。"""
-    media = AsyncMock()
-    media.list_documents_by_product.return_value = []
-    media.asset_exists.return_value = True
-    return media
+def media_service(db_session: AsyncSession) -> MediaService:
+    """经 ``app.ai.deps.build_media_service`` 装配（测试环境 storage=memory）。"""
+    from app.ai.deps import build_media_service
+
+    return build_media_service(db_session)

@@ -16,7 +16,7 @@ _DOC_MAX_REF = 800  # 与 RAG_CHUNK_MAX_CHARS 默认值对齐（design D6）
 
 def _catalog_document(name: str, description: str = "") -> object:
     """构造 catalog_text 源 DocumentIR（红阶段 helper，未来 schema 落地后启用类型标注）。"""
-    from app.ai.rag.schemas import DocumentIR
+    from app.ai.rag.schemas import SOURCE_KIND_CATALOG_TEXT, DocumentIR
 
     product_id = str(uuid.uuid4())
     content = f"{name}\n{description}" if description else name
@@ -24,7 +24,7 @@ def _catalog_document(name: str, description: str = "") -> object:
         document_id=product_id,  # catalog_text: document_id = product_id
         shop_id=str(uuid.uuid4()),
         product_id=product_id,
-        source_kind="catalog_text",
+        source_kind=SOURCE_KIND_CATALOG_TEXT,
         content_text=content,
         meta={},
     )
@@ -32,13 +32,13 @@ def _catalog_document(name: str, description: str = "") -> object:
 
 def _media_document(text: str) -> object:
     """构造 media_document 源 DocumentIR。"""
-    from app.ai.rag.schemas import DocumentIR
+    from app.ai.rag.schemas import SOURCE_KIND_MEDIA_DOCUMENT, DocumentIR
 
     return DocumentIR(
         document_id=str(uuid.uuid4()),  # media_document: document_id = 附件 UUID
         shop_id=str(uuid.uuid4()),
         product_id=str(uuid.uuid4()),
-        source_kind="media_document",
+        source_kind=SOURCE_KIND_MEDIA_DOCUMENT,
         content_text=text,
         meta={},
     )

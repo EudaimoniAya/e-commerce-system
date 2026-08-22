@@ -3,9 +3,9 @@
 数据流（design §17）：业务域 DTO → ``DocumentIR`` → ``split_document_to_chunks``
 → embed → ``product_embedding_chunks``；per document delete-then-insert（design D8）。
 
-跨域纪律：经 catalog service（``list_products_for_rag_indexing``）与 media service
-（数据提供接口）取数；**不** import 业务域 ORM/repository。业务域零 ai 依赖，
-下架/删附件的 chunk 清理由 reindex 语义承担（design D8）。
+跨域纪律：经 catalog service（``list_products_for_rag_indexing`` /
+``get_product_for_rag_indexing``）与传入的 ``MediaService`` 取数；
+**不** import 业务域 ORM/repository。MediaService 由 ``app.ai.deps`` 装配后传入。
 """
 
 import uuid
@@ -16,15 +16,20 @@ from app.ai.rag.chunking import split_document_to_chunks
 from app.ai.rag.indexing.repository import ProductEmbeddingChunkRepository
 from app.ai.rag.models.product_embedding_chunk import ProductEmbeddingChunk
 from app.ai.rag.parsing import parse_document
-from app.ai.rag.schemas import DocumentIR, ReindexStats
-from app.catalog.product_service import list_products_for_rag_indexing
+from app.ai.rag.schemas import (
+    SOURCE_KIND_CATALOG_TEXT,
+    SOURCE_KIND_MEDIA_DOCUMENT,
+    DocumentIR,
+    ReindexStats,
+)
+from app.catalog.product_service import (
+    get_product_for_rag_indexing,
+    list_products_for_rag_indexing,
+)
 from app.catalog.schemas import ProductRagSource
 from app.infra.ai_database import get_ai_session_factory
 from app.infra.embedder import Embedder, get_embedder
 from app.media.service import MediaService
-
-_CATALOG_TEXT = "catalog_text"
-_MEDIA_DOCUMENT = "media_document"
 
 
 async def media_documents_for_product(
@@ -60,7 +65,7 @@ async def media_documents_for_product(
                 document_id=document.asset_id,  # media_document: document_id=附件 UUID
                 shop_id=shop_id,
                 product_id=product_id,
-                source_kind=_MEDIA_DOCUMENT,
+                source_kind=SOURCE_KIND_MEDIA_DOCUMENT,
                 content_text=text,
                 meta={},
             )
@@ -72,17 +77,15 @@ async def reindex_product(
     product_id: str,
     *,
     db_session: AsyncSession,
-    media_service: MediaService | None = None,
+    media_service: MediaService,
 ) -> ReindexStats:
     """重建单商品全部 document（catalog_text + 关联 media_document），per document 重建。
 
     - 商品已上架：catalog_text + 每个 media_document 各 delete-then-insert。
-    - 商品未上架/不存在：净删该商品全部 chunk（spec「Index only published products」）。
+    - 商品未上架/不存在：净删该商品全部 chunk（不使用 media_service）。
     """
     stats = ReindexStats()
-    media_service = media_service or _build_media_service(db_session)
-
-    product = await _find_product_rag(product_id, db_session)
+    product = await get_product_for_rag_indexing(product_id, session=db_session)
     async with get_ai_session_factory()() as ai_session:
         repository = ProductEmbeddingChunkRepository(ai_session)
         embedder = get_embedder()
@@ -111,9 +114,9 @@ async def reindex_shop(
     shop_id: str,
     *,
     db_session: AsyncSession,
-    media_service: MediaService | None = None,
+    media_service: MediaService,
 ) -> ReindexStats:
-    """整店重建（catalog_text + media_document 全量，Task 7.4 orphan 扫描前置）。
+    """整店重建（catalog_text + media_document 全量，含 orphan 扫描）。
 
     1. orphan 扫描：按商品上架状态清理下架商品 chunk；``source_kind=media_document``
        从 PG 反枚举 document_id → 经 media 单资产查询（``asset_exists``）逐条校验
@@ -121,7 +124,6 @@ async def reindex_shop(
     2. 逐商品双源 delete-then-insert。
     """
     stats = ReindexStats()
-    media_service = media_service or _build_media_service(db_session)
 
     products = await list_products_for_rag_indexing(shop_id=shop_id, session=db_session)
     published_ids = {product.product_id for product in products}
@@ -146,7 +148,7 @@ async def reindex_shop(
                     f"orphan 下架商品 product_id={product_id} 清除 chunk"
                 )
                 continue
-            if source_kind == _MEDIA_DOCUMENT:
+            if source_kind == SOURCE_KIND_MEDIA_DOCUMENT:
                 if not await media_service.asset_exists(document_id):
                     await repository.delete_by_document(
                         shop_id=uuid.UUID(shop_id),
@@ -175,7 +177,7 @@ async def reindex_document(
     document_id: str,
     *,
     db_session: AsyncSession,
-    media_service: MediaService | None = None,
+    media_service: MediaService,
 ) -> ReindexStats:
     """重建单文档（``document_id`` 命名空间由 ``source_kind`` 消歧，design D5）。
 
@@ -184,13 +186,12 @@ async def reindex_document(
       无法定位（从未索引过）→ 跳过；商品未上架/附件已删/解析失败 → 净删该文档 chunk。
     """
     stats = ReindexStats()
-    media_service = media_service or _build_media_service(db_session)
 
     async with get_ai_session_factory()() as ai_session:
         repository = ProductEmbeddingChunkRepository(ai_session)
         embedder = get_embedder()
 
-        if source_kind == _CATALOG_TEXT:
+        if source_kind == SOURCE_KIND_CATALOG_TEXT:
             await _reindex_catalog_document(
                 document_id=document_id,
                 db_session=db_session,
@@ -198,7 +199,7 @@ async def reindex_document(
                 embedder=embedder,
                 stats=stats,
             )
-        elif source_kind == _MEDIA_DOCUMENT:
+        elif source_kind == SOURCE_KIND_MEDIA_DOCUMENT:
             await _reindex_media_document(
                 document_id=document_id,
                 db_session=db_session,
@@ -256,7 +257,7 @@ async def _reindex_catalog_document(
     stats: ReindexStats,
 ) -> None:
     """catalog_text 单文档重建：document_id=product_id（spec reindex-document 场景）。"""
-    product = await _find_product_rag(document_id, db_session)
+    product = await get_product_for_rag_indexing(document_id, session=db_session)
     if product is None:
         await repository.delete_by_product(product_id=uuid.UUID(document_id))
         stats.documents_skipped += 1
@@ -285,7 +286,7 @@ async def _reindex_media_document(
     枚举路径——本接口面向「已知文档的重建」（Task 9 CLI）。
     """
     owner = await repository.get_document_owner(
-        source_kind=_MEDIA_DOCUMENT,
+        source_kind=SOURCE_KIND_MEDIA_DOCUMENT,
         document_id=document_id,
     )
     if owner is None:
@@ -296,12 +297,7 @@ async def _reindex_media_document(
         return
     shop_id, product_id = owner
 
-    if product_id not in {
-        p.product_id
-        for p in await list_products_for_rag_indexing(
-            shop_id=shop_id, session=db_session
-        )
-    }:
+    if await get_product_for_rag_indexing(product_id, session=db_session) is None:
         await repository.delete_by_document(
             shop_id=uuid.UUID(shop_id),
             product_id=uuid.UUID(product_id),
@@ -340,7 +336,7 @@ async def _reindex_media_document(
             document_id=document_id,
             shop_id=shop_id,
             product_id=product_id,
-            source_kind=_MEDIA_DOCUMENT,
+            source_kind=SOURCE_KIND_MEDIA_DOCUMENT,
             content_text=text,
             meta={},
         ),
@@ -393,31 +389,7 @@ async def _write_document(
     stats.chunks_inserted += len(rows)
 
 
-# ── 内部：装配与查询 ──────────────────────────────────────────────────────
-
-
-def _build_media_service(db_session: AsyncSession) -> MediaService:
-    """缺省装配 MediaService：经 media deps 工厂构造（ai 域不 import media repository）。
-
-    与 catalog deps 复用同一构造路径（``get_media_service`` + ``get_storage_backend``）；
-    storage 按 ``Settings.media_storage_backend`` 决定（测试环境 memory）。
-    """
-    from app.infra.config import get_settings
-    from app.media.deps import get_media_service, get_storage_backend
-
-    return get_media_service(
-        session=db_session,
-        storage=get_storage_backend(get_settings()),
-    )
-
-
-async def _find_product_rag(
-    product_id: str,
-    db_session: AsyncSession,
-) -> ProductRagSource | None:
-    """按 product_id 查已上架商品语料源（全平台只读查询——MVP 无单商品接口，design Open Questions）。"""
-    products = await list_products_for_rag_indexing(shop_id=None, session=db_session)
-    return next((p for p in products if p.product_id == product_id), None)
+# ── 内部：IR 组装 ──────────────────────────────────────────────────────────
 
 
 def _catalog_ir(product: ProductRagSource) -> DocumentIR:
@@ -426,7 +398,7 @@ def _catalog_ir(product: ProductRagSource) -> DocumentIR:
         document_id=product.product_id,  # catalog_text: document_id = product_id
         shop_id=product.shop_id,
         product_id=product.product_id,
-        source_kind=_CATALOG_TEXT,
+        source_kind=SOURCE_KIND_CATALOG_TEXT,
         content_text=_assemble_catalog_text(product.name, product.description),
         meta={},
     )
