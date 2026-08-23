@@ -76,7 +76,7 @@ db-data/
 
 ### 6. 脚本契约测（红门禁）
 
-新增 `tests/ops/test_devbox_compose_contract.py`（读文件、无 I/O）：`devbox.json` 的 `PGHOST` 不是 IP；路径含 `db-data`；某处存在字面量 `up mysql redis postgresql`。实现前红、实现后绿。不为 Taskfile 写 integration。
+新增 `tests/ops/test_devbox_compose_contract.py`（读文件、无 I/O）：`devbox.json` 的 `PGHOST` 不是 IP；路径含 `db-data`。实现前红、实现后绿。不为 Taskfile 写 integration。
 
 ## Risks / Trade-offs
 

@@ -2,9 +2,9 @@
 
 > 只写测、不写实现。§1 完成前不得开始 §2–§4。
 
-- [ ] 1.1 收口 `tests/ops/test_readiness.py`：删除 `200_when_mysql_ok`、`200_when_mysql_and_redis_both_ok`、`200_when_all_three_ok`、`503_when_both_unavailable`、`503_when_all_three_unavailable`。保留各单点 503、content-type、checks 含 postgresql、`is_postgresql_ready` 正反、`200_with_all_real_deps`。**不改** readiness 实现
-- [ ] 1.2 新增 `tests/ops/test_devbox_compose_contract.py`（只读文件、无进程 I/O）：`devbox.json` 的 `PGHOST` 不是 IP；`devbox.json` 与 MySQL/Redis 本地配置路径含 `db-data`；仓库某处存在字面量 `up mysql redis postgresql`。**不编写** env / 脚本 / Taskfile
-- [ ] 1.3 `uv run pytest tests/ops/test_devbox_compose_contract.py -q` 确认失败（红）
+- [x] 1.1 收口 `tests/ops/test_readiness.py`：删除 `200_when_mysql_ok`、`200_when_mysql_and_redis_both_ok`、`200_when_all_three_ok`、`503_when_both_unavailable`、`503_when_all_three_unavailable`。保留各单点 503、content-type、checks 含 postgresql、`is_postgresql_ready` 正反、`200_with_all_real_deps`。**不改** readiness 实现
+- [x] 1.2 新增 `tests/ops/test_devbox_compose_contract.py`（只读文件、无进程 I/O）：`devbox.json` 的 `PGHOST` 不是 IP；`devbox.json` 与 MySQL/Redis 本地配置路径含 `db-data`。**不编写** env / 脚本 / Taskfile
+- [x] 1.3 `uv run pytest tests/ops/test_devbox_compose_contract.py -q` 确认失败（红）
 
 ## 2. 配置、脚本与 Taskfile（绿）
 
