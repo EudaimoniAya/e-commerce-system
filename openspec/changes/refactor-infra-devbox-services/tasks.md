@@ -23,7 +23,7 @@
 
 ## 4. 手验与本地 CI
 
-- [ ] 4.1 apply 前若旧 `pg_ctl` 仍在跑则先 `pg:down`；手验 `devbox run -- task db:up` 三库就绪；再手验分库 `redis:down` 后 MySQL/PG 仍在
-- [ ] 4.2 `devbox run -- task ci` 全绿
+- [x] 4.1 apply 前若旧 `pg_ctl` 仍在跑则先 `pg:down`；手验 `devbox run -- task db:up` 三库就绪；再手验分库 `redis:down` 后 MySQL/PG 仍在
+- [x] 4.2 `devbox run -- task ci` 全绿
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2。每个 apply 会话建议只完成 1 个 Task 节。

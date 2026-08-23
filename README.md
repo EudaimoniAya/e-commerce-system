@@ -381,6 +381,8 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 
 本地与远程 CI 均执行 `task ci`（format check + ruff + pytest）。本地 `task ci` 经 deps 自动 `db:up` 拉起三库；CI 在 workflow 内自动启动 mysql + redis + postgres service、双库 migrate（`alembic upgrade head` + `alembic -c alembic_ai.ini upgrade head`）后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
 
+> **TODO（infra-devbox-services 后续）**：全新 `db-data/`（`db:reset`）后首次 `task ci` 可能因 test 库未迁移而失败，重跑一次即绿；已定结构性修复（conftest session 迁移 fixture）未实施。见 [踩坑记录](docs/troubleshooting/db-data重建后task-ci失败-test库未迁移.md)。
+
 ## 本地 Redis 与逻辑库
 
 | 逻辑库 | 用途 |
