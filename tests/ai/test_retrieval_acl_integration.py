@@ -12,6 +12,7 @@ import allure
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.media.service import MediaService
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
 from tests.testkit.db.user import seed_active_user
@@ -25,6 +26,7 @@ from tests.testkit.db.user import seed_active_user
 async def test_retrieve_chunks_acl_no_cross_shop_leak(
     db_session: AsyncSession,
     clean_ai_chunks: None,
+    media_service: MediaService,
 ) -> None:
     """两店各 reindex 后，对 shop A 检索返回行的 shop_id 全为 A，且不含 shop B 的 product/content。"""
     from app.ai.rag.indexing.service import reindex_shop
@@ -47,8 +49,12 @@ async def test_retrieve_chunks_acl_no_cross_shop_leak(
         db_session, shop_id=shop_b, name="店铺B独有商品", is_published=True
     )
 
-    await reindex_shop(shop_id=shop_a, db_session=db_session)
-    await reindex_shop(shop_id=shop_b, db_session=db_session)
+    await reindex_shop(
+        shop_id=shop_a, db_session=db_session, media_service=media_service
+    )
+    await reindex_shop(
+        shop_id=shop_b, db_session=db_session, media_service=media_service
+    )
 
     chunks = await retrieve_chunks(shop_id=shop_a, query="店铺", top_k=20)
 

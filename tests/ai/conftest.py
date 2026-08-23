@@ -9,7 +9,9 @@ from collections.abc import AsyncIterator
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+from app.media.service import MediaService
 
 _CHUNKS_TABLE = "product_embedding_chunks"
 
@@ -40,3 +42,11 @@ async def clean_ai_chunks(ai_database_url: str) -> AsyncIterator[None]:
     finally:
         await _purge()
     await engine.dispose()
+
+
+@pytest.fixture
+def media_service(db_session: AsyncSession) -> MediaService:
+    """经 ``app.ai.deps.build_media_service`` 装配（测试环境 storage=memory）。"""
+    from app.ai.deps import build_media_service
+
+    return build_media_service(db_session)

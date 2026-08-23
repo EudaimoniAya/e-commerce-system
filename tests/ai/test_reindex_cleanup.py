@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from app.media.service import MediaService
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
 from tests.testkit.db.user import seed_active_user
@@ -23,6 +24,7 @@ async def test_reindex_after_unpublish_clears_chunks(
     db_session: AsyncSession,
     ai_database_url: str,
     clean_ai_chunks: None,
+    media_service: MediaService,
 ) -> None:
     """先 reindex 上架商品写入 chunk，模拟下架（is_published=false）后 reindex → chunk 被清除。"""
     from app.ai.rag.indexing.service import reindex_product
@@ -36,7 +38,11 @@ async def test_reindex_after_unpublish_clears_chunks(
         db_session, shop_id=shop_id, name="即将下架商品", is_published=True
     )
 
-    await reindex_product(product_id=product_id, db_session=db_session)
+    await reindex_product(
+        product_id=product_id,
+        db_session=db_session,
+        media_service=media_service,
+    )
 
     # 模拟商家下架：PATCH is_published=false（项目无 DELETE /products，见 catalog-products spec）
     from app.catalog.models import Product
@@ -45,7 +51,11 @@ async def test_reindex_after_unpublish_clears_chunks(
         update(Product).where(Product.id == product_id).values(is_published=False)
     )
 
-    await reindex_product(product_id=product_id, db_session=db_session)
+    await reindex_product(
+        product_id=product_id,
+        db_session=db_session,
+        media_service=media_service,
+    )
 
     engine = create_async_engine(ai_database_url)
     async with engine.connect() as conn:

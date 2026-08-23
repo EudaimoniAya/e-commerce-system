@@ -72,6 +72,16 @@ ai 域多源语料索引：catalog 商品文本（`catalog_text`）与 media 商
 - **WHEN** `source_kind=media_document` 且文档含多段落
 - **THEN** chunking SHALL 按段落切分为多个 chunk，`chunk_index` 连续 0..n-1
 
+### Requirement: source_kind named constants
+
+系统 SHALL 在 `app/ai/rag/schemas.py` 定义 `catalog_text` 与 `media_document` 的命名常量。indexing、chunking 与 reindex CLI 的 `source_kind` 比较 / argparse choices SHALL 使用这些常量，**SHALL NOT** 在上述模块使用游离字面量。
+
+#### Scenario: chunking 使用 schemas 常量
+
+- **WHEN** 检查 `app/ai/rag/chunking.py` 对 `source_kind` 的分支
+- **THEN** SHALL 引用 `app.ai.rag.schemas` 中的命名常量
+- **AND** SHALL NOT 出现独立的 `"media_document"` / `"catalog_text"` 字面量比较
+
 ### Requirement: Index only published products with valid sources
 
 系统 SHALL 仅对 `is_published=True` 的商品写入 chunk；对已下架、已删除商品或已删除附件对应的 document SHALL 删除其在 PG 中的全部 chunk。
@@ -98,7 +108,7 @@ ai 域多源语料索引：catalog 商品文本（`catalog_text`）与 media 商
 
 ### Requirement: Cross-domain data-provider interfaces only
 
-ai 域 indexing **SHALL** 通过业务域**数据提供接口**获取语料：catalog 经 `list_products_for_rag_indexing` 与 `ProductRagSource` schema；media 经商品文档查询/文件读取接口。**SHALL NOT** import 业务域 ORM 或 repository。
+ai 域 indexing **SHALL** 通过业务域**数据提供接口**获取语料：catalog 经 `list_products_for_rag_indexing`、`get_product_for_rag_indexing` 与 `ProductRagSource` schema；media 经商品文档查询/文件读取接口（`MediaService` 由 `app.ai.deps` 装配后传入，SHALL NOT 在 indexing service 内从 `app.media.deps` 自装配）。**SHALL NOT** import 业务域 ORM 或 repository。
 
 #### Scenario: reindex_shop 调用 catalog service
 
@@ -109,7 +119,7 @@ ai 域 indexing **SHALL** 通过业务域**数据提供接口**获取语料：ca
 #### Scenario: reindex_shop 拉取 media 文档
 
 - **WHEN** `reindex_shop(shop_id)` 执行
-- **THEN** SHALL 先经 catalog 获取该店已上架商品列表，再按各 `product_id` 经 media 只读接口获取关联文档并解析、切分、embed（media 接口为纯 product_id 查询，不做店级过滤）
+- **THEN** SHALL 先经 catalog 获取该店已上架商品列表，再按各 `product_id` 经传入的 `MediaService` 获取关联文档并解析、切分、embed（media 接口为纯 product_id 查询，不做店级过滤）
 
 ### Requirement: Infra embedder and session factory only
 
@@ -139,9 +149,24 @@ ai 域 indexing **SHALL** 使用 `get_embedder()` 与 `get_ai_session_factory()`
 - **WHEN** 运维执行 `task ai:reindex-document` 并传入有效 `--source-kind` 与 `--document-id`
 - **THEN** SHALL 仅对该 `(source_kind, document_id)` 执行 delete-then-insert（`document_id` 命名空间由 `source_kind` 消歧）
 
+### Requirement: Single-product reindex uses catalog get-by-id
+
+`reindex_product` 与 `source_kind=catalog_text` 的单文档重建 SHALL 经 catalog `get_product_for_rag_indexing(product_id)` 解析语料源。**SHALL NOT** 为查找单个 `product_id` 调用 `list_products_for_rag_indexing(shop_id=None)`。`list_products_for_rag_indexing` 仅用于整店或全平台列举。
+
+#### Scenario: reindex_product 不扫全平台
+
+- **WHEN** 执行 `reindex_product(product_id)`
+- **THEN** SHALL 调用 `get_product_for_rag_indexing`
+- **AND** SHALL NOT 调用 `list_products_for_rag_indexing(shop_id=None)`
+
+#### Scenario: 未上架单商品净删
+
+- **WHEN** `get_product_for_rag_indexing` 返回 `None` 后执行 `reindex_product`
+- **THEN** PG SHALL NOT 含该 `product_id` 的 chunk 行
+
 ### Requirement: Chunk cleanup via ai internal interfaces and reindex
 
-chunk 清理由 ai 域内部接口承担：`delete_product_chunks(product_id)`（清该商品全部 document 的 chunk）与 `delete_document_chunks(source_kind, document_id)`（清单个 document 的 chunk）。**业务域 SHALL NOT 调用这些接口**（业务域不依赖 ai，见 catalog-products / media-storage delta spec）；商品下架、附件删除后的清理 **SHALL** 经 `ai:reindex-shop` / `ai:reindex-product` 的 orphan 扫描与文档存在性校验完成。`delete_*_chunks` 接口保留供未来删除路径 / 事件驱动（ADR-009 Outbox）接线。
+chunk 清理由 ai 域 **reindex / orphan 扫描**承担。**SHALL NOT** 提供给业务域或未实现事件总线调用的门面删除 API（`app.ai.service.delete_*_chunks`）。商品下架、附件删除后的清理 SHALL 经 `ai:reindex-shop` / `ai:reindex-product` 的 orphan 扫描与文档存在性校验完成。业务域 SHALL NOT import ai。
 
 #### Scenario: reindex-shop 清除下架商品 chunk
 
@@ -152,11 +177,6 @@ chunk 清理由 ai 域内部接口承担：`delete_product_chunks(product_id)`�
 
 - **WHEN** 关联商品文档的附件被删除后执行 `ai:reindex-shop`
 - **THEN** PG SHALL NOT 含该已删附件的 `document_id` 行（orphan 扫描：从 PG 反枚举 `source_kind=media_document` 的 document_id → 经 media 单资产查询逐条校验存在性 → 不存在则删除对应 chunk；见 media-storage spec）
-
-#### Scenario: delete_document_chunks 签名含 source_kind
-
-- **WHEN** 调用 `delete_document_chunks(source_kind, document_id)`
-- **THEN** SHALL 按 `(source_kind, document_id)` 定位并删除对应 chunk 行（`document_id` 命名空间由 `source_kind` 消歧：`catalog_text` 的 document_id=product_id、`media_document` 的 document_id=附件 UUID）
 
 ### Requirement: Source kind extensibility
 

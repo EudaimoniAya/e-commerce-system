@@ -2,18 +2,23 @@
 
 覆盖 spec catalog-products「Product RAG source read service」：
 - 仅返回已上架商品；按 shop_id 过滤；全平台（shop_id=None）返回所有已上架
-- ProductRagSource 字段契约：product_id / shop_id / name / description / price / is_published
+- ProductRagSource 字段：product_id / shop_id / name / description / is_published（无 price）
+- get_product_for_rag_indexing：上架返回源；下架或不存在返回 None
 
-调用契约（红阶段定义，绿阶段按此落地）：
+调用契约：
     list_products_for_rag_indexing(shop_id: str | None, *, session: AsyncSession)
         -> list[ProductRagSource]
-- ``session`` 为 MySQL 业务 session 注入（对齐 reindex 共享 SAVEPOINT 事务模式）。
+    get_product_for_rag_indexing(product_id: str, *, session: AsyncSession)
+        -> ProductRagSource | None
 """
+
+import uuid
 
 import allure
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.schemas import ProductRagSource
 from tests.testkit.builders import unique_shop_name
 from tests.testkit.db.catalog import seed_product, seed_shop
 from tests.testkit.db.user import seed_active_user
@@ -58,11 +63,11 @@ async def test_list_products_for_rag_indexing_filters_published_and_shop(
     assert pub_b not in returned_ids
     assert all(item.is_published is True for item in items)
 
-    # 字段契约（spec：price 两位小数字符串，仅元数据）
     first = next(item for item in items if item.product_id == pub_a)
     assert first.shop_id == shop_a
     assert first.name == "A店已上架"
-    assert first.price == "99.00"
+    assert "price" not in ProductRagSource.model_fields
+    assert not hasattr(first, "price")
 
 
 @pytest.mark.integration
@@ -102,3 +107,66 @@ async def test_list_products_for_rag_indexing_all_platform(
     assert pub_a in returned_ids
     assert pub_b in returned_ids
     assert unpub_a not in returned_ids
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("rag_source")
+@allure.title("get_product_for_rag_indexing 上架商品返回语料源")
+async def test_get_product_for_rag_indexing_published(
+    db_session: AsyncSession,
+) -> None:
+    """已上架商品按 id 返回 ProductRagSource，字段与 list 项一致。"""
+    from app.catalog.product_service import get_product_for_rag_indexing
+
+    shop_id = await seed_shop(
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("get-pub"),
+    )
+    product_id = await seed_product(
+        db_session,
+        shop_id=shop_id,
+        name="单商品上架",
+        is_published=True,
+    )
+
+    source = await get_product_for_rag_indexing(product_id, session=db_session)
+
+    assert source is not None
+    assert source.product_id == product_id
+    assert source.shop_id == shop_id
+    assert source.name == "单商品上架"
+    assert source.is_published is True
+    assert "price" not in ProductRagSource.model_fields
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@allure.epic("catalog")
+@allure.feature("rag_source")
+@allure.title("get_product_for_rag_indexing 下架或不存在返回 None")
+async def test_get_product_for_rag_indexing_unpublished_or_missing(
+    db_session: AsyncSession,
+) -> None:
+    """未上架与不存在的 id 均返回 None，不抛 HTTP 错误。"""
+    from app.catalog.product_service import get_product_for_rag_indexing
+
+    shop_id = await seed_shop(
+        db_session,
+        owner_user_id=await seed_active_user(db_session),
+        name=unique_shop_name("get-miss"),
+    )
+    unpublished_id = await seed_product(
+        db_session,
+        shop_id=shop_id,
+        name="单商品下架",
+        is_published=False,
+    )
+
+    unpublished = await get_product_for_rag_indexing(unpublished_id, session=db_session)
+    missing = await get_product_for_rag_indexing(str(uuid.uuid4()), session=db_session)
+
+    assert unpublished is None
+    assert missing is None

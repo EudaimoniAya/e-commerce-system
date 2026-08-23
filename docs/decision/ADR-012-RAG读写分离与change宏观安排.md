@@ -11,12 +11,12 @@
 ```text
 写路径（离线）: MySQL 写源 → service DTO → DocumentIR（摄入层收敛）
                 → chunking → embedder → pgvector 落库
-读路径（在线）: query → vector_search（SQL 层 shop_id ACL）→ top-K → prompt
-                → LLM → 答案（τ 门禁）
+读路径（在线）: query → vector_search（按会话范围过滤：shop_id；商品对话再 AND product_id）
+                → top-K → prompt → LLM → 答案（τ 门禁）
 评测路径:      黄金集 → retriever/generator 分层指标 → 归因矩阵 → 失败样本回流
 ```
 
-- 推论：三条路径的复杂度来源正交——写侧是**数据完整性**（幂等重建/级联清理/orphan），读侧是**查询语义**（相似度/ACL/top-k），评测是**质量测量**（recall/faithfulness/τ 标定）。正交 ⇒ 各自独立演进，互不污染。
+- 推论：三条路径的复杂度来源正交——写侧是**数据完整性**（幂等重建/级联清理/orphan），读侧是**查询语义**（相似度/按会话范围过滤/top-k），评测是**质量测量**（recall/faithfulness/τ 标定）。正交 ⇒ 各自独立演进，互不污染。查询过滤不是异构同步；**防腐层**专指 MySQL↔pgvector 同步（见 ADR-013）。
 
 ### 2. 读写分离谱系定位：本项目停在"接口级 + DTO 雏形"，CQRS 完整形态是 YAGNI
 
@@ -41,7 +41,7 @@ CQS（方法级）→ 接口/对象级 → 模型级（DTO → 投影表）→ �
 ### 4. 接口粒度判据：可替换性（LangChain VectorStore 合一不矛盾）
 
 - 判据：**接口粒度由可替换性决定**——一个接口 = 一个后端实现；可插拔需求 → 粗接口，强隔离语义需求 → 细接口。
-- 对照：LangChain `VectorStore`（add/delete + similarity_search 同接口）= 通用后端插槽（pgvector/Qdrant/Pinecone…）→ **合一 ✓**；本项目 = ACL 强制 + 幂等重建强隔离 → **分离 ✓**。
+- 对照：LangChain `VectorStore`（add/delete + similarity_search 同接口）= 通用后端插槽（pgvector/Qdrant/Pinecone…）→ **合一 ✓**；本项目 = 检索强制按会话范围过滤 + 幂等重建强隔离 → **分离 ✓**。
 - 框架的分离发生在**工作流层**（Indexing API/RecordManager 写 vs Retriever 读），存储接口合一；本项目在工作流层和接口层都分离。
 - 推论：两者都是同一判据系统的正确输出。自研分离的代价是显式分层，收益是结构保证（见 §5）。
 
@@ -58,10 +58,11 @@ CQS（方法级）→ 接口/对象级 → 模型级（DTO → 投影表）→ �
 |---|---|---|---|
 | change 1 `infra-ai-pgvector` | PG/pgvector 底座 + Embedder 抽象（协议/Mock/厂商骨架）+ readiness + CI | 已归档 | 写侧地基（**无多源语义**，纯基础设施） |
 | change 2 `ai-rag-acl-index` | 多源语料（catalog_text + media_document）→ DocumentIR → chunk/embed → 落库；retrieval 仓储雏形；reindex CLI | 已归档 | **写侧完成** + 读侧存储接口 |
-| change 3 `ai-support-agent` | 读侧闭环：检索消费 + agent 接入（handler_mode=ai）+ τ 门禁/无命中转人工 + 评测集/τ 标定 | 未开 | 读侧 + 评测路径 |
+| change 2.1 `refactor-ai-domain-architecture` | Change 2 形状修缮：组合根、砍门面、单商品语料接口、检索可选 `product_id` | 进行中 | 写/读契约补强，非客服闭环 |
+| change 3 `ai-support-agent` | 读侧闭环：检索消费 + 客服 agent（NLU 只办事）+ τ 门禁 + 评测集/τ 标定；转人工由前端 → support，**不是** handler 注入的唯一路径 | 未开 | 读侧 + 评测路径 |
 
-- 依赖链：change 3 的**输入 = change 2 落库的向量数据**；写侧理解（多源→DocumentIR→落库）覆盖 change 3 的"数据前提"；agent 编排/门禁/评测是 change 3 **独立的新设计**，不在写侧理解范围内。
-- 推论：写侧完成 ⇒ change 3 的检索输入确定；change 3 聚焦检索质量/门禁/评测，不碰写侧代码。
+- 依赖链：change 3 的**输入 = change 2 落库的向量数据**；写侧理解（多源→DocumentIR→落库）覆盖 change 3 的"数据前提"；agent 编排/门禁/评测是 change 3 **独立的新设计**，不在写侧理解范围内。会话默认 AI、NLU 不执行转人工，见 ADR-013。
+- 推论：写侧完成 ⇒ change 3 的检索输入确定；change 3 聚焦检索质量/门禁/评测，不碰写侧代码（组合根修缮除外，已由 2.1 承担）。
 
 ### 7. 已知代价与失效条件
 
@@ -71,6 +72,7 @@ CQS（方法级）→ 接口/对象级 → 模型级（DTO → 投影表）→ �
 
 ## 关联
 
+- `ADR-013`（AI 域组合根与消费边界）——查询过滤 vs 防腐层、业务域不得 import ai、Change 3 契约。
 - `ADR-011`（异构数据一致性：单一事实源/派生数据/逻辑外键）——写侧落库的一致性基础。
 - `ADR-009`（Redis 业务扩展与 AI 数据分层）——change 优先级依据。
 - `openspec/changes/archive/2026-08-17-infra-ai-pgvector`、`2026-08-20-ai-rag-acl-index`——change 1/2 的决策与 DoD。

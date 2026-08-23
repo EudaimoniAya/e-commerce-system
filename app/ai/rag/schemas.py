@@ -8,6 +8,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+SOURCE_KIND_CATALOG_TEXT = "catalog_text"
+SOURCE_KIND_MEDIA_DOCUMENT = "media_document"
+SOURCE_KIND_CHOICES = (SOURCE_KIND_CATALOG_TEXT, SOURCE_KIND_MEDIA_DOCUMENT)
+
 
 class DocumentIR(BaseModel):
     """统一中间表示：多源语料收敛点（IR 之后单管线）。

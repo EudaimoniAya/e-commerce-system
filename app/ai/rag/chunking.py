@@ -6,7 +6,11 @@
 - ``media_document``：按段落（``\\n\\n``）切分；空段落丢弃；超长单段硬切。
 """
 
-from app.ai.rag.schemas import DocumentIR, ProductChunkDraft
+from app.ai.rag.schemas import (
+    SOURCE_KIND_MEDIA_DOCUMENT,
+    DocumentIR,
+    ProductChunkDraft,
+)
 from app.infra.config import get_settings
 
 
@@ -21,7 +25,7 @@ def split_document_to_chunks(
         max_chars: 单 chunk 最大字符数；None 时读 ``Settings.rag_chunk_max_chars``（默认 800）。
     """
     limit = max_chars if max_chars is not None else get_settings().rag_chunk_max_chars
-    if document.source_kind == "media_document":
+    if document.source_kind == SOURCE_KIND_MEDIA_DOCUMENT:
         texts = _chunk_media(document.content_text, limit)
     else:
         texts = _chunk_catalog(document.content_text, limit)

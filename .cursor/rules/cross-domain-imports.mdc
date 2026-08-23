@@ -8,7 +8,7 @@ alwaysApply: false
 
 本项目采用 **单体多域（Modular Monolith）** 架构。域间协作只走 **公开 service 接口 + schema（DTO）**，禁止穿透到对方持久化层。
 
-详细背景见 [docs/decision/ADR-001-单体多域架构.md](../../docs/decision/ADR-001-单体多域架构.md)。
+详细背景见 [docs/decision/ADR-001-单体多域架构.md](../../docs/decision/ADR-001-单体多域架构.md)。AI 与业务域的不对称见 [ADR-013](../../docs/decision/ADR-013-AI域组合根与消费边界.md)。
 
 ## 允许
 
@@ -24,8 +24,12 @@ from ordering.models import Order
 # 各域与测试 → infra（配置、Session、Base 等）
 from app.infra.database import get_db, Base
 
-# AI Tool → 业务 service（不直连 repo/ORM）
-from catalog.service import list_products_for_tool
+# AI → 业务 service / schema（不直连 repo/ORM）
+from catalog.product_service import list_products_for_rag_indexing
+from catalog.schemas import ProductRagSource
+
+# AI 组合根 → 业务域 service-provider（仅 app/ai/deps.py）
+from app.media.deps import get_media_service
 ```
 
 ## 禁止
@@ -37,8 +41,12 @@ from catalog.models import Product
 # ✗ 跨域 import 对方 repository
 from catalog.repository import ProductRepository
 
-# ✗ 业务域 import ai
-from app.ai.tools import recommend
+# ✗ 业务域 import ai（含 service / schemas / deps，不走「跨域 service 白名单」）
+from app.ai.rag.retrieval.service import retrieve_chunks
+from app.ai.deps import build_media_service
+
+# ✗ AI service 自装配别域 deps
+from app.media.deps import get_media_service  # 在 app/ai/rag/indexing/service.py 内
 
 # ✗ infra import 任何业务域（infra 不得依赖业务）
 from catalog.service import get_product  # 在 app/infra/ 内
@@ -66,7 +74,9 @@ from catalog.service import get_product  # 在 app/infra/ 内
 
 ### 5. AI 与 infra
 
-- `ai/` 下 Tool **只** 调用各域 `service`，不直连数据库、不 import 业务 `repository`/`models`。
+- `ai/` 下 Tool / indexing / retrieval **只** 调用各域 `service` + schema，不直连数据库、不 import 业务 `repository`/`models`。
+- **业务域不得 import `app.ai` 任何模块**（与业务域互取 `get_*_service` 不对称）。
+- AI **service 禁止自装配**：不得 import 别域 `deps`；`MediaService` 等由 `app/ai/deps.py` 装配后传入。
 - `infra/` 提供横切能力（config、database、health、readiness），**不得** import 任何业务域模块。
 
 ## 生成与审查代码时
@@ -84,3 +94,5 @@ from catalog.service import get_product  # 在 app/infra/ 内
 | 列表页需要跨域展示字段 | 本域 `queries.py` JOIN，映射为 schema |
 | Alembic / 迁移 | 各域 model 归本域；infra 仅 `_infra_*` 类验证表 |
 | 测试 mock 跨域 | mock **service** 或 HTTP 层，不 mock 对方 ORM |
+| AI 重建索引需要 media | `app/ai/deps.py` 调 `get_media_service`，再传入 indexing service |
+| catalog 下架要清向量 | **禁止** catalog import ai；走 `ai:reindex`（防腐层 / CLI） |

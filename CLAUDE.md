@@ -2,8 +2,8 @@
 
 **OpenSpec 5 步**：`explore` → `propose` → `apply` → `archive` → `sync`
 
-- **propose** 产出 4 个产物：`task.md`、`design.md`、`proposal.md`、`spec.md`。SDD 规格 + BDD 场景在此定稿（落在 `spec.md`）。
-- **apply** 严格遵守 **SDD + BDD + TDD**：一开始就照接口的 BDD 场景写测试用例，然后跑**红-绿-重构**循环，**绝不 code-first**。
+- **propose** 产出 4 个产物：`tasks.md`、`design.md`、`proposal.md`、`spec.md`。SDD 规格 + BDD 场景在此定稿（落在 `spec.md`）。`tasks.md` 先一整节失败测试（红门禁），再按能力写实现（绿）；**禁止**每个功能 Task 内再拆红/绿/收尾。
+- **apply** 严格遵守 **SDD + BDD + TDD**：红节完成前不得写实现，**绝不 code-first**。
 - **archive / sync**：收尾。
 
 **其他约束**
@@ -14,7 +14,7 @@
 # 默认行为
 
 1. **不擅自做架构决策** —— 遇到架构级选择，给出方案+权衡，交用户定夺。
-2. **apply 阶段严格 test-first** —— 从 BDD 场景推导测试，红绿重构，不跳步直接写实现。
+2. **apply 阶段严格 test-first** —— 红节（全部失败测试）完成前不得写实现；不要在单个功能 Task 里红绿循环。
 3. **尊重 propose 产物边界** —— spec/场景定稿后以其为准，不擅自改规格。
 4. 涉及重构或评审时，**顺带讲清原理**，不只给结果。
 
