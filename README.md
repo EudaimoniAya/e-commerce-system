@@ -25,22 +25,16 @@ task sync
 # 3. 配置环境变量（本地私有，不入库；须含 DATABASE_URL、REDIS_URL、JWT_SECRET_KEY）
 cp .env.example .env
 
-# 4. 启动本地 MySQL 并创建 dev/test 双库
+# 4. 启动本地三库（MySQL + Redis + PostgreSQL，同一只 process-compose；自动建库）
 task db:up
 
-# 5. 启动本地 Redis 8（readiness 与 integration 测试依赖）
-task redis:up
-
-# 6. 启动本地 PostgreSQL 16（AI 读库 + pgvector；integration 依赖）
-task pg:up
-
-# 7. 执行迁移（dev 库）
+# 5. 执行迁移（dev 库）
 task migrate
 
-# 8. 运行本地 CI（ruff + pytest；含 integration，需 db:up + redis:up + pg:up）
+# 6. 运行本地 CI（ruff + pytest；自动 db:up 拉起三库）
 task ci
 
-# 9. 启动开发服务器（自动依赖 db:up + redis:up；不自动 pg:up）
+# 7. 启动开发服务器（自动依赖 db:up 三库就绪）
 task dev
 ```
 
@@ -60,7 +54,7 @@ curl http://127.0.0.1:8000/health/ready
 # {"status":"ready","checks":{"mysql":"ok","redis":"ok","postgresql":"ok"}}
 ```
 
-> 任一依赖未就绪（如未 `task redis:up` 或未 `task pg:up`），`/health/ready` 返回 503（对应 `unavailable`）；`/health` 仍 200。
+> 任一依赖未就绪（如仅分库 `task mysql:up`，或执行过 `task redis:down` / `task pg:down`），`/health/ready` 返回 503（对应 `unavailable`）；`/health` 仍 200。
 
 认证 API（须已 `task migrate`、`task redis:up`，且 `.env` 含 `JWT_SECRET_KEY` 与 `REDIS_URL`；本地烟雾可设 `SMS_OTP_FIXED_CODE=123456`）：
 
@@ -285,11 +279,11 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task format` | 用 ruff formatter 格式化全库 Python |
 | `task format:check` | 校验全库是否已 ruff 格式化（CI 门禁） |
 | `task test` | 运行全量 pytest（自动 `APP_ENV_FILE=.env.test`） |
-| `task ci` | 本地 CI：deps 自动 `db:up` + `redis:up` + `pg:up`；format check + `ruff` + test-import + app-layer-discipline + `migrate:all` + `test` |
+| `task ci` | 本地 CI：deps 自动 `db:up`（三库）；format check + `ruff` + test-import + app-layer-discipline + `migrate:all` + `test` |
 | `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
 | `task check-app-layer-discipline` | AST 检查应用层边界纪律（deps/service/router 私有名跨模块、跨域白名单、AI 组合根 R5） |
-| `task dev` | 先 `db:up` + `redis:up`，再 `uvicorn app.main:app --reload`（**不**自动 `pg:up`） |
-| `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up` + `pg:up`） |
+| `task dev` | 先 `db:up`（三库），再 `uvicorn app.main:app --reload` |
+| `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` 三库） |
 | `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |
 
 ### Git blame 忽略机械格式化提交
@@ -306,15 +300,18 @@ GitHub Web blame 对默认分支上的该文件自动生效。
 
 | 命令 | 说明 |
 |------|------|
-| `task db:up` | 启动 MySQL，确保 `ecommerce_dev` / `ecommerce_test` 存在 |
-| `task db:down` | 停止 MySQL（socket shutdown + process-compose） |
-| `task db:reset` | `db:down` → 删除 `mysql-data/` → `db:up`（慎用） |
+| `task db:up` | 三库总闸：启动 MySQL + Redis + PostgreSQL（同一只 process-compose） |
+| `task db:down` | 三库总闸：停止三库（监督器不拆除） |
+| `task db:reset` | `db:down` → 删除整个 `db-data/` → `db:up`（慎用） |
+| `task mysql:up` | 启动 MySQL，确保 `ecommerce_dev` / `ecommerce_test` 存在 |
+| `task mysql:down` | 停止 MySQL |
+| `task mysql:reset` | 停止 MySQL → 清除 `db-data/mysql` → 重新启动 |
 | `task migrate` | `alembic upgrade head`（默认 `DATABASE_URL` → dev 库） |
 | `task migrate:ai` | AI 库 `alembic -c alembic_ai.ini upgrade head`（deps `pg:up`） |
 | `task migrate:all` | MySQL + AI 库顺序 `upgrade head` |
 | `task migrate:new -- "描述"` | 新建 Alembic revision（autogenerate） |
 
-实现脚本：`scripts/devbox/mysql_{up,down,reset}.sh`。
+实现脚本：`scripts/devbox/db_{up,down,reset}.sh`（总闸）与 `scripts/devbox/mysql_{up,down,reset}.sh`。
 
 ### Redis（本地 devbox）
 
@@ -322,8 +319,9 @@ GitHub Web blame 对默认分支上的该文件自动生效。
 |------|------|
 | `task redis:up` | 启动 Redis 8，轮询 `redis-cli ping` 直至 PONG |
 | `task redis:down` | 停止 devbox Redis 服务 |
+| `task redis:reset` | 停止 Redis → 清除 `db-data/redis` → 重新启动 |
 
-实现脚本：`scripts/devbox/redis_{up,down}.sh`。
+实现脚本：`scripts/devbox/redis_{up,down,reset}.sh`。
 
 ### Allure 测试报告（本地）
 
@@ -341,7 +339,7 @@ sudo apt install allure
 生成并查看报告：
 
 ```bash
-# 运行测试并生成 Allure 报告（自动 db:up + redis:up + pg:up）
+# 运行测试并生成 Allure 报告（自动 db:up 三库）
 task test:reports
 
 # 在浏览器中打开报告
@@ -350,21 +348,19 @@ task latest:report
 
 `reports/` 目录已加入 `.gitignore`，不会提交到仓库。CI test job 上传 `allure-results` artifact（保留 14 天），供本地下载后 `allure generate` 查看。
 
-### `db:up` 预期输出
-
-MySQL 已在运行：
-
-```text
-MySQL 数据目录: .../mysql-data
-已有库: ecommerce_dev, ecommerce_test
-```
+### `db:up` 预期输出（三库总闸）
 
 冷启动或 `db:reset` 后：
 
 ```text
-启动 MySQL...
-MySQL 已就绪；数据目录: .../mysql-data；已有库: ecommerce_dev, ecommerce_test
+启动监督器（process-compose: mysql redis postgresql）...
+MySQL 已就绪；数据目录: .../db-data/mysql；已有库: ecommerce_dev, ecommerce_test
+Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
+PostgreSQL 已就绪；PGDATA: .../db-data/postgres/data；端口: 5433；已有 AI 库: ecommerce_ai_dev, ecommerce_ai_test
+三库均已就绪：MySQL / Redis / PostgreSQL
 ```
+
+已就绪时重复执行只做幂等校验，三行摘要 + 总闸提示。分库输出见 `mysql:up` / `redis:up` / `pg:up`。
 
 ### `redis:up` 预期输出
 
@@ -379,11 +375,11 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 | `ecommerce_dev` | `task dev`、`task migrate` 默认目标 |
 | `ecommerce_test` | pytest `@integration` 测试（零副作用靠 transaction rollback） |
 
-- 数据目录：`mysql-data/`（已 `.gitignore`）
+- 数据目录：`db-data/mysql/`（已 `.gitignore`；旧 `mysql-data/` 可手删，无自动迁移）
 - 本地连接：**unix socket**（非 TCP 3306），见 `.env.example` 与 `devbox.d/mysql80/my.cnf`
 - CI 使用 **TCP** `127.0.0.1:3306`（GitHub Actions mysql service container）
 
-本地与远程 CI 均执行 `task ci`（format check + ruff + pytest）。本地须先 `task db:up`、`task redis:up` 与 `task pg:up`；CI 在 workflow 内自动启动 mysql + redis + postgres service、双库 migrate（`alembic upgrade head` + `alembic -c alembic_ai.ini upgrade head`）后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
+本地与远程 CI 均执行 `task ci`（format check + ruff + pytest）。本地 `task ci` 经 deps 自动 `db:up` 拉起三库；CI 在 workflow 内自动启动 mysql + redis + postgres service、双库 migrate（`alembic upgrade head` + `alembic -c alembic_ai.ini upgrade head`）后再跑测试。详见 [测试与数据库/Redis 策略](docs/decision/ADR-002-测试与数据库策略.md)。
 
 ## 本地 Redis 与逻辑库
 
@@ -403,8 +399,8 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 | `ecommerce_ai_dev` | `task dev`、本地 `.env`（`AI_DATABASE_URL`） |
 | `ecommerce_ai_test` | pytest `@integration` 与 CI（`.env.test` / workflow env） |
 
-- 数据目录：`postgres-data/`（已 `.gitignore`）
-- 启动/停止：`task pg:up` / `task pg:down`（实现脚本 `scripts/devbox/pg_{up,down}.sh`）
+- 数据目录：`db-data/postgres/`（已 `.gitignore`；旧 `postgres-data/` 可手删，无自动迁移）
+- 启动/停止/重置：`task pg:up` / `task pg:down` / `task pg:reset`（实现脚本 `scripts/devbox/pg_{up,down,reset}.sh`）
 - 本地连接：TCP `127.0.0.1:5433`（devbox `PGPORT`，避免与系统 5432 冲突）；CI 使用 **pgvector/pgvector:pg16** service container（`127.0.0.1:5432`）
 - AI 库 schema 由**独立 Alembic 入口 `alembic_ai/`** 管理（`task migrate:ai`；`task migrate:all` 双库顺序 migrate）；首条 revision 001：`CREATE EXTENSION vector` + `_infra_ai_migration_smoke`（`vector(1024)`）
 - 业务域与 `ai/` 域经 `app/infra/ai_database.py`（`AiBase` / `get_ai_engine`）与 `app/infra/embedder.py`（`Embedder` / `get_embedder`）访问；**禁止**业务域自行 `create_async_engine` 连 AI 库
@@ -453,7 +449,7 @@ feature/* ──PR──▶ dev ──PR──▶ main（可部署线）
 
 | 场景 | 说明 |
 |------|------|
-| feature 分支开发 | 从 `dev` 切出，本地 `task db:up` + `task redis:up` + `task pg:up` + `task ci` 通过后提 PR |
+| feature 分支开发 | 从 `dev` 切出，本地 `task db:up`（三库）+ `task ci` 通过后提 PR |
 | feature 远程 CI | 开 Draft PR 到 `dev`（code 变更自动跑）；或 `gh workflow run "Run Tests" --ref <branch>` 手动全量 test |
 | 合入 dev | PR → `dev` 触发 GitHub Actions CI |
 | 合入 main | `dev` → `main` PR，CI 通过后可部署 |
@@ -556,7 +552,7 @@ Registry：**GHCR** `ghcr.io/eudaimoniaya/e-commerce-system`
 
 单个 OpenSpec change 完成标准：
 
-1. 本地 `task db:up` + `task redis:up` + `task pg:up` 后 `task ci` 全绿
+1. 本地 `task db:up`（三库）后 `task ci` 全绿
 2. push 后远程 GitHub Actions 全绿
 3. 文档已更新（README、architecture、ADR 等）
 4. 使用 `/opsx:archive` 归档 change

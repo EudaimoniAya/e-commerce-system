@@ -43,7 +43,7 @@ devbox run -- uv run alembic upgrade head   # 推荐与 task migrate 一致
 
 ## 执行顺序（本地验证）
 
-1. `devbox run -- task db:up`（含 mysqladmin ping 轮询，见 `service-startup-readiness-polling.mdc`）
+1. `devbox run -- task db:up`（三库总闸：mysql/redis/pg 就绪，见 `service-startup-readiness-polling.mdc`）
 2. `devbox run -- task migrate`（或 `devbox run -- uv run alembic upgrade head`）
 3. `devbox run -- task ci` 或 `devbox run -- task test`
 

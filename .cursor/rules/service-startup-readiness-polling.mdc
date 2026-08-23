@@ -29,7 +29,7 @@ mysqladmin -u root --socket="$MYSQL_UNIX_PORT" ping --silent >/dev/null 2>&1
 mysql -u root --socket="$MYSQL_UNIX_PORT" -e "CREATE DATABASE ..."
 ```
 
-本项目 `task db:up` 将初始化、启动、轮询、建库合并在 `scripts/devbox/mysql_up.sh`，**不要**在 Taskfile 里拆成「up 后立即 mysql」两步。
+本项目三库由**同一只 process-compose** 监督：`task db:up` = 三库总闸，逐库 `scripts/devbox/{mysql,redis,pg}_up.sh` 各自「确保监督器 → start → 轮询 → 建库」。**不要**并行 deps 多个 `*:up` 抢同一只监督器（见 `scripts/devbox/services.sh` 的 `ensure_supervisor`）。
 
 ## 轮询模板
 
@@ -65,6 +65,7 @@ done
 
 ## 本项目补充
 
-- **僵死 process-compose**：MySQL 未就绪时先 `devbox services stop`，再 `up`；已就绪则跳过 `up`，避免 `already running` 报错（见 `scripts/devbox/mysql_down.sh`）。
-- **mysqld 残留**：`db:down` 先 `mysqladmin shutdown`（socket）再 `devbox services stop`，避免 `db:up` 误判已就绪。
+- **监督器单例**：冷启动一次 `devbox services up mysql redis postgresql -b`；已运行则跳过（`up <单名>` 不能追加）。判活用 `devbox services pcport`（见 `scripts/devbox/services.sh` 的 `ensure_supervisor`）。
+- **分库 down 带名**：`devbox services stop <mysql|redis|postgresql>`，**禁止**无名字 `stop`（会拆掉整只监督器，殃及其它库）。优雅停止由插件 `shutdown.command` 承担（mysql `mysqladmin shutdown` / pg `pg_ctl stop`）。
+- **僵死 process-compose**：属异常恢复场景，可 `devbox services stop` 整只拆除后重新 `db:up`。
 - **本地 MySQL**：使用 unix socket + `skip-networking`，不用 TCP 轮询。

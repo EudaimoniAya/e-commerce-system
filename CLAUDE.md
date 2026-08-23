@@ -45,7 +45,7 @@ devbox run -- task test
 ```
 
 **执行顺序（本地验证）**：
-1. `devbox run -- task db:up`（含 mysqladmin ping 轮询）
+1. `devbox run -- task db:up`（三库总闸：mysql/redis/pg 就绪）
 2. `devbox run -- task migrate`
 3. `devbox run -- task ci` 或 `devbox run -- task test`
 

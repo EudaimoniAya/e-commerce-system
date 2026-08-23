@@ -18,8 +18,8 @@
 
 ## 3. ADR-002 与文档
 
-- [ ] 3.1 **增补** `docs/decision/ADR-002-测试与数据库策略.md` **决策 10**（不新开 ADR）：process-compose 单例、`up` vs `start`、总闸一次点齐三名、禁止并行各 `up` 一个服务、分库 down 禁止无名字 `stop`；旁注本 change。同步改 §1/§6/§7/§9 的路径与 Task 表（`db:*` = 三库，`db-data/`）
-- [ ] 3.2 更新 README、`docs/architecture.md`、`.cursor/rules`（含 `devbox-run-for-db-ops.mdc`）、`CLAUDE.md`、`openspec/config.yaml`：凡「`db:up` = MySQL」或 `ci`/`dev` 并行三 deps 一律改为总闸语义；注明旧目录可手删、无自动迁移
+- [x] 3.1 **增补** `docs/decision/ADR-002-测试与数据库策略.md` **决策 10**（不新开 ADR）：process-compose 单例、`up` vs `start`、总闸一次点齐三名、禁止并行各 `up` 一个服务、分库 down 禁止无名字 `stop`；旁注本 change。同步改 §1/§6/§7/§9 的路径与 Task 表（`db:*` = 三库，`db-data/`）
+- [x] 3.2 更新 README、`docs/architecture.md`、`.cursor/rules`（含 `devbox-run-for-db-ops.mdc`）、`CLAUDE.md`、`openspec/config.yaml`：凡「`db:up` = MySQL」或 `ci`/`dev` 并行三 deps 一律改为总闸语义；注明旧目录可手删、无自动迁移
 
 ## 4. 手验与本地 CI
 
