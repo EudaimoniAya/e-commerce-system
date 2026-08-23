@@ -34,9 +34,9 @@
 
 ## 6. AST 门禁（绿）
 
-- [ ] 6.1 `DOMAINS` 加入 `ai`；业务域 import `app.ai.*` 一律违规（不走 service 白名单）
-- [ ] 6.2 新增 R5：`app/ai/**` 除 `deps.py` 外禁止 import 别域 `deps`
-- [ ] 6.3 跑绿 §2.4；`uv run python scripts/check_app_layer_discipline.py` 全绿
+- [x] 6.1 `DOMAINS` 加入 `ai`；业务域 import `app.ai.*` 一律违规（不走 service 白名单）
+- [x] 6.2 新增 R5：`app/ai/**` 除 `deps.py` 外禁止 import 别域 `deps`
+- [x] 6.3 跑绿 §2.4；`uv run python scripts/check_app_layer_discipline.py` 全绿
 
 ## 7. 本地 CI 与归档
 

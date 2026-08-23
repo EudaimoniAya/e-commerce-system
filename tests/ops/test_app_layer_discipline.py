@@ -1,4 +1,4 @@
-"""AST 应用层纪律合成用例（TDD 红：ai 域 / R5 尚未写入 checker）。
+"""AST 应用层纪律合成用例（ai ∈ DOMAINS + R5）。
 
 覆盖 spec ai-domain-composition：
 - 业务域 import app.ai.* 一律违规
@@ -8,6 +8,7 @@
 
 import ast
 import importlib.util
+import types
 from pathlib import Path
 
 import allure
@@ -15,7 +16,7 @@ import allure
 _SCRIPT = Path("scripts/check_app_layer_discipline.py")
 
 
-def _load_discipline() -> object:
+def _load_discipline() -> types.ModuleType:
     """加载 AST 门禁脚本（非包模块，按路径 exec）。"""
     spec = importlib.util.spec_from_file_location(
         "check_app_layer_discipline", _SCRIPT

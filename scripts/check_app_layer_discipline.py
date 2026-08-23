@@ -8,10 +8,13 @@ R1 `_*` 私有名不跨模块 —— `from <mod> import _x`（或 `import ..._x`
 R2 跨域 import 白名单 —— 跨域只碰对方 service 接口 / schemas / deps service-provider
    （`get_*_service`）；`require_admin` 是显式白名单例外（纯横切鉴权 gate，
    design Decision 4 引为先例，用户拍板：只返 uuid 不泄漏 ORM）。
+   业务域 import ``app.ai.*`` 一律违规（不走 service/schemas 白名单；ADR-013）。
 R3 `get_current_*` 仅被本域 router 消费 —— 域内 current-object deps 被别域
    / 非 router 模块 import 即违规（infra `get_current_user_id` 共享基底豁免）。
 R4 私有方法跨模块消费 —— `self.<注入实例>.<_private>`（在别模块对象上调用私有
    方法）即违规；被跨模块消费的方法必须公开（design Decision 4c）。
+R5 AI 组合根 —— ``app/ai/**`` 除 ``deps.py`` 外禁止 import 别域 ``deps``；
+   ``app/ai/deps.py`` 装配自由（可取 ``get_media_service`` / ``get_storage_backend``）。
 
 启发式结构规则（薄 router / 上帝 service）按 design 7.3 降为警告，本脚本暂不启用。
 
@@ -23,8 +26,11 @@ import pathlib
 import sys
 
 APP = pathlib.Path("app")
-# 业务域（跨域纪律只作用于这些域之间；infra 是共享基底，任何域可 import）
-DOMAINS = {"catalog", "ordering", "support", "user", "engagement", "media"}
+# 业务域 + AI（跨域纪律作用于这些域之间；infra 是共享基底，任何域可 import）。
+# ai 纳入后：业务→AI 不走 service 白名单；AI→业务仍走 service/schemas。
+DOMAINS = {"catalog", "ordering", "support", "user", "engagement", "media", "ai"}
+# AI 组合根相对 app/ 的路径；仅此文件可 import 别域 deps（R5 例外）。
+AI_COMPOSITION_ROOT = "ai/deps.py"
 # 跨域 deps import 白名单：service-provider（get_*_service）+ 显式例外 require_admin
 # （纯横切鉴权 gate，design Decision 4 引为先例；用户拍板白名单例外）
 CROSS_DOMAIN_DEPS_ALLOWED = {"require_admin"}
@@ -97,7 +103,14 @@ class AppLayerDisciplineChecker:
     def _is_router_module(self) -> bool:
         return "router" in self.rel
 
-    # ── R1 / R2：import 检查 ────────────────────────────────
+    def _is_ai_composition_root(self) -> bool:
+        return self.rel == AI_COMPOSITION_ROOT
+
+    def _is_ai_non_composition_root(self) -> bool:
+        """``app/ai/**`` 且不是组合根（R5 约束对象）。"""
+        return self.rel.startswith("ai/") and not self._is_ai_composition_root()
+
+    # ── R1 / R2 / R5：import 检查 ────────────────────────────────
 
     def check_imports(self) -> None:
         for node in ast.walk(self.tree):
@@ -122,16 +135,45 @@ class AppLayerDisciplineChecker:
         if not module.startswith("app."):
             return  # 非 app.* 导入（第三方 / 相对），不参与跨域白名单
 
+        parts = module[4:].split(".")
+        src = parts[0]
+        submodule = parts[1] if len(parts) > 1 else ""
+
+        # R5：AI 非组合根禁止 import 别域 deps（不依赖「ai ∈ DOMAINS」才生效）
+        if (
+            self._is_ai_non_composition_root()
+            and src in DOMAINS
+            and src != "ai"
+            and submodule == "deps"
+        ):
+            self._add(
+                node.lineno,
+                "R5",
+                f"AI 非组合根不得 import 别域 deps {module}"
+                "（仅 app/ai/deps.py 可装配）",
+            )
+            return
+
         # 跨域白名单只作用于业务域模块之间；组合根（main.py）等非业务域模块豁免
         if self.domain not in DOMAINS:
             return
 
-        parts = module[4:].split(".")
-        src = parts[0]
         if src not in DOMAINS or src == self.domain:
             return  # 域内或非业务域（infra），白名单不适用
 
-        submodule = parts[1] if len(parts) > 1 else ""
+        # R2 特判：业务域不得 import app.ai.*（不走 service/schemas 白名单）
+        if src == "ai" and self.domain != "ai":
+            self._add(
+                node.lineno,
+                "R2",
+                f"业务域不得 import {module}（AI 不走跨域 service 白名单）",
+            )
+            return
+
+        # AI 组合根装配自由：可取别域 deps 任意装配名（含 get_storage_backend）
+        if self._is_ai_composition_root() and submodule == "deps":
+            return
+
         # 跨域私有模块（路径含 _ 段）→ 违规
         if any(seg.startswith("_") for seg in parts):
             self._add(
@@ -172,9 +214,34 @@ class AppLayerDisciplineChecker:
             if dotted.startswith("app."):
                 parts = dotted[4:].split(".")
                 src = parts[0]
+                submodule = parts[1] if len(parts) > 1 else ""
+                # R5：`import app.<业务域>.deps`
+                if (
+                    self._is_ai_non_composition_root()
+                    and src in DOMAINS
+                    and src != "ai"
+                    and submodule == "deps"
+                ):
+                    self._add(
+                        node.lineno,
+                        "R5",
+                        f"AI 非组合根不得 import 别域 deps {dotted}"
+                        "（仅 app/ai/deps.py 可装配）",
+                    )
+                    continue
                 if self.domain in DOMAINS and src in DOMAINS and src != self.domain:
+                    # R2 特判：业务域不得 import app.ai.*
+                    if src == "ai":
+                        self._add(
+                            node.lineno,
+                            "R2",
+                            f"业务域不得 import {dotted}（AI 不走跨域 service 白名单）",
+                        )
+                        continue
+                    # AI 组合根装配自由
+                    if self._is_ai_composition_root() and submodule == "deps":
+                        continue
                     # `import app.<域>.service` 等 —— 同样按白名单子模块判断
-                    submodule = parts[1] if len(parts) > 1 else ""
                     if _is_service_module(submodule) or submodule == "schemas":
                         continue
                     self._add(
@@ -277,7 +344,8 @@ def main() -> int:
         return 1
 
     print(
-        "ok: app/ 全量通过应用层边界纪律（R1 私有名 / R2 跨域白名单 / R3 current-deps / R4 私有方法）"
+        "ok: app/ 全量通过应用层边界纪律"
+        "（R1 私有名 / R2 跨域白名单 / R3 current-deps / R4 私有方法 / R5 AI 组合根）"
     )
     return 0
 
