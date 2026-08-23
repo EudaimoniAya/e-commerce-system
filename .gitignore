@@ -97,6 +97,9 @@ logs/
 *.sqlite3
 data/
 .data/
+# 统一数据根（三库数据落此）
+db-data/
+# 旧目录名保留忽略，防残留
 mysql-data/
 redis-data/
 postgres-data/

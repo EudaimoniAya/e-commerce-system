@@ -255,11 +255,11 @@ e-commerce-system/
 │   ├── unit/
 │   │   └── media/                  # media 域单元测试（29 测例）
 │   └── support/                  # 店铺客服会话 integration
-├── scripts/                      # devbox MySQL/Redis 运维、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
-│   ├── devbox_mysql_up.sh / devbox_mysql_down.sh / devbox_mysql_reset.sh
-│   ├── devbox_redis_up.sh / devbox_redis_down.sh
+├── scripts/                      # devbox 三库运维（scripts/devbox/）、Allure 打开报告、test-import 检查（无 curl 烟雾脚本）
+│   ├── devbox/                   # 监督器共享 services + db 总闸 + mysql/redis/pg 分库 up/down/reset
 │   ├── allure_open_report.sh     # Task latest:report
-│   └── check_no_test_cross_imports.sh  # Task check-test-imports；依赖 rg（ripgrep），见 test-architecture / infra-ci spec
+│   ├── check_no_test_cross_imports.sh  # Task check-test-imports；依赖 rg（ripgrep），见 test-architecture / infra-ci spec
+│   └── check_app_layer_discipline.py   # Task check-app-layer-discipline（AST 边界纪律）
 ├── .github/workflows/test.yaml       # Run Tests：paths-filter、lint、单 job task test
 ├── .github/workflows/build-push.yaml # Build and Push Container Images：tag-only GHCR
 └── ...

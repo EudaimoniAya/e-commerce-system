@@ -8,12 +8,13 @@
 
 ## 2. 配置、脚本与 Taskfile（绿）
 
-- [ ] 2.1 改 `devbox.json`：`PGDATA=./db-data/postgres/data`、`PGHOST=./db-data/postgres/run`（目录，非 IP）、`PGPORT=5433`；MySQL/Redis 数据路径指向 `db-data/`
-- [ ] 2.2 改 `devbox.d` 下 MySQL/Redis 本地 conf，数据目录落到 `db-data/mysql/`、`db-data/redis/`
-- [ ] 2.3 抽出共享「确保监督器」：未运行则一次 `devbox services up mysql redis postgresql -b`，已运行则忽略 already-running；分库 `*:up` 随后 `start <自己>` + 既有 ping/建库。`pg:up`：无 `PG_VERSION` 则 `initdb`；`pg_isready -h 127.0.0.1 -p 5433`；不再 `pg_ctl start`。分库 `*:down` 必须 `services stop <名>`
-- [ ] 2.4 `Taskfile.yml`：`db:up|down|reset` 改为三库总闸（reset = down + `rm -rf db-data/` + up）；补齐 `mysql|redis|pg` 的 `up|down|reset`。`ci` / `dev` / `test:reports` / `ai:reindex-*` 只 deps **`db:up`**（禁止并行多个 `*:up`）。`migrate` deps **`mysql:up`**；`migrate:ai` 仍 `pg:up`
-- [ ] 2.5 `.gitignore` 增加 `db-data/`；保留旧 `mysql-data/`、`postgres-data/` 忽略以防残留
-- [ ] 2.6 跑绿 §1.2；保留的 readiness 测例仍绿
+- [x] 2.1 改 `devbox.json`：`PGDATA=./db-data/postgres/data`、`PGHOST=./db-data/postgres/run`（目录，非 IP）、`PGPORT=5433`；MySQL/Redis 数据路径指向 `db-data/`
+- [x] 2.2 改 `devbox.d` 下 MySQL/Redis 本地 conf，数据目录落到 `db-data/mysql/`、`db-data/redis/`
+- [x] 2.3 抽出共享「确保监督器」：未运行则一次 `devbox services up mysql redis postgresql -b`，已运行则忽略 already-running；分库 `*:up` 随后 `start <自己>` + 既有 ping/建库。`pg:up`：无 `PG_VERSION` 则 `initdb`；`pg_isready -h 127.0.0.1 -p 5433`；不再 `pg_ctl start`。分库 `*:down` 必须 `services stop <名>`
+- [x] 2.4 `Taskfile.yml`：`db:up|down|reset` 改为三库总闸（reset = down + `rm -rf db-data/` + up）；补齐 `mysql|redis|pg` 的 `up|down|reset`。`ci` / `dev` / `test:reports` / `ai:reindex-*` 只 deps **`db:up`**（禁止并行多个 `*:up`）。`migrate` deps **`mysql:up`**；`migrate:ai` 仍 `pg:up`
+- [x] 2.5 `.gitignore` 增加 `db-data/`；保留旧 `mysql-data/`、`postgres-data/` 忽略以防残留
+- [x] 2.6 跑绿 §1.2；保留的 readiness 测例仍绿
+- [x] 2.7 脚本归拢：`devbox_*.sh` 迁入 `scripts/devbox/` 并去 `devbox_` 前缀（`services.sh`、`db_{up,down,reset}.sh`、`{mysql,redis,pg}_{up,down,reset}.sh`）；同步 Taskfile 与 README / architecture / ADR-002 / troubleshooting / `.cursor` 的路径引用；ADR-006 的 `scripts/devbox_*` glob 改 `scripts/devbox/**`
 
 ## 3. ADR-002 与文档
 

@@ -12,10 +12,10 @@
   "env": {
     "UV_PROJECT_ENVIRONMENT": ".venv",
     "UV_INDEX_URL": "https://pypi.org/simple",
-    "MYSQL_DATADIR": "./mysql-data",
+    "MYSQL_DATADIR": "./db-data/mysql",
     "MYSQL_UNIX_PORT": "/tmp/e-commerce-system-mysql.sock",
-    "PGDATA": "./postgres-data",
-    "PGHOST": "127.0.0.1",
+    "PGDATA": "./db-data/postgres/data",
+    "PGHOST": "/home/eudaimoniaya/e-commerce-system/db-data/postgres/run",
     "PGPORT": "5433"
   }
 }

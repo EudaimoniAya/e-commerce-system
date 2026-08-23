@@ -8,7 +8,7 @@ alwaysApply: true
 ## 核心原则
 
 本项目 `task`、`mysqladmin`、`mysql`、`mysqld` 由 **devbox** 提供（见 `devbox.json`）。
-在裸 WSL/bash 中直接执行会导致 `command not found`，且 `devbox_mysql_up.sh` 的 ping 轮询会误报「60 秒未就绪」。
+在裸 WSL/bash 中直接执行会导致 `command not found`，且 `scripts/devbox/mysql_up.sh` 的 ping 轮询会误报「60 秒未就绪」。
 
 **Agent 禁止**交互式 `devbox shell`（无法自动化）。**必须**用 `devbox run -- <command>` 包装。
 
@@ -19,7 +19,7 @@ task db:up
 task migrate
 task test
 task ci
-bash scripts/devbox_mysql_up.sh
+bash scripts/devbox/mysql_up.sh
 mysqladmin -u root --socket=/tmp/e-commerce-system-mysql.sock ping
 ```
 
@@ -30,7 +30,7 @@ devbox run -- task db:up
 devbox run -- task migrate
 devbox run -- task test
 devbox run -- task ci
-devbox run -- bash scripts/devbox_mysql_up.sh
+devbox run -- bash scripts/devbox/mysql_up.sh
 devbox run -- uv run alembic upgrade head   # 推荐与 task migrate 一致
 ```
 

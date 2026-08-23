@@ -1,34 +1,24 @@
 #!/usr/bin/env bash
-# task pg:up 入口：初始化 PGDATA → pg_ctl 启动 → pg_isready 轮询 → 建 AI 双库 + pgvector
+# task pg:up 入口：确保监督器与数据目录（initdb）→ 启用 postgresql 插件服务 → pg_isready → 建 AI 双库 + pgvector
 set -euo pipefail
-
-# ---------------------------------------------------------------------------
-# 配置
-# ---------------------------------------------------------------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DATADIR="${PGDATA:-${PROJECT_ROOT}/postgres-data}"
-PGPORT="${PGPORT:-5432}"
-WAIT_TIMEOUT_SEC=60
-SUPERUSER="${PG_SUPERUSER:-${USER:-postgres}}"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/services.sh"
 
 cd "${PROJECT_ROOT}"
-DATADIR="$(cd "${PROJECT_ROOT}" && realpath -m "${DATADIR}")"
+
+PGPORT="${PGPORT:-5433}"
+SUPERUSER="${PG_SUPERUSER:-${USER:-postgres}}"
+WAIT_TIMEOUT_SEC=60
 
 # ---------------------------------------------------------------------------
 # 工具函数
 # ---------------------------------------------------------------------------
-is_our_pg_running() {
-  pg_ctl -D "${DATADIR}" status >/dev/null 2>&1
-}
-
 is_pg_ready() {
   pg_isready -h 127.0.0.1 -p "${PGPORT}" -U "${SUPERUSER}" >/dev/null 2>&1
 }
 
 admin_psql() {
-  # 走项目 PGDATA 内 unix socket（auth-local=trust）
-  PGHOST="${DATADIR}" psql -U "${SUPERUSER}" -d postgres "$@"
+  # 走 PGHOST socket 目录（auth-local=trust）；TCP 需密码故不走 127.0.0.1
+  PGHOST="${PG_SOCK_DIR_ABS}" PGPORT="${PGPORT}" psql -U "${SUPERUSER}" -d postgres "$@"
 }
 
 list_target_dbs() {
@@ -44,7 +34,7 @@ print_summary() {
   dbs="$(list_target_dbs)"
   vector_ok="$(admin_psql -At -c \
     "SELECT COUNT(*) FROM pg_available_extensions WHERE name = 'vector';")"
-  echo "PostgreSQL 已就绪；PGDATA: ${DATADIR}；端口: ${PGPORT}；已有 AI 库: ${dbs:-（无）}"
+  echo "PostgreSQL 已就绪；PGDATA: ${PG_DATA_DIR_ABS}；端口: ${PGPORT}；已有 AI 库: ${dbs:-（无）}"
   if [ "${vector_ok}" = "0" ]; then
     echo "警告: pgvector 扩展不可用，请确认 devbox 已安装 postgresql16Packages.pgvector" >&2
   fi
@@ -76,52 +66,42 @@ SQL
   done
 }
 
-init_datadir_if_needed() {
-  if [ -f "${DATADIR}/PG_VERSION" ]; then
-    return 0
-  fi
-  echo "初始化 PostgreSQL 数据目录: ${DATADIR}"
-  rm -rf "${DATADIR}"
-  mkdir -p "${DATADIR}"
-  initdb -D "${DATADIR}" -U "${SUPERUSER}" --auth-local=trust --auth-host=scram-sha-256
-  {
-    echo "listen_addresses = '127.0.0.1'"
-    echo "port = ${PGPORT}"
-    echo "unix_socket_directories = '${DATADIR}'"
-  } >> "${DATADIR}/postgresql.conf"
-}
-
-start_postgres() {
-  if is_our_pg_running; then
-    return 0
-  fi
-  echo "启动 PostgreSQL（pg_ctl）..."
-  pg_ctl -D "${DATADIR}" -l "${DATADIR}/postgresql.log" -w start
-}
+# ---------------------------------------------------------------------------
+# 1. 确保监督器（含 initdb 与 socket 目录创建）
+# ---------------------------------------------------------------------------
+ensure_supervisor
 
 # ---------------------------------------------------------------------------
-# 1. 数据目录初始化
+# 2. 已就绪：仅建库并输出摘要
 # ---------------------------------------------------------------------------
-init_datadir_if_needed
+if is_pg_ready; then
+  ensure_role_postgres
+  ensure_databases
+  print_summary
+  exit 0
+fi
 
 # ---------------------------------------------------------------------------
-# 2. 启动本实例并轮询就绪
+# 3. 启用本库进程（不再 pg_ctl start；由监督器统一监督）
 # ---------------------------------------------------------------------------
-start_postgres
+start_service postgresql
 
+# ---------------------------------------------------------------------------
+# 4. 就绪轮询（pg_isready 必须带 -h 127.0.0.1 -p ${PGPORT}）
+# ---------------------------------------------------------------------------
 for i in $(seq 1 "${WAIT_TIMEOUT_SEC}"); do
   if is_pg_ready; then
     break
   fi
   if [ "${i}" -eq "${WAIT_TIMEOUT_SEC}" ]; then
-    echo "PostgreSQL 在 ${WAIT_TIMEOUT_SEC} 秒内未就绪，请查看 ${DATADIR}/postgresql.log" >&2
+    echo "PostgreSQL 在 ${WAIT_TIMEOUT_SEC} 秒内未就绪，请查看 ${PG_DATA_DIR_ABS}/postgresql.log" >&2
     exit 1
   fi
   sleep 1
 done
 
 # ---------------------------------------------------------------------------
-# 3. 创建 AI 双库、pgvector 扩展并输出摘要
+# 5. 创建 AI 双库、pgvector 扩展并输出摘要
 # ---------------------------------------------------------------------------
 ensure_role_postgres
 ensure_databases

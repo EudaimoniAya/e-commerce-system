@@ -314,7 +314,7 @@ GitHub Web blame 对默认分支上的该文件自动生效。
 | `task migrate:all` | MySQL + AI 库顺序 `upgrade head` |
 | `task migrate:new -- "描述"` | 新建 Alembic revision（autogenerate） |
 
-实现脚本：`scripts/devbox_mysql_{up,down,reset}.sh`。
+实现脚本：`scripts/devbox/mysql_{up,down,reset}.sh`。
 
 ### Redis（本地 devbox）
 
@@ -323,7 +323,7 @@ GitHub Web blame 对默认分支上的该文件自动生效。
 | `task redis:up` | 启动 Redis 8，轮询 `redis-cli ping` 直至 PONG |
 | `task redis:down` | 停止 devbox Redis 服务 |
 
-实现脚本：`scripts/devbox_redis_{up,down}.sh`。
+实现脚本：`scripts/devbox/redis_{up,down}.sh`。
 
 ### Allure 测试报告（本地）
 
@@ -404,7 +404,7 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 | `ecommerce_ai_test` | pytest `@integration` 与 CI（`.env.test` / workflow env） |
 
 - 数据目录：`postgres-data/`（已 `.gitignore`）
-- 启动/停止：`task pg:up` / `task pg:down`（实现脚本 `scripts/devbox_pg_{up,down}.sh`）
+- 启动/停止：`task pg:up` / `task pg:down`（实现脚本 `scripts/devbox/pg_{up,down}.sh`）
 - 本地连接：TCP `127.0.0.1:5433`（devbox `PGPORT`，避免与系统 5432 冲突）；CI 使用 **pgvector/pgvector:pg16** service container（`127.0.0.1:5432`）
 - AI 库 schema 由**独立 Alembic 入口 `alembic_ai/`** 管理（`task migrate:ai`；`task migrate:all` 双库顺序 migrate）；首条 revision 001：`CREATE EXTENSION vector` + `_infra_ai_migration_smoke`（`vector(1024)`）
 - 业务域与 `ai/` 域经 `app/infra/ai_database.py`（`AiBase` / `get_ai_engine`）与 `app/infra/embedder.py`（`Embedder` / `get_embedder`）访问；**禁止**业务域自行 `create_async_engine` 连 AI 库

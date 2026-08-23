@@ -23,7 +23,7 @@ mysql -e "CREATE DATABASE ..." ← ERROR 2002: socket 不存在
 
 ## 解决
 
-逻辑合并到单一入口 `scripts/devbox_mysql_up.sh`（五段）：
+逻辑合并到单一入口 `scripts/devbox/mysql_up.sh`（五段）：
 
 1. **数据目录** — 首次或损坏时 `mysqld --initialize-insecure`（日志写入 `mysql-init.log`，不刷屏）
 2. **快速路径** — 已就绪则仅输出数据目录与已有库，然后退出
@@ -37,9 +37,9 @@ mysql -e "CREATE DATABASE ..." ← ERROR 2002: socket 不存在
 mysqladmin -u root --socket="$SOCKET" ping --silent >/dev/null 2>&1
 ```
 
-停止服务使用 `scripts/devbox_mysql_down.sh`：先 `mysqladmin shutdown`（socket），再 `devbox services stop` 关掉 process-compose。
+停止服务使用 `scripts/devbox/mysql_down.sh`：先 `mysqladmin shutdown`（socket），再 `devbox services stop` 关掉 process-compose。
 
-重置使用 `scripts/devbox_mysql_reset.sh`：`down` → 删除 `mysql-data/` → `up`（避免 Taskfile 嵌套 task 的冗余输出）。
+重置使用 `scripts/devbox/mysql_reset.sh`：`down` → 删除 `mysql-data/` → `up`（避免 Taskfile 嵌套 task 的冗余输出）。
 
 ## 验证
 
@@ -70,8 +70,8 @@ MySQL 已就绪；数据目录: /path/to/mysql-data；已有库: ecommerce_dev, 
 ## 关联文件
 
 - `Taskfile.yml` — `db:up` / `db:down` / `db:reset`
-- `scripts/devbox_mysql_up.sh` — 启动全流程（初始化 + up + 轮询 + 建库）
-- `scripts/devbox_mysql_down.sh` — socket shutdown + 停止 process-compose
-- `scripts/devbox_mysql_reset.sh` — 重置全流程
+- `scripts/devbox/mysql_up.sh` — 启动全流程（初始化 + up + 轮询 + 建库）
+- `scripts/devbox/mysql_down.sh` — socket shutdown + 停止 process-compose
+- `scripts/devbox/mysql_reset.sh` — 重置全流程
 - `.cursor/rules/service-startup-readiness-polling.mdc` — 通用轮询模式规则
 - `.devbox/virtenv/mysql80/process-compose.yaml` — process-compose 服务定义
