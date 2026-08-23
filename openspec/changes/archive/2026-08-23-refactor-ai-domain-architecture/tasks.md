@@ -40,7 +40,7 @@
 
 ## 7. 本地 CI 与归档
 
-- [ ] 7.1 `devbox run -- task ci` 全绿
-- [ ] 7.2 执行 `opsx-archive` 归档，同步 `README`
+- [x] 7.1 `devbox run -- task ci` 全绿（452 passed）
+- [x] 7.2 执行 `opsx-archive` 归档，同步 `README`
 
 > **Apply 约定**：严格 TDD，§2 完成前不得开始 §4–§6。每个 apply 会话建议只完成 1 个 Task 节。

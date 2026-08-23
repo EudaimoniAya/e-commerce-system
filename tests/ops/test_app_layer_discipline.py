@@ -18,9 +18,7 @@ _SCRIPT = Path("scripts/check_app_layer_discipline.py")
 
 def _load_discipline() -> types.ModuleType:
     """加载 AST 门禁脚本（非包模块，按路径 exec）。"""
-    spec = importlib.util.spec_from_file_location(
-        "check_app_layer_discipline", _SCRIPT
-    )
+    spec = importlib.util.spec_from_file_location("check_app_layer_discipline", _SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -31,9 +29,7 @@ def _findings(rel: str, source: str) -> list[object]:
     """对合成源码跑 import 检查，返回 findings。"""
     module = _load_discipline()
     domain = rel.split("/")[0]
-    checker = module.AppLayerDisciplineChecker(
-        rel, domain, ast.parse(source), {}
-    )
+    checker = module.AppLayerDisciplineChecker(rel, domain, ast.parse(source), {})
     checker.check_imports()
     return list(checker.findings)
 

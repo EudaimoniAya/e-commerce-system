@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能的电商后端服务。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**media**（媒体资产 attach：头像 / 店铺 logo / 商品主图 + URL 解析）、**support**（店铺客服会话、inbox、product ref），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8** + **PostgreSQL 16/pgvector（AI 读库）**、readiness 三依赖探针、Ruff format/lint 门禁）。Alembic 至 migration `013`（media attach FK）；AI 库经独立入口 `alembic_ai/` 迁移；本地与 CI 全量 pytest **423 项**。
+AI 赋能的电商后端服务。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**media**（媒体资产 attach：头像 / 店铺 logo / 商品主图 + URL 解析）、**support**（店铺客服会话、inbox、product ref）、**ai**（RAG 语料索引/reindex + 向量检索，按会话范围过滤），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8** + **PostgreSQL 16/pgvector（AI 读库）**、readiness 三依赖探针、Ruff format/lint 门禁、AST 应用层边界纪律）。Alembic 至 migration `013`（media attach FK）；AI 库经独立入口 `alembic_ai/` 迁移；本地与 CI 全量 pytest **452 项**。
 
 ## 前置条件
 
@@ -287,7 +287,7 @@ mysql -u root --socket=/tmp/e-commerce-system-mysql.sock \
 | `task test` | 运行全量 pytest（自动 `APP_ENV_FILE=.env.test`） |
 | `task ci` | 本地 CI：deps 自动 `db:up` + `redis:up` + `pg:up`；format check + `ruff` + test-import + app-layer-discipline + `migrate:all` + `test` |
 | `task check-test-imports` | 用 `rg` 检查 tests 下禁止的 test 模块互 import（见 `scripts/check_no_test_cross_imports.sh`） |
-| `task check-app-layer-discipline` | AST 检查应用层边界纪律（deps/service/router 跨模块私有名与跨域白名单） |
+| `task check-app-layer-discipline` | AST 检查应用层边界纪律（deps/service/router 私有名跨模块、跨域白名单、AI 组合根 R5） |
 | `task dev` | 先 `db:up` + `redis:up`，再 `uvicorn app.main:app --reload`（**不**自动 `pg:up`） |
 | `task test:reports` | 运行 pytest 并生成 Allure HTML 报告（自动 `db:up` + `redis:up` + `pg:up`） |
 | `task latest:report` | 在浏览器中打开最近生成的 Allure 报告 |
@@ -407,7 +407,7 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 - 启动/停止：`task pg:up` / `task pg:down`（实现脚本 `scripts/devbox_pg_{up,down}.sh`）
 - 本地连接：TCP `127.0.0.1:5433`（devbox `PGPORT`，避免与系统 5432 冲突）；CI 使用 **pgvector/pgvector:pg16** service container（`127.0.0.1:5432`）
 - AI 库 schema 由**独立 Alembic 入口 `alembic_ai/`** 管理（`task migrate:ai`；`task migrate:all` 双库顺序 migrate）；首条 revision 001：`CREATE EXTENSION vector` + `_infra_ai_migration_smoke`（`vector(1024)`）
-- 业务域与未来 `ai/` 模块经 `app/infra/ai_database.py`（`AiBase` / `get_ai_engine`）与 `app/infra/embedder.py`（`Embedder` / `get_embedder`）访问；**禁止**业务域自行 `create_async_engine` 连 AI 库
+- 业务域与 `ai/` 域经 `app/infra/ai_database.py`（`AiBase` / `get_ai_engine`）与 `app/infra/embedder.py`（`Embedder` / `get_embedder`）访问；**禁止**业务域自行 `create_async_engine` 连 AI 库
 
 ### RAG 语料重建（reindex）
 

@@ -310,12 +310,13 @@ catalog 域 SHALL 提供 service 方法，以 **条件更新** 扣减与加回 `
 
 ### Requirement: Product RAG source read service
 
-catalog 域 SHALL 提供跨域只读 schema `ProductRagSource` 与 service 方法 `list_products_for_rag_indexing`，供 ai 域索引拉取商品文本语料（`source_kind=catalog_text`）；engagement/ordering 既有 DTO **SHALL NOT** 被 ai 域复用为索引语料源。
+catalog 域 SHALL 提供跨域只读 schema `ProductRagSource` 与 service 方法 `list_products_for_rag_indexing`、`get_product_for_rag_indexing`，供 ai 域索引拉取商品文本语料（`source_kind=catalog_text`）；engagement/ordering 既有 DTO **SHALL NOT** 被 ai 域复用为索引语料源。`ProductRagSource` SHALL NOT 包含 `price`（价格不进语料，事实类意图经 catalog Tool 查 MySQL）。
 
 #### Scenario: ProductRagSource 字段
 
 - **WHEN** 调用 `list_products_for_rag_indexing` 且存在已上架商品
-- **THEN** 每项 SHALL 含 `product_id`、`shop_id`、`name`、`description`（可 null）、`price`（两位小数字符串，**仅元数据传递，不进索引语料**——保留供 Change 3 事实类意图经 Tool 查询时复用，本 change 不消费）、`is_published`
+- **THEN** 每项 SHALL 含 `product_id`、`shop_id`、`name`、`description`（可 null）、`is_published`
+- **AND** SHALL NOT 含 `price` 字段
 
 #### Scenario: 按 shop_id 过滤已上架商品
 
@@ -327,6 +328,11 @@ catalog 域 SHALL 提供跨域只读 schema `ProductRagSource` 与 service 方�
 
 - **WHEN** 调用 `list_products_for_rag_indexing(shop_id=None)`
 - **THEN** SHALL 返回全平台所有 `is_published=True` 的商品
+
+#### Scenario: 按 product_id 取已上架语料源
+
+- **WHEN** 调用 `get_product_for_rag_indexing(product_id)` 且该商品存在且 `is_published=True`
+- **THEN** SHALL 返回对应 `ProductRagSource`（字段同 list 项）
 
 ### Requirement: No chunk cleanup call from catalog
 

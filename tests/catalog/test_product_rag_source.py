@@ -165,12 +165,8 @@ async def test_get_product_for_rag_indexing_unpublished_or_missing(
         is_published=False,
     )
 
-    unpublished = await get_product_for_rag_indexing(
-        unpublished_id, session=db_session
-    )
-    missing = await get_product_for_rag_indexing(
-        str(uuid.uuid4()), session=db_session
-    )
+    unpublished = await get_product_for_rag_indexing(unpublished_id, session=db_session)
+    missing = await get_product_for_rag_indexing(str(uuid.uuid4()), session=db_session)
 
     assert unpublished is None
     assert missing is None
