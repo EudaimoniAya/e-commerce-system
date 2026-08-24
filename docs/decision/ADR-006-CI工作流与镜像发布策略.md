@@ -29,7 +29,7 @@
 |-----------|------|
 | `code` | `app/**`, `tests/**`, `alembic/**`, `pyproject.toml`, `uv.lock`, `Taskfile.yml`, `Dockerfile`, `.dockerignore`, `scripts/check_no_test_cross_imports.sh`, `.github/workflows/test.yaml`, `.github/workflows/build-push.yaml`, `.github/utils/file-filters.yaml` |
 
-**不触发**（未命中 `code`）：`docs/**`, `openspec/**`, `.cursor/**`, `README.md`, `devbox.json`, `scripts/devbox_*`。
+**不触发**（未命中 `code`）：`docs/**`, `openspec/**`, `.cursor/**`, `README.md`, `devbox.json`, `scripts/devbox/**`。
 
 ### 理由
 

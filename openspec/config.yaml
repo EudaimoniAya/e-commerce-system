@@ -23,7 +23,7 @@ context: |
   后续 v1.x：infra-cd-compose（CD 部署）；v2.0.0：ai 域
 
   开发流程：垂直切片增量交付，SDD + TDD，一个 change = 一个可演示能力
-  工程纪律：CI lint + test（423 项 pytest）；本地 task ci 经 deps 自动拉起三库（db:up + redis:up + pg:up）并 migrate:all，含 app-layer-discipline AST 检查
+  工程纪律：CI lint + test（423 项 pytest）；本地 task ci 经 deps 自动 `db:up`（三库总闸）并 migrate:all，含 app-layer-discipline AST 检查
 
   预估规模：app/ ~7500 行，全项目 ~10000 行（含 tests）
 

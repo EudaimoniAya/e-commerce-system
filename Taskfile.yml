@@ -43,8 +43,6 @@ tasks:
     desc: 运行 pytest 并生成 Allure 报告
     deps:
       - db:up
-      - redis:up
-      - pg:up
     env:
       APP_ENV_FILE: .env.test
     cmds:
@@ -60,8 +58,6 @@ tasks:
     desc: 本地 CI（format check + ruff + test-import + app-layer-discipline + test）
     deps:
       - db:up
-      - redis:up
-      - pg:up
     cmds:
       - task: format:check
       - task: ruff
@@ -70,25 +66,85 @@ tasks:
       - task: migrate:all
       - task: test
 
+  # ---------------------------------------------------------------------------
+  # 三库总闸（db:* 同时作用于 MySQL / Redis / PostgreSQL）
+  # ---------------------------------------------------------------------------
   db:up:
-    desc: 启动 devbox MySQL 8.0 并确保 dev/test 双库存在
+    desc: 三库总闸：启动 MySQL / Redis / PostgreSQL（同一只 process-compose）
     cmds:
-      - bash scripts/devbox_mysql_up.sh
+      - bash scripts/devbox/db_up.sh
 
   db:down:
-    desc: 停止 devbox MySQL 服务（process-compose）
+    desc: 三库总闸：停止 MySQL / Redis / PostgreSQL（监督器不拆除）
     cmds:
-      - bash scripts/devbox_mysql_down.sh
+      - bash scripts/devbox/db_down.sh
 
   db:reset:
-    desc: 停止 MySQL 并清除 mysql-data/ 后重新启动（开发用，慎用）
+    desc: 三库总闸：停止三库 → 清空整个 db-data/ → 重新启动（开发用，慎用）
     cmds:
-      - bash scripts/devbox_mysql_reset.sh
+      - bash scripts/devbox/db_reset.sh
 
+  # ---------------------------------------------------------------------------
+  # 分库：mysql
+  # ---------------------------------------------------------------------------
+  mysql:up:
+    desc: 启动 MySQL（process-compose 内）并确保 dev/test 双库存在
+    cmds:
+      - bash scripts/devbox/mysql_up.sh
+
+  mysql:down:
+    desc: 停止 MySQL（带名，不拆整只监督器）
+    cmds:
+      - bash scripts/devbox/mysql_down.sh
+
+  mysql:reset:
+    desc: 停止 MySQL → 清除 db-data/mysql → 重新启动（开发用，慎用）
+    cmds:
+      - bash scripts/devbox/mysql_reset.sh
+
+  # ---------------------------------------------------------------------------
+  # 分库：redis
+  # ---------------------------------------------------------------------------
+  redis:up:
+    desc: 启动 Redis（process-compose 内）并轮询就绪
+    cmds:
+      - bash scripts/devbox/redis_up.sh
+
+  redis:down:
+    desc: 停止 Redis（带名，不拆整只监督器）
+    cmds:
+      - bash scripts/devbox/redis_down.sh
+
+  redis:reset:
+    desc: 停止 Redis → 清除 db-data/redis → 重新启动（开发用，慎用）
+    cmds:
+      - bash scripts/devbox/redis_reset.sh
+
+  # ---------------------------------------------------------------------------
+  # 分库：pg
+  # ---------------------------------------------------------------------------
+  pg:up:
+    desc: 启动 PostgreSQL 16（含 pgvector）并确保 AI dev/test 双库存在
+    cmds:
+      - bash scripts/devbox/pg_up.sh
+
+  pg:down:
+    desc: 停止 PostgreSQL（带名，不拆整只监督器）
+    cmds:
+      - bash scripts/devbox/pg_down.sh
+
+  pg:reset:
+    desc: 停止 PostgreSQL → 清除 db-data/postgres → 重新启动（开发用，慎用）
+    cmds:
+      - bash scripts/devbox/pg_reset.sh
+
+  # ---------------------------------------------------------------------------
+  # 迁移与业务任务
+  # ---------------------------------------------------------------------------
   migrate:
     desc: 执行 Alembic 迁移至 head（默认 DATABASE_URL 指向 dev 库）
     deps:
-      - db:up
+      - mysql:up
     cmds:
       - uv run alembic upgrade head
 
@@ -119,7 +175,6 @@ tasks:
     desc: 整店重建 RAG 语料（catalog_text + media_document；含 orphan 清理）。用法：task ai:reindex-shop -- <shop_id>
     deps:
       - db:up
-      - pg:up
     cmds:
       - uv run python -m app.ai.jobs.reindex_cli shop --shop-id {{.CLI_ARGS}}
 
@@ -127,7 +182,6 @@ tasks:
     desc: 重建单商品全部文档（catalog_text + media_document）。用法：task ai:reindex-product -- <product_id>
     deps:
       - db:up
-      - pg:up
     cmds:
       - uv run python -m app.ai.jobs.reindex_cli product --product-id {{.CLI_ARGS}}
 
@@ -135,34 +189,12 @@ tasks:
     desc: 重建单文档（document_id 由 source_kind 消歧）。用法：task ai:reindex-document -- --source-kind catalog_text|media_document --document-id <uuid>
     deps:
       - db:up
-      - pg:up
     cmds:
       - uv run python -m app.ai.jobs.reindex_cli document {{.CLI_ARGS}}
-
-  redis:up:
-    desc: 启动 devbox Redis 8.0 并轮询就绪
-    cmds:
-      - bash scripts/devbox_redis_up.sh
-
-  redis:down:
-    desc: 停止 devbox Redis 服务
-    cmds:
-      - bash scripts/devbox_redis_down.sh
-
-  pg:up:
-    desc: 启动 devbox PostgreSQL 16（含 pgvector）并确保 AI dev/test 双库存在
-    cmds:
-      - bash scripts/devbox_pg_up.sh
-
-  pg:down:
-    desc: 停止 devbox PostgreSQL 服务
-    cmds:
-      - bash scripts/devbox_pg_down.sh
 
   dev:
     desc: 启动开发服务器（uvicorn --reload）
     deps:
       - db:up
-      - redis:up
     cmds:
       - uv run uvicorn app.main:app --reload
