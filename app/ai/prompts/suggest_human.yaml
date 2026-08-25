@@ -1,0 +1,4 @@
+id: suggest_human
+version: v1
+template: |
+  这个问题需要人工客服进一步确认，已为您转接人工客服，请稍候。
