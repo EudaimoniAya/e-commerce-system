@@ -43,7 +43,7 @@
 
 ## 7. 本地 CI
 
-- [ ] 7.1 `uv run python scripts/check_app_layer_discipline.py`（support 不得 import ai；无 `app/ai/router.py`）
-- [ ] 7.2 `devbox run -- task ci` 全绿
+- [x] 7.1 `uv run python scripts/check_app_layer_discipline.py`（support 不得 import ai；无 `app/ai/router.py`）
+- [x] 7.2 `devbox run -- task ci` 全绿
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§5。每个 apply 会话建议只完成 1 个 Task 节。archived change2 的 Decision 12/14 **不改历史文件**。
