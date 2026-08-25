@@ -11,10 +11,10 @@
 
 ## 2. 配置、提示词与 LLM（绿）
 
-- [ ] 2.1 Settings：`LLM_PROVIDER`（`mock`|`deepseek`）、`LLM_MODEL`、`LLM_API_KEY`、`LLM_BASE_URL`、`TAU_THRESHOLD`（默认 0.3）；`.env.example` / CI 默认 mock
-- [ ] 2.2 `app/ai/prompts/` 登记 `nlu_route`、`rag_answer`、`suggest_human`（`id`+`version`+`template`）+ 加载器
-- [ ] 2.3 `LLMClient` 协议、`MockLLMClient`、`DeepSeekClient`（httpx；单测 mock HTTP，不打真网）
-- [ ] 2.4 跑绿 §1.4 中 prompt / LLM / τ 用例
+- [x] 2.1 Settings：`LLM_PROVIDER`（`mock`|`deepseek`）、`LLM_MODEL`、`LLM_API_KEY`、`LLM_BASE_URL`、`TAU_THRESHOLD`（默认 0.3）；`.env.example` / CI 默认 mock
+- [x] 2.2 `app/ai/prompts/` 登记 `nlu_route`、`rag_answer`、`suggest_human`（`id`+`version`+`template`）+ 加载器
+- [x] 2.3 `LLMClient` 协议、`MockLLMClient`、`DeepSeekClient`（httpx；单测 mock HTTP，不打真网）
+- [x] 2.4 跑绿 §1.4 中 prompt / LLM / τ 用例
 
 ## 3. 客服 agent（绿）
 

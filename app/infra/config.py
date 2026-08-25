@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     embedding_dimension: int  # 须显式配置，无 default
     embedding_api_key: str | None = None
 
+    # ── AI 客服：LLM 与 τ 门禁 ────────────────────────────────
+    # LLM provider：mock（CI / 默认测试）| deepseek（dev 手验）；对话模型与 embedding 厂商可分离
+    llm_provider: str = "mock"
+    llm_model: str = "mock-model"
+    llm_api_key: str | None = None
+    # OpenAI 兼容 base URL（deepseek 默认）
+    llm_base_url: str = "https://api.deepseek.com"
+    # τ 最小门禁阈值（[0,1]；低于则拒答转人工）。本刀仅 NLU 置信度一个分数源
+    tau_threshold: float = 0.3
+
     # RAG chunking：单 chunk 最大字符数（catalog_text 短文本 / media_document 段落切分）
     rag_chunk_max_chars: int = 800
 
