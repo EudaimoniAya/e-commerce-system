@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable
 
 import allure
 import pytest
+
 from app.ai.agent.controller import IntentController
 from app.ai.agent.registry import build_intent_registry
 from app.ai.nlu.gateway import NLGateway

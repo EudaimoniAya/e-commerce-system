@@ -8,6 +8,7 @@ from pathlib import Path
 
 import allure
 import pytest
+
 from app.ai.prompts.loader import PromptLoader, PromptNotFoundError
 
 

@@ -5,6 +5,7 @@
 """
 
 import allure
+
 from app.ai.agent.registry import build_intent_registry
 
 

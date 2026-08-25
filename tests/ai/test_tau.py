@@ -5,6 +5,7 @@
 """
 
 import allure
+
 from app.ai.agent.tau import passed_tau
 
 
