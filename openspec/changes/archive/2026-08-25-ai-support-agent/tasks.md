@@ -37,9 +37,9 @@
 
 ## 6. 文档
 
-- [ ] 6.1 修订 ADR-013 决策 5：首批仅知识检索 + 转人工文案；Tool 类意图随后续 change 注册
-- [ ] 6.2 修订 ADR-012 Change 3 行：评测集 / τ 标定移出；本刀仅 τ 最小版
-- [ ] 6.3 修订 `docs/architecture.md`：support 默认 AI、PATCH、买家 POST 同步 AI 回合、无 `/ai/*`
+- [x] 6.1 修订 ADR-013 决策 5：首批仅知识检索 + 转人工文案；Tool 类意图随后续 change 注册
+- [x] 6.2 修订 ADR-012 Change 3 行：评测集 / τ 标定移出；本刀仅 τ 最小版
+- [x] 6.3 修订 `docs/architecture.md`：support 默认 AI、PATCH、买家 POST 同步 AI 回合、无 `/ai/*`
 
 ## 7. 本地 CI
 

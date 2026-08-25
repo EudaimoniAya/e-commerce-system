@@ -6,7 +6,7 @@
 
 本项目是一个 **AI 赋能的电商平台**。核心思路是：**以传统电商业务为底座，在其上叠加 AI 能力**，而非从零做一个纯 AI 应用。
 
-- **当前阶段（v1.0.0 底座）**：**user**（手机号 + SMS OTP 认证、JWT、资料/头像 attach）、**catalog**（店铺 + 类目/商品 + logo/主图 attach）、**ordering**（买家/卖家订单、购物车 checkout/batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹 + trim job）、**support**（店铺客服会话、inbox、product ref）、**media**（上传/下载/删除、FK attach + URL resolve）与 **infra** 横切能力均已交付；Alembic 至 migration `013`；全量 pytest **406 项**
+- **当前阶段（v1.0.0 底座）**：**user**（手机号 + SMS OTP 认证、JWT、资料/头像 attach）、**catalog**（店铺 + 类目/商品 + logo/主图 attach）、**ordering**（买家/卖家订单、购物车 checkout/batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹 + trim job）、**support**（店铺客服会话、inbox、product ref）、**media**（上传/下载/删除、FK attach + URL resolve）与 **infra** 横切能力均已交付；Alembic 至 migration `015`；全量 pytest **480 项**
 - **演进方式**：垂直切片增量交付，SDD + TDD，CI 从第一天启用；v1.x 完善 CD（`infra-cd-compose`），v2.0.0 进入 AI 阶段
 - **预估规模**：`app/` 约 7500 行，全项目约 1 万行（含 tests）
 
@@ -301,11 +301,13 @@ e-commerce-system/
 
 **定时 trim（`task browse:trim`）**：`app/engagement/jobs/trim_browse_history.py`，生产由 **cron 独立进程** 定时执行（非 HTTP worker）。算法：每用户按 `last_viewed_at DESC` 取 top `BROWSE_HISTORY_MAX_PER_USER` 保留（top N 内行即使超 retention 也保留）；其余行中 `last_viewed_at < now - BROWSE_HISTORY_RETENTION_DAYS` 删除。纯函数 `plan_browse_trim_deletes`（`BrowseTrimRow` 输入、返回应删行 id 集合）可单测；`__main__` 供 `task browse:trim` CLI。
 
-**`support_conversations` 表（support 域）**：`id`（UUID PK）、`shop_id`（FK 语义 → `shops.id`）、`buyer_user_id`（FK 语义 → `users.id`）、`handler_mode`（`ai` \| `human`，MVP 默认 `human`，供前端展示与后续 AI 路由）、`last_message_preview`（VARCHAR 200）、`created_at`、`updated_at`；`UNIQUE(shop_id, buyer_user_id)`（一买家一店一会话）；索引 `ix_support_conversations_shop_updated`（`(shop_id, updated_at)` 供 inbox 降序）。**不**跨域 ORM relationship。演进对齐 [ADR-007](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)：隔离键 `shop_id`；演示阶段店主兼客服（`ShopService.get_my_shop` 自解析）；后续 `ai-support-agent` 写 `author_role=ai` 消息。
+**`support_conversations` 表（support 域）**：`id`（UUID PK）、`shop_id`（FK 语义 → `shops.id`）、`buyer_user_id`（FK 语义 → `users.id`）、`handler_mode`（`ai` \| `human`，**默认 `ai`**；前端 PATCH 切换，`human` 时人工模式不进 NLU）、`last_message_preview`（VARCHAR 200）、`created_at`、`updated_at`；`UNIQUE(shop_id, buyer_user_id)`（一买家一店一会话）；索引 `ix_support_conversations_shop_updated`（`(shop_id, updated_at)` 供 inbox 降序）。**不**跨域 ORM relationship。演进对齐 [ADR-007](./decision/ADR-007-多租户扩展-设计与暂缓计划.md)：隔离键 `shop_id`；演示阶段店主兼客服（`ShopService.get_my_shop` 自解析）。
 
-**`support_messages` 表（support 域）**：`id`（UUID PK）、`conversation_id`（FK → `support_conversations.id`）、`sender_role`（`buyer` \| `shop`）、`author_role`（`human` \| `ai`，MVP 恒 `human`）、`body`（TEXT 可空）、`message_refs`（JSON 可空，`[{ref_type, ref_id}]`，MVP 仅 `product`）、`created_at`；索引 `ix_support_messages_conversation_created`（`(conversation_id, created_at)` ASC 供历史）。`body` 与 `message_refs` 至少一项非空。
+**`support_messages` 表（support 域）**：`id`（UUID PK）、`conversation_id`（FK → `support_conversations.id`）、`sender_role`（`buyer` \| `shop`）、`author_role`（`human` \| `ai`；买家/店主人工消息为 `human`，AI 回合助手消息为 `ai`）、`body`（TEXT 可空）、`message_refs`（JSON 可空，`[{ref_type, ref_id}]`，MVP 仅 `product`）、`created_at`；索引 `ix_support_messages_conversation_created`（`(conversation_id, created_at)` ASC 供历史）。`body` 与 `message_refs` 至少一项非空。
 
-**support 写路径（买家 `POST /support/shops/{shop_id}/conversation/messages`）**：JWT 买家 → `ShopService.get_shop_context`（不存在 404）→ 禁自购（`buyer == owner_user_id` → **403**）→ closed 店任意 POST → **422** → 校验 body/refs（空/超长/ order ref / refs>10 → 422）→ `validate_product_refs_for_shop` → lazy create 或追加消息（同事务）→ bump `updated_at` + `last_message_preview`。
+**support 写路径（买家 `POST /support/shops/{shop_id}/conversation/messages`）**：JWT 买家 → `ShopService.get_shop_context`（不存在 404）→ 禁自购（`buyer == owner_user_id` → **403**）→ closed 店任意 POST → **422** → 校验 body/refs（空/超长/ order ref / refs>10 → 422）→ `validate_product_refs_for_shop` → lazy create 或追加消息（默认 `handler_mode=ai`）→ 若为 AI 模式：**同步调 AI Port**（`main.py` 注册的 `build_buyer_turn_handler` 工厂）生成助手消息（`author_role=ai` / `sender_role=shop`），preview 更新为助手正文截断；Port 未注入 / 失败 → 兜底转人工文案，买家 POST 仍 201。**响应体始终是买家那条消息**（助手消息经随后 GET messages 可见）。
+
+**support 模式切换（买家 `PATCH /support/shops/{shop_id}/conversation`）**：仅会话买家可改本店该会话 `handler_mode`（`ai` \| `human`）；成功 200 + ConversationResponse；无会话 404；非法枚举 422；未认证 401。NLU / AI Port **不**调用此接口、不直接写 `handler_mode`。
 
 **support 读路径（买家）**：`GET .../conversation` 有会话 200 / 无 404；`GET .../messages` 分页 ASC / 无会话 404。非 buyer 且非店主 → **404**。
 
@@ -402,7 +404,7 @@ app/
 - **购物车**（ordering 域）：`cart_items` 暂存、`POST /cart/checkout` 跨店单事务建单 + 轻量 `checkout_batches`、`POST /orders/batch-pay` 合并支付；与 `POST /orders` 立即购买并行
 - **收藏**（engagement 域）：`user_favorites`；`POST/GET/DELETE /favorites*`、`POST /favorites/batch-delete`（用户偏好，与购物车语义独立）
 - **浏览**（engagement 域）：`user_browse_history`；`POST/GET /browse`、`DELETE /browse/{product_id}`（202 异步 upsert、分页历史、单删）+ 配置化 top N + retention 定时 trim（`task browse:trim`，生产 cron 独立进程）
-- **店铺客服**（support 域）：`support_conversations`、`support_messages`；买家 `GET/POST /support/shops/{shop_id}/conversation*`（lazy create、product ref）；店主 `GET/POST /support/inbox*`（inbox、`last_message_preview`）；禁自购 403、closed 店买家 POST 422；为 `ai-support-agent` 预留 `handler_mode` / `author_role`
+- **店铺客服**（support 域）：`support_conversations`、`support_messages`；买家 `GET/POST /support/shops/{shop_id}/conversation*`（lazy create、product ref、默认 AI + 买家 PATCH 切模式）；店主 `GET/POST /support/inbox*`（inbox、`last_message_preview`）；禁自购 403、closed 店买家 POST 422；AI 回合写 `author_role=ai`，**无** `/ai/*` 路由（AI 经 support Port 同步调用）
 
 ### 6.2 明确不做（MVP）
 
@@ -453,7 +455,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 | 功能 | 技术 | 说明 |
 |------|------|------|
 | 店铺客服对话 | support 域（已交付） | 买家↔店铺 lazy create 会话、inbox、product ref；见 ADR-007 |
-| 店铺 RAG 智能客服 | 自研检索管线（pgvector 暴力 top-K） | catalog 文本 + media 文档双源语料 → DocumentIR 落库，`ai:reindex` CLI 重建；读侧按会话范围过滤（店 / 店+商品）见 ADR-012/013；`ai-support-agent` 实现问答闭环（NLU 只办事，转人工前端 → support） |
+| 店铺 RAG 智能客服 | 自研检索管线（pgvector 暴力 top-K）+ LLM（Mock/DeepSeek） | catalog 文本 + media 文档双源语料 → DocumentIR 落库，`ai:reindex` CLI 重建；读侧按会话范围过滤（店 / 店+商品）见 ADR-012/013；`ai-support-agent` 已落地问答闭环：NL 网关 + 意图注册表（**首批仅知识类**）+ τ 最小门禁 + 转人工兜底，买家 POST 同步 AI 回合（默认 AI、前端 PATCH 转人工、**无** `/ai/*`） |
 | 推荐系统 | 协同过滤 → 自研模型 | 消费 order_items、engagement 行为数据 |
 | 店铺经营助手 | DeepAgents | 读 admin API 聚合数据，长上下文 |
 | 购物搭子 | LangGraph 精细编排 | 私域流量实验功能，严格控制 token 成本 |
@@ -464,7 +466,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 - **PostgreSQL + pgvector**：AI 检索上下文，通过 Outbox + worker（**防腐层**）从 MySQL 同步；现况为 CLI 全量/按店重建
 - **Alembic 双入口**：business（MySQL）与 ai（PostgreSQL）独立迁移
 - **Tool 封装**：AI Agent 的所有数据操作通过 Tool → 业务 service，不直连数据库
-- **RAG 写读分离（[ADR-012](./decision/ADR-012-RAG读写分离与change宏观安排.md)）**：写路径（离线 ingest：多源 → DocumentIR → chunk/embed → pgvector 落库）与读路径（在线检索：`vector_search` + 按会话范围过滤）仓储级分离；写/读/评测三路径复杂度正交、独立演进；change 1=底座、change 2=写侧（均已归档）、change 2.1=形状修缮（`refactor-ai-domain-architecture`）、change 3=读侧闭环（`ai-support-agent`，未开）。组合根与消费边界见 [ADR-013](./decision/ADR-013-AI域组合根与消费边界.md)。
+- **RAG 写读分离（[ADR-012](./decision/ADR-012-RAG读写分离与change宏观安排.md)）**：写路径（离线 ingest：多源 → DocumentIR → chunk/embed → pgvector 落库）与读路径（在线检索：`vector_search` + 按会话范围过滤）仓储级分离；写/读/评测三路径复杂度正交、独立演进；change 1=底座、change 2=写侧（均已归档）、change 2.1=形状修缮（`refactor-ai-domain-architecture`）、change 3=读侧闭环（`ai-support-agent`，已落地：知识类意图 + τ 最小版，评测集/τ 标定移出）。组合根与消费边界见 [ADR-013](./decision/ADR-013-AI域组合根与消费边界.md)。
 
 ## 8. 开发流程
 

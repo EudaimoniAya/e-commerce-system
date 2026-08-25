@@ -1,8 +1,8 @@
 # ADR-013：AI 域组合根与消费边界
 
-- **状态**：已采纳（`refactor-ai-domain-architecture` Task 1 成文；代码落地见同 change 后续 Task）
+- **状态**：已采纳（`refactor-ai-domain-architecture` Task 1 成文；`ai-support-agent` apply 落地并修订决策 5）
 - **日期**：2026-08-22
-- **背景**：Change 2（`ai-rag-acl-index`）交付写侧索引与检索雏形后，组合根未宣布——门面零调用方、`indexing/service.py` 自装配 `MediaService`、AST 的 `DOMAINS` 不含 `ai`。本 ADR 定稿 AI 与业务域的不对称边界、组合根位置、查询过滤与防腐层用词，以及 Change 3（`ai-support-agent`）的终态契约（本切片不实现客服/NLU）。
+- **背景**：Change 2（`ai-rag-acl-index`）交付写侧索引与检索雏形后，组合根未宣布——门面零调用方、`indexing/service.py` 自装配 `MediaService`、AST 的 `DOMAINS` 不含 `ai`。本 ADR 定稿 AI 与业务域的不对称边界、组合根位置、查询过滤与防腐层用词，以及 Change 3（`ai-support-agent`）的终态契约（apply 落地首批仅知识类意图，Tool 类后续）。
 
 ## 决策
 
@@ -35,11 +35,12 @@
 - 客服 **将来** 有自己的 router（经营助手写完后与之一同从「借用 support 入口」提出）。本切片不建空路由、不把 `rag/` 预迁到 `support_agent/`。
 - 不投资「handler 挂在 support 上、后端偷偷切 AI/人工」作为终态。
 
-### 5. Change 3 契约（本切片不实现）
+### 5. Change 3 契约（已落地：首批仅知识类意图 + 转人工文案）
 
-- **NLU 只负责任务**（知识检索 / Tool / …）。意图过载时 **文案建议** 转人工，**不**改会话模式。
-- 会话默认 AI（不做店铺级默认配置）。转人工 = 用户在前端操作 → support 写模式 / inbox。`handler_mode` 字段可留在 support，发起方是用户。
-- 模式已是人工时不进 NLU。
+- **NLU 只负责意图分流**：产出 `{intent, confidence}`；进入知识 handler **当且仅当** `intent == knowledge` **且** `confidence ≥ TAU_THRESHOLD`（τ 最小版，单阈值）。意图过载 / 未识别 / 低置信 → **返回转人工文案（`suggest_human`）**，不调检索、**不**改会话模式。
+- **意图注册表机制本刀落地，只注册 `knowledge`**（知识检索，消费 `retrieve_chunks`）。价格 / 库存 / 订单等 **Tool 类意图不注册、不占位**，随后续 change 逐个注册（8/18 分水岭：RAG 是一个意图）。
+- 会话默认 AI（不做店铺级默认配置）。转人工 = 前端 **PATCH `handler_mode`** → support；`handler_mode=human` 时不进 NLU、不调 Port。
+- 入口复用 support HTTP（买家 POST messages），**不建 AI router**（无 `/ai/*`）；AI 经 support `BuyerTurnAiHandler` Port 被同步调用（`main.py` 组合根注册 `build_buyer_turn_handler` 工厂）。
 
 ## 否决的观点
 
@@ -70,8 +71,8 @@
   规范：本 ADR + ADR-012 用词修订 + architecture + rules
   代码：deps 组合根、砍门面、catalog 单商品接口、retrieve 可选 product_id、AST
 
-随后（ai-support-agent）
-  NLU 任务分流；默认 AI；前端转人工 → support
+随后（ai-support-agent）——已落地
+  NLU 意图分流（首批仅 knowledge）；默认 AI；前端 PATCH 转人工 → support
   retrieve 按会话 product ref 传 product_id
 
 更后
