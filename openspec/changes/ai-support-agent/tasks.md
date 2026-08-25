@@ -2,12 +2,12 @@
 
 > 只写测、不写实现。§1 完成前不得开始 §2–§7。
 
-- [ ] 1.1 扩展 `tests/testkit/helper/support.py`：`patch_buyer_handler_mode`；必要时扩展 Result 类型。更新既有「lazy create 后 `handler_mode==human`」断言为期望 `ai`（将失败直至改默认）
-- [ ] 1.2 编写 `tests/support/test_handler_mode.py`：PATCH `human`/`ai` 200、无会话 404、非法值 422、401；`handler_mode=human` 时 POST 不新增 `author_role=ai`；店主 inbox POST 不触发 AI 行；**不编写** PATCH 路由与 Port
-- [ ] 1.3 编写 `tests/support/test_ai_turn.py`：注入 Mock Port 返回固定文案时买家 POST 201 仍为买家行，GET messages 含随后 `author_role=ai` 且 `sender_role=shop`；Port 抛错时买家仍 201 且有兜底助手行；未注入工厂不 500；**不编写** service 接线
-- [ ] 1.4 编写 `tests/ai/`：τ 纯函数边界；注册表仅 `{knowledge}`；Mock LLM 输出 unknown / 低置信 → 不调用 retrieve（mock）；`knowledge`+高置信按 0/1/多 ref 把 `product_id` 传给 retrieve mock；空 retrieve 不调生成 LLM；提示词按 id 加载、缺 id 报错；**不编写** agent / loader 实现
-- [ ] 1.5 编写 `tests/infra/test_embedder_vendor.py`：httpx mock 下 `zhipu`/`dashscope` 返回 1024 维；**不编写** 真 HTTP 实现（现状 `NotImplementedError` 即为红）
-- [ ] 1.6 `devbox run -- task db:up` 后跑 §1.1–1.5 相关 pytest，确认失败（红）
+- [x] 1.1 扩展 `tests/testkit/helper/support.py`：`patch_buyer_handler_mode`；必要时扩展 Result 类型。更新既有「lazy create 后 `handler_mode==human`」断言为期望 `ai`（将失败直至改默认）
+- [x] 1.2 编写 `tests/support/test_handler_mode.py`：PATCH `human`/`ai` 200、无会话 404、非法值 422、401；`handler_mode=human` 时 POST 不新增 `author_role=ai`；店主 inbox POST 不触发 AI 行；**不编写** PATCH 路由与 Port
+- [x] 1.3 编写 `tests/support/test_ai_turn.py`：注入 Mock Port 返回固定文案时买家 POST 201 仍为买家行，GET messages 含随后 `author_role=ai` 且 `sender_role=shop`；Port 抛错时买家仍 201 且有兜底助手行；未注入工厂不 500；**不编写** service 接线
+- [x] 1.4 编写 `tests/ai/`：τ 纯函数边界；注册表仅 `{knowledge}`；Mock LLM 输出 unknown / 低置信 → 不调用 retrieve（mock）；`knowledge`+高置信按 0/1/多 ref 把 `product_id` 传给 retrieve mock；空 retrieve 不调生成 LLM；提示词按 id 加载、缺 id 报错；**不编写** agent / loader 实现
+- [x] 1.5 编写 `tests/infra/test_embedder_vendor.py`：httpx mock 下 `zhipu`/`dashscope` 返回 1024 维；**不编写** 真 HTTP 实现（现状 `NotImplementedError` 即为红）
+- [x] 1.6 `devbox run -- task db:up` 后跑 §1.1–1.5 相关 pytest，确认失败（红）
 
 ## 2. 配置、提示词与 LLM（绿）
 

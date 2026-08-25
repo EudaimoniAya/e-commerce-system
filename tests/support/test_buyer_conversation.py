@@ -68,7 +68,7 @@ async def test_buyer_conversation_with_existing_returns_200(
     assert result.body is not None
     assert result.body["shop_id"] == shop_owner.shop_id
     assert result.body["buyer_user_id"] is not None
-    assert result.body["handler_mode"] == "human"
+    assert result.body["handler_mode"] == "ai"
     assert "id" in result.body
     assert "updated_at" in result.body
     assert "last_message_preview" in result.body

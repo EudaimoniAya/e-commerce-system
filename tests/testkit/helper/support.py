@@ -100,6 +100,29 @@ async def list_buyer_messages(
     )
 
 
+async def patch_buyer_handler_mode(
+    client: AsyncClient,
+    *,
+    headers: dict[str, str],
+    shop_id: str,
+    handler_mode: str,
+) -> ConversationResult:
+    """调用 PATCH /support/shops/{shop_id}/conversation，返回 ConversationResult。
+
+    仅会话买家可改本店该会话模式。成功 200 + ConversationResponse；
+    无会话 404；非法 ``handler_mode`` 422；未认证 401。
+    """
+    response: Response = await client.patch(
+        f"/support/shops/{shop_id}/conversation",
+        json={"handler_mode": handler_mode},
+        headers=headers,
+    )
+    return ConversationResult(
+        status_code=response.status_code,
+        body=_parse_body(response),
+    )
+
+
 # ── 店主路径（get_current_shop）───────────────────────────────
 
 

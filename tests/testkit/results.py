@@ -255,11 +255,11 @@ class BrowseListResult:
 
 @dataclass
 class ConversationResult:
-    """support 会话 HTTP 调用结果（GET 买家会话 / GET inbox 详情）。
+    """support 会话 HTTP 调用结果（GET 买家会话 / GET inbox 详情 / PATCH 买家模式）。
 
     Attributes:
         status_code: HTTP 响应状态码。
-        body: 2xx 时解析为 dict（含 id/shop_id/buyer_user_id/handler_mode/updated_at/last_message_preview）；
+        body: 2xx/200 时解析为 dict（含 id/shop_id/buyer_user_id/handler_mode/updated_at/last_message_preview）；
               非成功时为 ``None``。
     """
 
