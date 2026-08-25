@@ -5,6 +5,7 @@
 """
 
 import uuid
+from collections.abc import Callable
 from typing import Literal
 
 from fastapi import HTTPException, status
@@ -14,6 +15,7 @@ from app.catalog.product_service import ProductService
 from app.catalog.schemas import ShopContext
 from app.catalog.shop_service import ShopService
 from app.support.models import SupportConversation, SupportMessage
+from app.support.ports import BuyerTurnAiHandler
 from app.support.repository import ConversationRepository, MessageRepository
 from app.support.schemas import (
     ConversationResponse,
@@ -31,6 +33,8 @@ _EMPTY_MESSAGE_MSG = "body and message_refs cannot both be empty"
 _ORDER_REF_MSG = "order ref is not supported yet"
 _TOO_MANY_REFS_MSG = "message_refs must contain at most 10 distinct items"
 _PREVIEW_MAX = 200
+# AI 回合兜底文案：Port 缺失 / Port 抛错时写入（support 不 import app.ai，文案本域自持）
+_AI_FALLBACK_TEXT = "暂时无法为您解答，已为您转接人工客服，请稍候。"
 
 
 def _to_conversation_response(
@@ -71,12 +75,15 @@ class SupportService:
         message_repo: MessageRepository,
         shop_service: ShopService,
         product_service: ProductService,
+        buyer_turn_handler_factory: Callable[[], BuyerTurnAiHandler | None]
+        | None = None,
     ) -> None:
         self._session = session
         self._conversation_repo = conversation_repo
         self._message_repo = message_repo
         self._shops = shop_service
         self._products = product_service
+        self._buyer_turn_handler_factory = buyer_turn_handler_factory
 
     # ── 买家路径 ──────────────────────────────────────────────
 
@@ -127,7 +134,11 @@ class SupportService:
         buyer_user_id: uuid.UUID,
         data: MessageCreate,
     ) -> MessageResponse:
-        """买家发消息：lazy create 会话（单事务）；closed 店任何 POST 422。"""
+        """买家发消息：lazy create 会话（默认 ``handler_mode=ai``）；closed 店任何 POST 422。
+
+        ``handler_mode=ai`` 时在落买家消息后同步跑 AI 回合（写 ``author_role=ai`` 助手消息）；
+        响应仍为买家那条消息（201）。Port 缺失/失败 → 兜底文案，不 5xx。
+        """
         shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
         if shop.status == "closed":
@@ -146,7 +157,7 @@ class SupportService:
                 id=uuid.uuid4(),
                 shop_id=shop_id,
                 buyer_user_id=buyer_user_id,
-                handler_mode="human",
+                handler_mode="ai",
             )
             await self._conversation_repo.save(conversation)
 
@@ -156,7 +167,35 @@ class SupportService:
             body=data.body,
             refs=refs,
         )
+        if conversation.handler_mode == "ai":
+            await self._run_ai_turn(conversation, message)
         return _to_message_response(message)
+
+    async def patch_buyer_handler_mode(
+        self,
+        shop_id: uuid.UUID,
+        buyer_user_id: uuid.UUID,
+        handler_mode: str,
+    ) -> ConversationResponse:
+        """买家切换会话模式（``ai`` | ``human``）：无会话 404；店主自访 403。
+
+        仅会话买家可改本店该会话模式；NLU / AI Port 不调用本方法、不直接写 handler_mode。
+        """
+        shop = await self._shops.get_shop_context(shop_id)
+        self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
+
+        conversation = await self._conversation_repo.get_by_shop_and_buyer(
+            shop_id, buyer_user_id
+        )
+        if conversation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=_CONVERSATION_NOT_FOUND_MSG,
+            )
+        conversation.handler_mode = handler_mode
+        await self._session.commit()
+        await self._session.refresh(conversation)
+        return _to_conversation_response(conversation)
 
     # ── 店主路径 ──────────────────────────────────────────────
 
@@ -317,6 +356,65 @@ class SupportService:
         await self._session.commit()
         await self._session.refresh(message)
         return message
+
+    async def _run_ai_turn(
+        self,
+        conversation: SupportConversation,
+        buyer_message: SupportMessage,
+    ) -> None:
+        """``handler_mode=ai``：买家消息已 commit 后同步调 Port，写助手消息。
+
+        Port 未注入 / 返回前抛错 → 落兜底文案（买家 POST 仍 201，SHALL NOT 5xx）。
+        """
+        assistant_text = _AI_FALLBACK_TEXT
+        port: BuyerTurnAiHandler | None = None
+        if self._buyer_turn_handler_factory is not None:
+            port = self._buyer_turn_handler_factory()
+        if port is not None:
+            try:
+                assistant_text = await port.handle_buyer_turn(
+                    shop_id=str(conversation.shop_id),
+                    body=buyer_message.body,
+                    product_ref_ids=self._extract_product_ref_ids(
+                        buyer_message.message_refs
+                    ),
+                )
+            except Exception:
+                assistant_text = _AI_FALLBACK_TEXT
+        await self._persist_ai_message(conversation, assistant_text)
+
+    def _extract_product_ref_ids(
+        self,
+        message_refs: list[dict[str, str]] | None,
+    ) -> list[str]:
+        """本条消息已校验 product refs（去重、顺序保留）→ id 列表。
+
+        MVP refs 仅 product（order 已被 422 拒绝），故直接按 ``ref_id`` 收集。
+        """
+        return [
+            ref["ref_id"]
+            for ref in (message_refs or [])
+            if ref.get("ref_type") == "product"
+        ]
+
+    async def _persist_ai_message(
+        self,
+        conversation: SupportConversation,
+        text: str,
+    ) -> None:
+        """写助手消息（``sender_role=shop``、``author_role=ai``）并更新 preview 为助手正文截断。"""
+        message = SupportMessage(
+            id=uuid.uuid4(),
+            conversation_id=conversation.id,
+            sender_role="shop",
+            author_role="ai",
+            body=text,
+            message_refs=None,
+        )
+        await self._message_repo.save(message)
+        conversation.last_message_preview = text[:_PREVIEW_MAX]
+        await self._session.commit()
+        await self._session.refresh(message)
 
     async def _list_messages(
         self,

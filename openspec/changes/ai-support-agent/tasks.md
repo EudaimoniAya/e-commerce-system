@@ -25,15 +25,15 @@
 
 ## 4. support Port、默认 AI、PATCH（绿）
 
-- [ ] 4.1 `app/support/ports.py` 的 `BuyerTurnAiHandler`；service 可选注入；`deps.register_buyer_turn_handler_factory`（**不** import `app.ai`）
-- [ ] 4.2 lazy create `handler_mode=ai`（ORM default 与 server_default）；买家 PATCH 路由；人工模式不调 Port；AI 模式落 `author_role=ai`；preview 用助手截断；Port 失败 / 未注入 → 兜底文案仍 201
-- [ ] 4.3 `main.py` 注册 `build_buyer_turn_handler` 工厂
-- [ ] 4.4 跑绿 §1.1–1.3 与既有 `tests/support/`（店主回复仍 `author_role=human`）
+- [x] 4.1 `app/support/ports.py` 的 `BuyerTurnAiHandler`；service 可选注入；`deps.register_buyer_turn_handler_factory`（**不** import `app.ai`）
+- [x] 4.2 lazy create `handler_mode=ai`（ORM default 与 server_default）；买家 PATCH 路由；人工模式不调 Port；AI 模式落 `author_role=ai`；preview 用助手截断；Port 失败 / 未注入 → 兜底文案仍 201
+- [x] 4.3 `main.py` 注册 `build_buyer_turn_handler` 工厂
+- [x] 4.4 跑绿 §1.1–1.3 与既有 `tests/support/`（店主回复仍 `author_role=human`）
 
 ## 5. Embedder 真厂商 HTTP（绿）
 
-- [ ] 5.1 实现 `ZhipuEmbedder` / `DashscopeEmbedder` 的 `embed_texts`（httpx、维度校验、失败 fail-fast）
-- [ ] 5.2 跑绿 §1.5；确认 CI 仍 `EMBEDDING_PROVIDER=mock`
+- [x] 5.1 实现 `ZhipuEmbedder` / `DashscopeEmbedder` 的 `embed_texts`（httpx、维度校验、失败 fail-fast）
+- [x] 5.2 跑绿 §1.5；确认 CI 仍 `EMBEDDING_PROVIDER=mock`
 
 ## 6. 文档
 

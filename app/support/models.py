@@ -54,8 +54,8 @@ class SupportConversation(Base):
     )
     handler_mode: Mapped[str] = mapped_column(
         String(16),
-        default="human",
-        server_default="human",
+        default="ai",
+        server_default="ai",
         nullable=False,
     )
     last_message_preview: Mapped[str | None] = mapped_column(

@@ -128,7 +128,10 @@ async def test_buyer_messages_list_ascending(
     assert result.status_code == 200
     assert result.body is not None
     items = result.body["items"]
-    assert [item["body"] for item in items] == ["第一", "第二", "第三"]
+    # 默认 handler_mode=ai：每次买家 POST 会追加一条 author_role=ai 助手行；
+    # 按买家行（sender_role=buyer）断言顺序，避免对兜底助手行敏感。
+    buyer_bodies = [item["body"] for item in items if item["sender_role"] == "buyer"]
+    assert buyer_bodies == ["第一", "第二", "第三"]
     assert [item["created_at"] for item in items] == sorted(
         item["created_at"] for item in items
     )

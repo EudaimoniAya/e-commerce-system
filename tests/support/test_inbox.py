@@ -97,7 +97,8 @@ async def test_inbox_isolated_by_shop_with_preview(
         item["shop_id"] == shop_owner.shop_id for item in shop_a_inbox.body["items"]
     )
     assert len(shop_a_inbox.body["items"]) == 1
-    assert shop_a_inbox.body["items"][0]["last_message_preview"] == "给A店"
+    # 默认 handler_mode=ai：preview 为助手正文截断（本测试未注入 Port → 兜底文案，非空）
+    assert shop_a_inbox.body["items"][0]["last_message_preview"]
 
     shop_b_inbox = await list_inbox(
         integration_client,
@@ -207,7 +208,8 @@ async def test_inbox_shop_reply_returns_201(
     )
     assert messages.status_code == 200
     assert messages.body is not None
-    assert len(messages.body["items"]) == 2
+    # 默认 ai：买家 POST 追加一条兜底助手行 → [买家, AI 兜底, 店主回复]
+    assert len(messages.body["items"]) == 3
 
 
 @pytest.mark.integration

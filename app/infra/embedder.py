@@ -5,7 +5,11 @@ from __future__ import annotations
 import hashlib
 from typing import Protocol
 
+import httpx
+
 from app.infra.config import get_settings
+
+_HTTP_TIMEOUT_SECONDS = 60.0
 
 # 进程内唯一 Embedder 单例；测试通过置 None 强制重建。
 _embedder_instance: Embedder | None = None
@@ -45,11 +49,11 @@ class MockEmbedder:
 
 
 class ZhipuEmbedder:
-    """智谱（bigmodel.cn）Embedding API 骨架。
+    """智谱（bigmodel.cn）Embedding API（真实 HTTP）。
 
-    本 change 仅提供接口骨架（维度 + 参数装配），真实 HTTP 调用留给后续
-    需要 ``EMBEDDING_API_KEY`` 的 change / 手动验证。CI 固定 ``mock`` provider，
-    不会构造本类，也绝不触发外部 API。
+    测试经 ``_client`` 注入 ``httpx.MockTransport`` 的 ``httpx.Client``（red §1.5 契约）；
+    未注入时自建同步 client。HTTP 失败 / 返回维度不符 → fail-fast，不静默填 Mock 向量。
+    CI 固定 ``EMBEDDING_PROVIDER=mock``，不会构造本类。
     """
 
     _API_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
@@ -58,19 +62,44 @@ class ZhipuEmbedder:
         self.dimension = dimension
         self._api_key = api_key
         self._model = model
+        self._client: httpx.Client | None = None
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        raise NotImplementedError(
-            "ZhipuEmbedder 为厂商 API 骨架：本 change 不实现真实调用，"
-            "CI 使用 EMBEDDING_PROVIDER=mock"
+        client = self._client or httpx.Client(
+            timeout=httpx.Timeout(_HTTP_TIMEOUT_SECONDS)
         )
+        try:
+            response = client.post(
+                self._API_BASE_URL,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={"model": self._model, "input": texts},
+            )
+            response.raise_for_status()
+            vectors = [item["embedding"] for item in response.json()["data"]]
+        finally:
+            if self._client is None:
+                client.close()
+        self._assert_dimension(vectors)
+        return vectors
+
+    def _assert_dimension(self, vectors: list[list[float]]) -> None:
+        """维度不符 → 抛错（fail-fast），不静默接受。"""
+        for vector in vectors:
+            if len(vector) != self.dimension:
+                raise ValueError(
+                    "embedding dimension mismatch: "
+                    f"got {len(vector)}, expected {self.dimension}"
+                )
 
 
 class DashscopeEmbedder:
-    """阿里云百炼（dashscope）Embedding API 骨架。
+    """阿里云百炼（dashscope）Embedding API（真实 HTTP）。
 
-    与 ``ZhipuEmbedder`` 相同：仅提供接口骨架，真实 HTTP 调用留给后续
-    change；CI 固定 ``mock`` provider，不会构造本类。
+    与 ``ZhipuEmbedder`` 同构：测试经 ``_client`` 注入 mock transport；HTTP 失败 /
+    维度不符 fail-fast。CI 固定 ``EMBEDDING_PROVIDER=mock``。
     """
 
     _API_BASE_URL = (
@@ -82,19 +111,44 @@ class DashscopeEmbedder:
         self.dimension = dimension
         self._api_key = api_key
         self._model = model
+        self._client: httpx.Client | None = None
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        raise NotImplementedError(
-            "DashscopeEmbedder 为厂商 API 骨架：本 change 不实现真实调用，"
-            "CI 使用 EMBEDDING_PROVIDER=mock"
+        client = self._client or httpx.Client(
+            timeout=httpx.Timeout(_HTTP_TIMEOUT_SECONDS)
         )
+        try:
+            response = client.post(
+                self._API_BASE_URL,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={"model": self._model, "input": texts},
+            )
+            response.raise_for_status()
+            vectors = [item["embedding"] for item in response.json()["data"]]
+        finally:
+            if self._client is None:
+                client.close()
+        self._assert_dimension(vectors)
+        return vectors
+
+    def _assert_dimension(self, vectors: list[list[float]]) -> None:
+        """维度不符 → 抛错（fail-fast），不静默接受。"""
+        for vector in vectors:
+            if len(vector) != self.dimension:
+                raise ValueError(
+                    "embedding dimension mismatch: "
+                    f"got {len(vector)}, expected {self.dimension}"
+                )
 
 
 def _build_embedder(dimension: int) -> Embedder:
     """按配置 provider 构建 Embedder（``dimension`` 为 schema/配置维度）。
 
-    ``mock`` 为 CI 与默认测试 provider；``zhipu`` / ``dashscope`` 为厂商骨架
-    （本 change 不实现真实 HTTP 调用，单测通过 mock 该类）。
+    ``mock`` 为 CI 与默认测试 provider；``zhipu`` / ``dashscope`` 为真实 HTTP
+    实现（dev 需配置 ``EMBEDDING_API_KEY``；单测经 ``_client`` 注入 mock transport）。
     """
     settings = get_settings()
     if settings.embedding_provider == "mock":

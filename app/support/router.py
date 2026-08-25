@@ -16,6 +16,7 @@ from app.infra.pagination.schemas import PaginationParams
 from app.support.deps import get_current_support_shop, get_support_service
 from app.support.schemas import (
     ConversationResponse,
+    HandlerModeUpdate,
     MessageCreate,
     MessageResponse,
     PaginatedConversations,
@@ -41,6 +42,21 @@ async def get_buyer_conversation(
 ) -> ConversationResponse:
     """买家查询会话：有 200，无 / shop 不存在 / 店主自访 4xx。"""
     return await service.get_buyer_conversation(shop_id, user_id)
+
+
+@router.patch(
+    "/support/shops/{shop_id}/conversation",
+    response_model=ConversationResponse,
+    tags=["support"],
+)
+async def patch_buyer_handler_mode(
+    shop_id: uuid.UUID,
+    body: HandlerModeUpdate,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    service: SupportService = Depends(get_support_service),
+) -> ConversationResponse:
+    """买家切换会话模式：成功 200 + ConversationResponse；无会话 404；非法枚举 422；未认证 401。"""
+    return await service.patch_buyer_handler_mode(shop_id, user_id, body.handler_mode)
 
 
 @router.post(

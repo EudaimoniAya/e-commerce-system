@@ -27,13 +27,15 @@ class IntentController:
         self,
         *,
         shop_id: str,
-        body: str,
+        body: str | None,
         product_ref_ids: list[str],
     ) -> str:
         """处理一轮买家输入：返回回复正文（或转人工兜底文案）。
 
         SHALL NOT 把未注册意图映射到 ``knowledge``；SHALL NOT 修改 ``handler_mode``。
+        纯 ref 消息（``body=None``）归一为空串：仍进 NL 网关，空检索自然拒答。
         """
+        body = body or ""
         decision = await self._gateway.route(body)
         if decision.intent != "knowledge" or not passed_tau(
             decision.confidence, self._tau_threshold

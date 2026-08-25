@@ -38,6 +38,12 @@ class MessageCreate(BaseModel):
     message_refs: list[MessageRef] | None = None
 
 
+class HandlerModeUpdate(BaseModel):
+    """PATCH 会话模式请求体：仅 ``ai`` | ``human``。"""
+
+    handler_mode: Literal["ai", "human"]
+
+
 class ConversationResponse(BaseModel):
     """对外会话资料（买家 GET / inbox 详情 / inbox 列表项共用）。"""
 
