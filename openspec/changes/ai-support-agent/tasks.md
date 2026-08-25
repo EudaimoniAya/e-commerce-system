@@ -18,10 +18,10 @@
 
 ## 3. 客服 agent（绿）
 
-- [ ] 3.1 IntentRegistry + IntentController；只注册 `knowledge`；NL 网关读 `nlu_route`；低于 τ 或非 knowledge → `suggest_human` 文案且不 retrieve
-- [ ] 3.2 知识 handler：`retrieve_chunks` + ref 规则（0/`None`、1、多→最后）；空列表拒答不生成；生成走 `rag_answer` + LLM；日志带 `prompt_id`/`version`
-- [ ] 3.3 `app/ai/deps.py`：`build_llm_client`、`build_prompt_loader`、`build_buyer_turn_handler`
-- [ ] 3.4 跑绿 §1.4 其余 agent / 注册表 / product_id 用例
+- [x] 3.1 IntentRegistry + IntentController；只注册 `knowledge`；NL 网关读 `nlu_route`；低于 τ 或非 knowledge → `suggest_human` 文案且不 retrieve
+- [x] 3.2 知识 handler：`retrieve_chunks` + ref 规则（0/`None`、1、多→最后）；空列表拒答不生成；生成走 `rag_answer` + LLM；日志带 `prompt_id`/`version`
+- [x] 3.3 `app/ai/deps.py`：`build_llm_client`、`build_prompt_loader`、`build_buyer_turn_handler`
+- [x] 3.4 跑绿 §1.4 其余 agent / 注册表 / product_id 用例
 
 ## 4. support Port、默认 AI、PATCH（绿）
 
