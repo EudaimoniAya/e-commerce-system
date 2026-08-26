@@ -36,6 +36,6 @@
 
 ## 6. 本地 CI
 
-- [ ] 6.1 `devbox run -- task ci` 全绿
+- [x] 6.1 `devbox run -- task ci` 全绿
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§4。每个 apply 会话建议只完成 1 个 Task 节。短标签 `[test-doubles]`。
