@@ -58,12 +58,13 @@ async def test_ai_database_select_one(ai_database_url: str) -> None:
 @pytest.mark.asyncio
 @allure.epic("infra")
 @allure.feature("pg")
-@allure.title("MockEmbedder 向量写入后 pgvector 相似度检索 top-1 命中")
+@allure.title("FakeEmbedder 向量写入后 pgvector 相似度检索 top-1 命中")
 async def test_pgvector_similarity_smoke(ai_database_url: str) -> None:
-    """MockEmbedder 生成向量 → 写入 smoke 表 → 相似度查询 top-1 命中。"""
-    from app.infra.embedder import get_embedder
+    """FakeEmbedder 生成向量 → 写入 smoke 表 → 相似度查询 top-1 命中。"""
+    from app.infra.embedder import FakeEmbedder, get_embedder
 
     embedder = get_embedder()
+    assert type(embedder) is FakeEmbedder
     note_target = "pg-smoke-target"
     note_other = "pg-smoke-other"
     vec_target = embedder.embed_texts([note_target])[0]
