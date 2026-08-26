@@ -25,8 +25,8 @@
 
 ## 4. AI testkit 占位（绿）
 
-- [ ] 4.1 新增 `tests/ai/testkit/.gitkeep`（本刀无跨文件共用替身则不放 Python 模块）
-- [ ] 4.2 跑绿 §1.5；`rg 'MockLLMClient|MockEmbedder|MockSmsProvider' app tests --glob '!**/archive/**'` 无产品类残留（注释/文档同步改 Fake）
+- [x] 4.1 新增 `tests/ai/testkit/.gitkeep`（本刀无跨文件共用替身则不放 Python 模块）
+- [x] 4.2 跑绿 §1.5；`rg 'MockLLMClient|MockEmbedder|MockSmsProvider' app tests --glob '!**/archive/**'` 无产品类残留（注释/文档同步改 Fake）
 
 ## 5. 活文档
 
