@@ -19,9 +19,9 @@
 
 ## 3. 生产 mock 门禁（绿）
 
-- [ ] 3.1 实现 `reject_mock_providers_in_production`；`create_app()` 在 `get_embedder()` 之前调用。仅拦 llm / embedding 的 `mock`；短信假发送 **不**参与门禁
-- [ ] 3.2 `.env.example` 注明 `APP_ENV=production` 时不得将 `LLM_PROVIDER` / `EMBEDDING_PROVIDER` 设为 `mock`
-- [ ] 3.3 跑绿 §1.4
+- [x] 3.1 实现 `reject_mock_providers_in_production`；`create_app()` 在 `get_embedder()` 之前调用。仅拦 llm / embedding 的 `mock`；短信假发送 **不**参与门禁
+- [x] 3.2 `.env.example` 注明 `APP_ENV=production` 时不得将 `LLM_PROVIDER` / `EMBEDDING_PROVIDER` 设为 `mock`
+- [x] 3.3 跑绿 §1.4
 
 ## 4. AI testkit 占位（绿）
 

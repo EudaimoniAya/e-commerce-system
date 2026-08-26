@@ -72,3 +72,23 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """返回缓存的配置单例。"""
     return Settings()
+
+
+def reject_mock_providers_in_production(settings: Settings) -> None:
+    """生产环境禁止以 mock 假实现启动 llm / embedding（fail-fast）。
+
+    ``APP_ENV=production`` 时 ``LLM_PROVIDER`` / ``EMBEDDING_PROVIDER`` 选 ``mock``
+    即抛错，避免静默用假实现；``development`` / ``test`` 不拦（pytest / CI 仍用
+    mock）。短信假发送类（``FakeSmsProvider``）无配置开关，不参与本门禁。
+    """
+    if settings.app_env != "production":
+        return
+    if settings.llm_provider == "mock":
+        raise ValueError(
+            "production 环境不得使用 LLM_PROVIDER=mock（请配置真实厂商 deepseek）"
+        )
+    if settings.embedding_provider == "mock":
+        raise ValueError(
+            "production 环境不得使用 EMBEDDING_PROVIDER=mock"
+            "（请配置真实厂商 zhipu / dashscope）"
+        )
