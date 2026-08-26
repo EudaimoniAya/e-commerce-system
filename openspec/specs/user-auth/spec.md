@@ -8,7 +8,7 @@
 
 ### Requirement: SMS OTP send endpoint
 
-系统 SHALL 提供 `POST /auth/sms/send`，接受 JSON 请求体 `{ "phone": "<原始输入>" }`；SHALL 规范化手机号、生成 6 位数字 OTP、写入 Redis（key `sms:otp:{normalized_phone}`，TTL 默认 300 秒），并通过 Mock SMS Provider 发送（dev/test/CI 不调用真实网关）。
+系统 SHALL 提供 `POST /auth/sms/send`，接受 JSON 请求体 `{ "phone": "<原始输入>" }`；SHALL 规范化手机号、生成 6 位数字 OTP、写入 Redis（key `sms:otp:{normalized_phone}`，TTL 默认 300 秒），并通过 `FakeSmsProvider` 发送（dev/test/CI 不调用真实网关）。SHALL NOT 保留名为 `MockSmsProvider` 的产品类。本 requirement SHALL NOT 引入短信 provider 配置或真实网关。
 
 #### Scenario: 发送成功返回统一成功响应
 
