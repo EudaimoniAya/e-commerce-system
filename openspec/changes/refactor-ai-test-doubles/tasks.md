@@ -30,9 +30,9 @@
 
 ## 5. 活文档
 
-- [ ] 5.1 修订 `docs/architecture.md`：Embedder / LLM 类名改为 Fake*
-- [ ] 5.2 修订 ADR-002 测试表中 `MockEmbedder` 用词为 `FakeEmbedder`
-- [ ] 5.3 确认 ADR-015 / `test-doubles.mdc` / 踩坑「改后名字」表与 design 决策 3 一致（测试侧 Stub/Spy 最常见、主链排除仅记录、档 1 条件冗余、数据载体不是替身）。规范正文已在 propose 收紧，apply **不得**写回「Fake ~90%」或把数据载体改成 `_Stub*`。**不改** `openspec/changes/archive/**`
+- [x] 5.1 修订 `docs/architecture.md`：Embedder / LLM 类名改为 Fake*
+- [x] 5.2 修订 ADR-002 测试表中 `MockEmbedder` 用词为 `FakeEmbedder`
+- [x] 5.3 确认 ADR-015 / `test-doubles.mdc` / 踩坑「改后名字」表与 design 决策 3 一致（测试侧 Stub/Spy 最常见、主链排除仅记录、档 1 条件冗余、数据载体不是替身）。规范正文已在 propose 收紧，apply **不得**写回「Fake ~90%」或把数据载体改成 `_Stub*`。**不改** `openspec/changes/archive/**`
 
 ## 6. 本地 CI
 
