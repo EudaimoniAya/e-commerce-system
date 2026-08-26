@@ -2,6 +2,7 @@
 
 import os
 from functools import lru_cache
+from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -66,6 +67,16 @@ class Settings(BaseSettings):
 
     # RAG chunking：单 chunk 最大字符数（catalog_text 短文本 / media_document 段落切分）
     rag_chunk_max_chars: int = 800
+
+    def __init__(self, **values: Any) -> None:
+        """mypy 门禁：构造器接受任意 kwargs。
+
+        pydantic-settings 的必填字段在运行时由环境变量注入，mypy 静态检查
+        看不到环境变量，会误报 ``Missing named argument``（call-arg）。
+        ``**values`` 让 mypy 认为构造器接受任意参数，消除误报；
+        字段拼写错误仍由 pydantic 在运行时抛 ``ValidationError`` 兜底。
+        """
+        super().__init__(**values)
 
 
 @lru_cache
