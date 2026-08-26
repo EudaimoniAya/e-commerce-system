@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.agent.controller import IntentController
 from app.ai.agent.registry import build_intent_registry
-from app.ai.llm.client import DeepSeekClient, LLMClient, MockLLMClient
+from app.ai.llm.client import DeepSeekClient, FakeLLMClient, LLMClient
 from app.ai.nlu.gateway import NLGateway
 from app.ai.prompts.loader import PromptLoader
 from app.ai.rag.retrieval.service import retrieve_chunks
@@ -30,7 +30,7 @@ def build_llm_client() -> LLMClient:
     """按 Settings 构造 LLM 客户端：mock（CI/默认）| deepseek（dev 手验）。"""
     settings = get_settings()
     if settings.llm_provider == "mock":
-        return MockLLMClient()
+        return FakeLLMClient()
     if settings.llm_provider == "deepseek":
         return DeepSeekClient(
             api_key=settings.llm_api_key or "",

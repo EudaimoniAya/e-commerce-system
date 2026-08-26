@@ -1,4 +1,4 @@
-"""LLM 客户端：``LLMClient`` 协议、``MockLLMClient``（CI/默认）与 ``DeepSeekClient``。
+"""LLM 客户端：``LLMClient`` 协议、``FakeLLMClient``（CI/默认）与 ``DeepSeekClient``。
 
 与 Embedder 同构但放 **ai 域**（仅客服 agent 使用，infra 不膨胀）。pytest/CI
 固定 ``LLM_PROVIDER=mock``，不打真实 DeepSeek HTTP；DeepSeek 由 dev 手验。
@@ -21,7 +21,7 @@ class LLMClient(Protocol):
         """将对话消息发送给 LLM，返回正文文本。"""
 
 
-class MockLLMClient:
+class FakeLLMClient:
     """可编程输出：``str`` 原样返回；``dict``/``list`` 序列化为 JSON（供 NL 网关解析）。
 
     CI 与默认测试使用；不访问网络。

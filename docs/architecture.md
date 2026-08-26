@@ -157,7 +157,7 @@ e-commerce-system/
 │   │   ├── config.py             # DATABASE_URL、REDIS_URL、AI_DATABASE_URL、EMBEDDING_*、APP_ENV、jwt_*、sms_*、ORDER_RESERVATION_TTL_SECONDS
 │   │   ├── database.py           # async engine、AsyncSession、Base、get_db、reset_engine
 │   │   ├── ai_database.py        # AI 读库 async engine、AiBase、get_ai_engine/get_ai_session_factory/reset_ai_engine
-│   │   ├── embedder.py           # Embedder 协议、MockEmbedder、厂商骨架、get_embedder、启动维度校验
+│   │   ├── embedder.py           # Embedder 协议、FakeEmbedder、厂商骨架、get_embedder、启动维度校验
 │   │   ├── redis.py              # redis.asyncio 连接池、get_redis、reset_redis
 │   │   ├── auth.py               # PyJWT、OAuth2PasswordBearer、get_current_user_id
 │   │   ├── logging/              # loguru setup、InterceptHandler、RequestIDMiddleware
@@ -333,7 +333,7 @@ app/
 │   ├── config.py                 # 已实现（含 jwt_*、app_env、AI_DATABASE_URL、EMBEDDING_*）
 │   ├── database.py               # 已实现
 │   ├── ai_database.py            # 已实现（AI 读库 async engine、AiBase、get_ai_engine）
-│   ├── embedder.py               # 已实现（Embedder 协议、MockEmbedder、get_embedder、维度校验）
+│   ├── embedder.py               # 已实现（Embedder 协议、FakeEmbedder、get_embedder、维度校验）
 │   ├── auth.py                   # 已实现
 │   └── pagination/               # 已实现（PaginationParams、get_pagination_params、Paginated[TResponse]）
 ├── user/                         # 已实现（认证垂直切片）

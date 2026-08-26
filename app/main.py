@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.ai.deps import build_buyer_turn_handler
 from app.catalog.router import router as catalog_router
 from app.engagement.router import router as engagement_router
-from app.infra.config import get_settings
+from app.infra.config import get_settings, reject_mock_providers_in_production
 from app.infra.embedder import get_embedder
 from app.infra.errors.register import register_exception_handlers
 from app.infra.health.router import router as health_router
@@ -31,6 +31,9 @@ def create_app() -> FastAPI:
     """
     settings = get_settings()
     setup_logging(settings)
+
+    # 生产门禁：APP_ENV=production 且 llm/embedding 选 mock → fail-fast（须先于 Embedder 构造）。
+    reject_mock_providers_in_production(settings)
 
     # 启动时校验 Embedder 维度与 Settings.embedding_dimension 一致（fail-fast），
     # 避免向量写入后才发现与 AI 库 migration 维度不匹配。

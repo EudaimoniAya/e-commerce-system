@@ -23,19 +23,30 @@ def test_embedding_dimension_is_required_when_missing() -> None:
 @pytest.mark.integration
 @allure.epic("infra")
 @allure.feature("embedder")
-@allure.title("MockEmbedder 返回配置维度向量")
-def test_mock_embedder_returns_configured_dimension() -> None:
-    """EMBEDDING_PROVIDER=mock 时 embed_texts 返回与 embedding_dimension 等长向量。"""
+@allure.title("FakeEmbedder 返回配置维度向量")
+def test_fake_embedder_returns_configured_dimension() -> None:
+    """EMBEDDING_PROVIDER=mock 时 get_embedder() 返回 FakeEmbedder 且向量维度正确。"""
     from app.infra.config import get_settings
-    from app.infra.embedder import get_embedder
+    from app.infra.embedder import FakeEmbedder, get_embedder
 
     settings = get_settings()
     embedder = get_embedder()
+    assert type(embedder) is FakeEmbedder
     assert embedder.dimension == settings.embedding_dimension
 
     vectors = embedder.embed_texts(["测试"])
     assert len(vectors) == 1
     assert len(vectors[0]) == settings.embedding_dimension
+
+
+@allure.epic("infra")
+@allure.feature("embedder")
+@allure.title("MockEmbedder 产品类已移除。")
+def test_no_mock_embedder_class_remains() -> None:
+    """app.infra.embedder 不得再保留 MockEmbedder。"""
+    from app.infra import embedder as embedder_module
+
+    assert not hasattr(embedder_module, "MockEmbedder")
 
 
 @pytest.mark.integration

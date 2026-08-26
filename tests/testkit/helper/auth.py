@@ -69,7 +69,7 @@ async def register_user_via_otp(
     """通过 POST /auth/sms/register 注册新用户，返回 SmsRegisterResult。
 
     需要先调用 ``send_sms_otp`` 写入 Redis OTP；默认使用固定 code "123456"
-    （与 MockSmsProvider 一致）。
+    （与 FakeSmsProvider 一致）。
     """
     send_result = await send_sms_otp(client, phone=phone)
     request = build_sms_register_request(

@@ -1,4 +1,4 @@
-"""Embedding 抽象：Embedder 协议、MockEmbedder、get_embedder() 工厂与维度校验。"""
+"""Embedding 抽象：Embedder 协议、FakeEmbedder、get_embedder() 工厂与维度校验。"""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class Embedder(Protocol):
         """将文本批量编码为 ``dimension`` 维向量列表。"""
 
 
-class MockEmbedder:
+class FakeEmbedder:
     """确定性伪向量 Embedder（CI 与默认测试使用）。
 
     ``embed_texts`` 对每个文本做 SHA-256 确定性散列并循环填满维度：
@@ -152,7 +152,7 @@ def _build_embedder(dimension: int) -> Embedder:
     """
     settings = get_settings()
     if settings.embedding_provider == "mock":
-        return MockEmbedder(dimension)
+        return FakeEmbedder(dimension)
     if settings.embedding_provider == "zhipu":
         return ZhipuEmbedder(
             dimension=dimension,

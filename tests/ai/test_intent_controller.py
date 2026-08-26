@@ -5,8 +5,8 @@
 - 知识检索按 message refs 计算 ``product_id``：0 → None、1 → 该 id、多 → 最后一个
 - 空检索不调用生成 LLM，返回兜底文案
 
-依赖全部注入（fake LLM / fake prompt loader / fake retrieve / fake 生成 LLM），
-不编写 agent / loader 实现。
+依赖全部注入（FakeLLMClient / fake prompt loader / spy retrieve）；数据载体
+（_Chunk / _LoadedPrompt）直接构造、不是替身。不编写 agent / loader 实现。
 """
 
 import json
@@ -17,23 +17,12 @@ import pytest
 
 from app.ai.agent.controller import IntentController
 from app.ai.agent.registry import build_intent_registry
+from app.ai.llm.client import FakeLLMClient
 from app.ai.nlu.gateway import NLGateway
 
 
-class _FakeLLM:
-    """可编程 LLM：返回固定 JSON 正文（``{intent, confidence}``）。"""
-
-    def __init__(self, output: str) -> None:
-        self._output = output
-        self.calls: list[list[dict[str, str]]] = []
-
-    async def generate(self, messages: list[dict[str, str]]) -> str:
-        self.calls.append(messages)
-        return self._output
-
-
-class _FakeLoadedPrompt:
-    """假 LoadedPrompt：仅暴露 ``text``（控制器测试不耦合 loader 实现）。"""
+class _LoadedPrompt:
+    """数据载体：仅暴露 ``text``（控制器测试不耦合 loader 实现）。"""
 
     def __init__(self, text: str) -> None:
         self.text = text
@@ -45,37 +34,25 @@ class _FakePromptLoader:
     def __init__(self, templates: dict[str, str]) -> None:
         self._templates = templates
 
-    def load(self, prompt_id: str) -> _FakeLoadedPrompt:
+    def load(self, prompt_id: str) -> _LoadedPrompt:
         if prompt_id not in self._templates:
             raise KeyError(prompt_id)
-        return _FakeLoadedPrompt(text=self._templates[prompt_id])
+        return _LoadedPrompt(text=self._templates[prompt_id])
 
 
-class _FakeChunk:
-    """假 RetrievedChunk：仅暴露 ``content_text``。"""
+class _Chunk:
+    """数据载体：仅暴露 ``content_text``。"""
 
     def __init__(self, content_text: str) -> None:
         self.content_text = content_text
 
 
-class _FakeGenerationLLM:
-    """记录调用的生成 LLM。"""
-
-    def __init__(self) -> None:
-        self.calls: list[list[dict[str, str]]] = []
-        self.reply = "生成答案"
-
-    async def generate(self, messages: list[dict[str, str]]) -> str:
-        self.calls.append(messages)
-        return self.reply
-
-
-def _make_retrieve(
+def _spy_retrieve(
     records: list[dict],
     *,
-    results: list[_FakeChunk] | None = None,
+    results: list[_Chunk] | None = None,
 ) -> Callable[..., Awaitable[list]]:
-    """记录调用的 fake retrieve；默认返回一个 chunk 供生成。"""
+    """记录调用的 spy retrieve；默认返回一个 chunk 供生成。"""
 
     async def _retrieve(
         shop_id: str, query: str, top_k: int = 5, product_id: str | None = None
@@ -88,7 +65,7 @@ def _make_retrieve(
                 "product_id": product_id,
             }
         )
-        return results if results is not None else [_FakeChunk("默认 chunk")]
+        return results if results is not None else [_Chunk("默认 chunk")]
 
     return _retrieve
 
@@ -97,20 +74,20 @@ def _build_pipeline(
     *,
     llm_output: str,
     records: list[dict],
-    gen_llm: _FakeGenerationLLM | None = None,
-    retrieve_results: list[_FakeChunk] | None = None,
+    gen_llm: FakeLLMClient | None = None,
+    retrieve_results: list[_Chunk] | None = None,
 ) -> IntentController:
-    """装配可编程 pipeline：fake LLM + fake prompt loader + fake retrieve + 生成 LLM。"""
+    """装配可编程 pipeline：FakeLLMClient + fake prompt loader + spy retrieve + 生成 LLM。"""
     prompts = _FakePromptLoader(
         {
             "nlu_route": "路由提示 {body}",
             "rag_answer": "依据 chunks 回答：{chunks}",
         }
     )
-    gateway = NLGateway(llm=_FakeLLM(llm_output), prompt_loader=prompts)
+    gateway = NLGateway(llm=FakeLLMClient(llm_output), prompt_loader=prompts)
     registry = build_intent_registry(
-        retrieve=_make_retrieve(records, results=retrieve_results),
-        generation_llm=gen_llm or _FakeGenerationLLM(),
+        retrieve=_spy_retrieve(records, results=retrieve_results),
+        generation_llm=gen_llm or FakeLLMClient(output="生成答案"),
         prompt_loader=prompts,
         fallback_text="转人工",
     )
@@ -125,7 +102,7 @@ def _build_pipeline(
 @pytest.mark.asyncio
 @allure.epic("ai")
 @allure.feature("intent_controller")
-@allure.title("Mock LLM 输出 unknown 意图时不调用 retrieve，返回兜底文案。")
+@allure.title("Fake LLM 输出 unknown 意图时不调用 retrieve，返回兜底文案。")
 async def test_unknown_intent_does_not_call_retrieve() -> None:
     """意图集外（unknown）→ 转人工兜底，不检索、不生成。"""
     records: list[dict] = []
@@ -234,7 +211,7 @@ async def test_knowledge_high_conf_multi_refs_pass_last() -> None:
 async def test_empty_retrieval_does_not_call_generation_llm() -> None:
     """retrieve 返回空列表 → 不调生成 LLM，拒答/转人工文案。"""
     records: list[dict] = []
-    gen_llm = _FakeGenerationLLM()
+    gen_llm = FakeLLMClient(output="生成答案")
     controller = _build_pipeline(
         llm_output=json.dumps({"intent": "knowledge", "confidence": 0.9}),
         records=records,
