@@ -1,4 +1,4 @@
-"""SMS OTP 服务层：OTP 生成/消费、日发送限流、验证失败计数与 Mock SMS Provider。
+"""SMS OTP 服务层：OTP 生成/消费、日发送限流、验证失败计数与 Fake SMS Provider。
 
 设计要点
 ========
@@ -45,8 +45,8 @@ def _generate_otp(fixed_code: str | None) -> str:
     return f"{random.randint(0, 999999):06d}"
 
 
-class MockSmsProvider:
-    """Mock SMS 提供商（dev/test/CI：仅日志，不真实发送）。"""
+class FakeSmsProvider:
+    """Fake SMS 提供商（dev/test/CI：仅日志，不真实发送）。"""
 
     @staticmethod
     def send(phone: str, code: str) -> None:
@@ -103,7 +103,7 @@ class SmsOtpService:
         await self._redis.incr(daily_key)
         await self._redis.expire(daily_key, 86400)
 
-        MockSmsProvider.send(phone, code)
+        FakeSmsProvider.send(phone, code)
 
     async def ensure_verify_allowed(self, phone: str) -> None:
         """验证失败未超限时通过；已达上限则 429。"""

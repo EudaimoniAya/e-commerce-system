@@ -12,10 +12,10 @@
 
 ## 2. 产品侧 Fake 改名（绿）
 
-- [ ] 2.1 `MockLLMClient` → `FakeLLMClient`（`app/ai/llm/client.py`、`app/ai/deps.py`）；配置值仍为 `mock`
-- [ ] 2.2 `MockEmbedder` → `FakeEmbedder`（`app/infra/embedder.py`）；配置值仍为 `mock`
-- [ ] 2.3 `MockSmsProvider` → `FakeSmsProvider`（`app/user/sms_service.py` 调用点同步）；**不**加短信协议 / 配置项
-- [ ] 2.4 跑绿 §1.1–1.3、§1.6（`devbox run -- uv run pytest tests/ai/test_llm_client.py tests/ai/test_intent_controller.py tests/infra/test_embedder.py tests/infra/test_pg.py -q` 及 §1.3 短信测）
+- [x] 2.1 `MockLLMClient` → `FakeLLMClient`（`app/ai/llm/client.py`、`app/ai/deps.py`）；配置值仍为 `mock`
+- [x] 2.2 `MockEmbedder` → `FakeEmbedder`（`app/infra/embedder.py`）；配置值仍为 `mock`
+- [x] 2.3 `MockSmsProvider` → `FakeSmsProvider`（`app/user/sms_service.py` 调用点同步）；**不**加短信协议 / 配置项
+- [x] 2.4 跑绿 §1.1–1.3、§1.6（`devbox run -- uv run pytest tests/ai/test_llm_client.py tests/ai/test_intent_controller.py tests/infra/test_embedder.py tests/infra/test_pg.py -q` 及 §1.3 短信测）
 
 ## 3. 生产 mock 门禁（绿）
 
