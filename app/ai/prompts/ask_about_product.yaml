@@ -1,0 +1,4 @@
+id: ask_about_product
+version: v1
+template: |
+  关于这个商品您有什么想问的吗？

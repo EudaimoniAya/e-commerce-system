@@ -77,6 +77,19 @@ class MessageRepository:
         """持久化新消息（service 须先构造 ORM 实例）。"""
         self._session.add(message)
 
+    async def list_all_by_conversation(
+        self,
+        conversation_id: uuid.UUID,
+    ) -> list[SupportMessage]:
+        """返回会话全部消息（created_at DESC，供 AI 回看从新到旧扫描；不设条数上限）。"""
+        result = await self._session.execute(
+            select(SupportMessage)
+            .where(SupportMessage.conversation_id == str(conversation_id))
+            .order_by(SupportMessage.created_at.desc())
+        )
+        rows: Sequence[SupportMessage] = result.scalars().all()
+        return list(rows)
+
     async def list_by_conversation(
         self,
         conversation_id: uuid.UUID,

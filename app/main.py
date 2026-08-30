@@ -2,7 +2,8 @@
 
 from fastapi import FastAPI
 
-from app.ai.deps import build_buyer_turn_handler
+from app.ai.deps import build_intent_controller
+from app.ai.router import router as ai_router
 from app.catalog.router import router as catalog_router
 from app.engagement.router import router as engagement_router
 from app.infra.config import get_settings, reject_mock_providers_in_production
@@ -40,7 +41,7 @@ def create_app() -> FastAPI:
     get_embedder()
 
     # 注册 AI 回合 handler 工厂到 support Port（组合根；support 自身不 import app.ai）
-    register_buyer_turn_handler_factory(build_buyer_turn_handler)
+    register_buyer_turn_handler_factory(build_intent_controller)
 
     app = FastAPI(title="e-commerce-system")
 
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(engagement_router)
     app.include_router(support_router)
     app.include_router(media_router)
+    app.include_router(ai_router)
 
     return app
 

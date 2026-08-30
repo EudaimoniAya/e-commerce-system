@@ -82,3 +82,22 @@ class PaginatedMessages(Paginated[MessageResponse]):
     """分页消息列表（买卖家历史）。"""
 
     model_config = ConfigDict(title="PaginatedMessages")
+
+
+class AssembledTurn(BaseModel):
+    """AI replies 一轮输入（回看组装结果，供 AI router 消费）。
+
+    ``query``：停止前最近一条买家消息的非空 body（无则 ``None``）。
+    ``product_ref_ids``：停止前最近一条含 product refs 的买家消息（去重、顺序保留）。
+    """
+
+    conversation_id: str
+    query: str | None
+    product_ref_ids: list[str]
+
+
+class AiMessageAppended(BaseModel):
+    """AI 追加助手消息结果（写 ``sender_role=shop`` / ``author_role=ai``）。"""
+
+    id: str
+    conversation_id: str

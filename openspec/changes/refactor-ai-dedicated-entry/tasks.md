@@ -13,10 +13,10 @@
 
 ## 2. 建 AI 入口与读库组装（绿）
 
-- [ ] 2.1 登记 `app/ai/prompts/ask_about_product.yaml`；`app/ai/schemas.py` 响应契约；`build_buyer_turn_handler` 改名为 `build_intent_controller`（旧名删除）
-- [ ] 2.2 support.service：只读组装一轮（schema 消息列表或专用查询）+ `append_ai_message`；AI **不** import support ORM
-- [ ] 2.3 `app/ai/router.py` + `main.py` 挂载：鉴权、回看分支（问候 / `handle_buyer_turn` / 抛错→suggest_human）、200 响应
-- [ ] 2.4 跑绿 §1.1–1.5、§1.7 中提示词与 `build_intent_controller`（Port 符号测可仍红到 §3）
+- [x] 2.1 登记 `app/ai/prompts/ask_about_product.yaml`；`app/ai/schemas.py` 响应契约；`build_buyer_turn_handler` 改名为 `build_intent_controller`（旧名删除）
+- [x] 2.2 support.service：只读组装一轮（schema 消息列表或专用查询）+ `append_ai_message`；AI **不** import support ORM
+- [x] 2.3 `app/ai/router.py` + `main.py` 挂载：鉴权、回看分支（问候 / `handle_buyer_turn` / 抛错→suggest_human）、200 响应
+- [x] 2.4 跑绿 §1.1–1.5、§1.7 中提示词与 `build_intent_controller`（Port 符号测可仍红到 §3）
 
 ## 3. 拆 support Port（绿）
 
