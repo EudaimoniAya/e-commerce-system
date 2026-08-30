@@ -50,3 +50,23 @@ def media_service(db_session: AsyncSession) -> MediaService:
     from app.ai.deps import build_media_service
 
     return build_media_service(db_session)
+
+
+@pytest.fixture(autouse=True)
+async def _reset_intent_controller_override(
+    request: pytest.FixtureRequest,
+) -> AsyncIterator[None]:
+    """integration 测试前后清理 ``build_intent_controller`` dependency override。
+
+    红阶段 ``build_intent_controller`` 尚未改名 → 清理容忍导入缺失；
+    ``tests/ai/integration/`` 的 replies 用例经 override 注入测试 controller。
+    """
+    if request.node.get_closest_marker("integration") is None:
+        yield
+        return
+    from tests.ai.testkit.pipeline import clear_intent_controller_override
+
+    clear_intent_controller_override()
+    yield
+    clear_intent_controller_override()
+

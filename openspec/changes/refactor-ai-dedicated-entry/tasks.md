@@ -2,14 +2,14 @@
 
 > 只写测、不写实现。§1 完成前不得开始 §2–§6。
 
-- [ ] 1.1 新增 AI replies integration：未认证 `POST /ai/shops/{shop_id}/replies` → 401；无会话 → 404 且不建会话。**不编写** router
-- [ ] 1.2 同上：买家先 POST support 非空 body，再 POST replies → 200，响应含 `text` / `conversation_id` / `assistant_message_id`；GET messages 含 `author_role=ai` 且 `sender_role=shop`。**不编写** 落库接线
-- [ ] 1.3 回看：先纯 product ref、再无 refs 问句、再 replies → 知识路径的 `product_id` 为卡片 id（可用 FakeLLMClient 固定 knowledge + spy retrieve 或等价注入）。助手行之后的新问句不得粘上墙外的旧 ref。**不编写** 回看逻辑
-- [ ] 1.4 纯卡片（仅 refs）后 replies → 200，`text` 为问候模板且 **不是** `suggest_human` 正文；落 `author_role=ai`。**不创建** `ask_about_product.yaml`
-- [ ] 1.5 生成抛错时 replies 仍 200 且助手正文为 `suggest_human`。**不编写** 失败兜底
-- [ ] 1.6 改 support 期望：`handler_mode=ai` 时买家 POST **不**新增 ai 行；删/改 `tests/support/test_ai_turn.py`（Port 注入场景退役）；inbox / buyer 列表里「默认 POST 带助手 preview」改为买家 preview。PATCH handler_mode 用例 **保留**。**不删除** Port 实现
-- [ ] 1.7 断言无 `BuyerTurnAiHandler` / `register_buyer_turn_handler_factory`；`build_intent_controller` 可调用；`build_buyer_turn_handler` 不存在；可加载 `ask_about_product`。**不编写** 改名与提示词文件
-- [ ] 1.8 `devbox run -- task db:up` 后跑 §1.1–1.7 相关 pytest，确认失败（红）
+- [x] 1.1 新增 AI replies integration：未认证 `POST /ai/shops/{shop_id}/replies` → 401；无会话 → 404 且不建会话。**不编写** router
+- [x] 1.2 同上：买家先 POST support 非空 body，再 POST replies → 200，响应含 `text` / `conversation_id` / `assistant_message_id`；GET messages 含 `author_role=ai` 且 `sender_role=shop`。**不编写** 落库接线
+- [x] 1.3 回看：先纯 product ref、再无 refs 问句、再 replies → 知识路径的 `product_id` 为卡片 id（可用 FakeLLMClient 固定 knowledge + spy retrieve 或等价注入）。助手行之后的新问句不得粘上墙外的旧 ref。**不编写** 回看逻辑
+- [x] 1.4 纯卡片（仅 refs）后 replies → 200，`text` 为问候模板且 **不是** `suggest_human` 正文；落 `author_role=ai`。**不创建** `ask_about_product.yaml`
+- [x] 1.5 生成抛错时 replies 仍 200 且助手正文为 `suggest_human`。**不编写** 失败兜底
+- [x] 1.6 改 support 期望：`handler_mode=ai` 时买家 POST **不**新增 ai 行；删/改 `tests/support/test_ai_turn.py`（Port 注入场景退役）；inbox / buyer 列表里「默认 POST 带助手 preview」改为买家 preview。PATCH handler_mode 用例 **保留**。**不删除** Port 实现
+- [x] 1.7 断言无 `BuyerTurnAiHandler` / `register_buyer_turn_handler_factory`；`build_intent_controller` 可调用；`build_buyer_turn_handler` 不存在；可加载 `ask_about_product`。**不编写** 改名与提示词文件
+- [x] 1.8 `devbox run -- task db:up` 后跑 §1.1–1.7 相关 pytest，确认失败（红）
 
 ## 2. 建 AI 入口与读库组装（绿）
 
