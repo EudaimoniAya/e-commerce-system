@@ -2,7 +2,6 @@
 
 from fastapi import FastAPI
 
-from app.ai.deps import build_intent_controller
 from app.ai.router import router as ai_router
 from app.catalog.router import router as catalog_router
 from app.engagement.router import router as engagement_router
@@ -16,7 +15,6 @@ from app.infra.readiness.router import router as readiness_router
 from app.media.router import router as media_router
 from app.ordering.cart_router import router as cart_router
 from app.ordering.router import router as ordering_router
-from app.support.deps import register_buyer_turn_handler_factory
 from app.support.router import router as support_router
 from app.user.router import router as user_router
 
@@ -39,9 +37,6 @@ def create_app() -> FastAPI:
     # 启动时校验 Embedder 维度与 Settings.embedding_dimension 一致（fail-fast），
     # 避免向量写入后才发现与 AI 库 migration 维度不匹配。
     get_embedder()
-
-    # 注册 AI 回合 handler 工厂到 support Port（组合根；support 自身不 import app.ai）
-    register_buyer_turn_handler_factory(build_intent_controller)
 
     app = FastAPI(title="e-commerce-system")
 

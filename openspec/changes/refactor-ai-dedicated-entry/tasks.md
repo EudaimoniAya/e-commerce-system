@@ -20,8 +20,8 @@
 
 ## 3. 拆 support Port（绿）
 
-- [ ] 3.1 删除 `ports.py`、工厂、`_run_ai_turn`、`main.py` 登记；买家 POST 不再写 ai 行
-- [ ] 3.2 跑绿 §1.6–1.7 余项；AST：support 无 `app.ai` import，AI → support.service 合法
+- [x] 3.1 删除 `ports.py`、工厂、`_run_ai_turn`、`main.py` 登记；买家 POST 不再写 ai 行
+- [x] 3.2 跑绿 §1.6–1.7 余项；AST：support 无 `app.ai` import，AI → support.service 合法
 
 ## 4. tests/ai 目录归位
 
