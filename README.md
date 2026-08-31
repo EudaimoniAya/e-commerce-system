@@ -1,6 +1,6 @@
 # e-commerce-system
 
-AI 赋能的电商后端服务。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**media**（媒体资产 attach：头像 / 店铺 logo / 商品主图 + URL 解析）、**support**（店铺客服会话、inbox、product ref）、**ai**（RAG 语料索引/reindex + 向量检索，按会话范围过滤），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8** + **PostgreSQL 16/pgvector（AI 读库）**、readiness 三依赖探针、Ruff format/lint 门禁、AST 应用层边界纪律）。Alembic 至 migration `013`（media attach FK）；AI 库经独立入口 `alembic_ai/` 迁移；本地与 CI 全量 pytest **452 项**。
+AI 赋能的电商后端服务。当前已交付 **user 域手机号 + SMS OTP 认证**、**catalog**（店铺 / 类目 / 商品）、**ordering**（买家/卖家订单、购物车 checkout、batch-pay、支付桩与履约）、**engagement**（收藏、浏览足迹）、**media**（媒体资产 attach：头像 / 店铺 logo / 商品主图 + URL 解析）、**support**（店铺客服会话、inbox、product ref）、**ai**（RAG 语料索引/reindex + 向量检索，按会话范围过滤 + 离线 RAGAS 评测跑道：黄金测试集 + Faithfulness/Context recall），以及 **infra** 横切能力（结构化日志、统一 error JSON、MySQL + **Redis 8** + **PostgreSQL 16/pgvector（AI 读库）**、readiness 三依赖探针、Ruff format/lint 门禁、AST 应用层边界纪律）。Alembic 至 migration `013`（media attach FK）；AI 库经独立入口 `alembic_ai/` 迁移；本地与 CI 全量 pytest **517 项**。
 
 ## 前置条件
 
@@ -423,6 +423,25 @@ Redis 已就绪；端口: 6379；逻辑库: 0（dev）/ 1（test）
 reindex 语义：**per document delete-then-insert**（先删该文档既有 chunk 再写入，重复执行
 幂等、不产生重复）。命令对 **dev 库**执行（`.env` 的 `DATABASE_URL` / `AI_DATABASE_URL`）。
 
+### 离线 RAGAS 评测（eval）
+
+离线评测跑道（`ai-ragas-eval`）：黄金测试集 + Eval 店快照 → 叶子 adapter
+（`retrieve_chunks` + `rag_answer` 生成）→ RAGAS **Faithfulness + Context recall**
+两指标打分。不改变客服 HTTP / 编排器行为；**不挂进 `task ci`**，CI 只守接线
+（黄金集可解析、adapter 填 Sample 字段、主依赖无 `ragas`）。
+
+| 命令 | 作用 |
+|------|------|
+| `devbox run -- uv run python -m evals.seed_eval_shop` | 播种 Eval 店（经 catalog / media **service** 写 MySQL，再 reindex 写 PG）；`--reset` 删店重建 |
+| `devbox run -- uv run python -m app.ai.evals.runner` | 离线打分：读当前快照黄金集 → adapter 生成 → RAGAS 两指标 → 报告写 `evals/reports/`（gitignored） |
+
+- 黄金测试集在 `evals/golden/<snapshot_id>/`（`manifest.yaml` + `samples.jsonl`，20–40 条）；
+  与 Eval 店语料冻结同一 `snapshot_id`，改切块策略 / embedder 后须升版本并重对 `reference_context_ids`。
+- 离线前置：`uv sync --group eval`（`ragas` 为可选依赖组，**不**入生产 `dependencies`）+
+  配置裁判 `RAGAS_JUDGE_API_KEY` / `RAGAS_JUDGE_BASE_URL` / `RAGAS_JUDGE_MODEL`
+  （与生成侧 `LLM_*` 分离的 OpenAI 兼容 GPT，仅离线）。
+- 缺 `ragas` / 缺裁判密钥时，默认 pytest 与 `task ci` 仍绿。
+
 ## 环境变量
 
 仓库只提交 `.env.example`；每人本地复制为 `.env`：
@@ -440,6 +459,7 @@ cp .env.example .env
 | `JWT_ISSUER` | 可选，默认 `e-commerce-system` |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | 可选，默认 `30` |
 | `ORDER_RESERVATION_TTL_SECONDS` | 可选，默认 `86400`；待支付订单预留时长，超时懒释放为 `cancelled`/`expired`（pay、详情、**订单列表**路径触发） |
+| `RAGAS_JUDGE_API_KEY` / `RAGAS_JUDGE_BASE_URL` / `RAGAS_JUDGE_MODEL` | 可选；离线 RAGAS 评测裁判（OpenAI 兼容，与生成 `LLM_*` 分离），仅 `uv sync --group eval` 后手动 `python -m app.ai.evals.runner` 用，不进 CI |
 
 `task test` / CI 通过 `APP_ENV_FILE=.env.test` 加载测试配置（含 `REDIS_URL=…/1`、`AI_DATABASE_URL` 指向 `ecommerce_ai_test` 与必填 `EMBEDDING_*`）。
 
