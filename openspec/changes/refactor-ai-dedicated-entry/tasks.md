@@ -25,8 +25,8 @@
 
 ## 4. tests/ai 目录归位
 
-- [ ] 4.1 新 replies 测放 `tests/ai/integration/`（或本刀约定的 IO 分层）；旧 `tests/ai/test_*.py` 能搬到 `unit/` / `component/` / `integration/` 则搬，**不拦** §3
-- [ ] 4.2 跑绿受影响的 `tests/ai` 与 `tests/support`
+- [x] 4.1 新 replies 测放 `tests/ai/integration/`（或本刀约定的 IO 分层）；旧 `tests/ai/test_*.py` 能搬到 `unit/` / `component/` / `integration/` 则搬，**不拦** §3
+- [x] 4.2 跑绿受影响的 `tests/ai` 与 `tests/support`
 
 ## 5. 活文档
 
