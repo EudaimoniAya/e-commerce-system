@@ -28,11 +28,11 @@
 - [x] 4.1 新 replies 测放 `tests/ai/integration/`（或本刀约定的 IO 分层）；旧 `tests/ai/test_*.py` 能搬到 `unit/` / `component/` / `integration/` 则搬，**不拦** §3
 - [x] 4.2 跑绿受影响的 `tests/ai` 与 `tests/support`
 
-## 5. 活文档
+## 5. 文档整理
 
-- [ ] 5.1 修订 ADR-013：允许 `app/ai/router.py`；入口不再借 support；组合根仍是 `deps.py` 装配 + router 调用
-- [ ] 5.2 修订 ADR-014：PATCH 与 `handler_mode` 窗口开关保留；删的是 POST 内分派。分支名 `refactor/ai-dedicated-entry`
-- [ ] 5.3 修订 `docs/architecture.md` 客服路径（两步前端、无 Port）。**不改** `openspec/changes/archive/**`
+- [x] 5.1 修订 ADR-013：允许 `app/ai/router.py`；入口不再借 support；组合根仍是 `deps.py` 装配 + router 调用
+- [x] 5.2 修订 ADR-014：PATCH 与 `handler_mode` 窗口开关保留；删的是 POST 内分派。分支名 `refactor/ai-dedicated-entry`
+- [x] 5.3 修订 `docs/architecture.md` 客服路径（两步前端、无 Port）。**不改** `openspec/changes/archive/**`
 
 ## 6. 本地 CI
 

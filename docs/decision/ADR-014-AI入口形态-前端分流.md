@@ -1,6 +1,6 @@
 # ADR-014：AI 入口形态——前端分流
 
-- **状态**：已采纳（决策已拍板；代码落地待 `refactor/ai-frontend-split` change）
+- **状态**：已采纳（决策已拍板；`refactor/ai-dedicated-entry` change 落地并修订决策 1/4：PATCH 与 `handler_mode` 窗口开关保留，删的是 POST 内分派）
 - **日期**：2026-08-25
 - **背景**：Change 3（`ai-support-agent`）以"后端转发"形态落地并合并（2026-08-25 归档）：AI 借 support 的 HTTP 端点当入口，`support/ports.py` 定义 `BuyerTurnAiHandler` Port，`main.py` 经 `register_buyer_turn_handler_factory` 注册工厂，`handler_mode` 会话状态机驱动分派。合并后复盘（详见 `docs/troubleshooting/ai域-入口形态-借support到前端分流.md`）：注册表是"借 support 入口"这一**权宜**的产物（权宜伪装成约束）；`handler_mode` 是**实现状态机**（需求期四要素全未知，必然摇摆，可消解）；前端分流可同时消解两者。
 
@@ -8,9 +8,9 @@
 
 ### 1. AI 域开自己的 router，前端分流
 
-- 新增 `app/ai/router.py`：买家鉴权 + 调 IntentController + 调 `support.service` 落库 + 返回结构化结果。
+- 新增 `app/ai/router.py`：买家鉴权 + 调 IntentController + 调 `support.service` 落库 + 返回 `{text, conversation_id, assistant_message_id}`。
 - 前端分别调用两个端点：AI 消息 → AI 端点；人工消息 → support 端点；列表读取仍走 support（`GET .../messages`，AI+人工混排）。
-- 分流逻辑在前端（入口选择），后端**无模式状态**。`handler_mode` 驱动逻辑删除；PATCH 端点删除；字段留作历史数据，存量行不迁移。
+- 分流逻辑在前端（入口选择），后端**无 POST 内分派**：买家 POST 不读 `handler_mode` 调 AI。**`handler_mode` 保留为会话级窗口开关**（AI 客服 vs 人工，前端 PATCH 切换），PATCH 端点**保留**；删的是 POST 内按 `handler_mode` 的分派（`dedicated-entry` 落地口径）。
 
 ### 2. 注册表与 Port 退役
 
@@ -23,10 +23,10 @@
 - 落库：AI router（接线层）调 `support.service` 写 `author_role=ai`——AI → 业务 service 是既定合法叶子方向（ADR-013 决策 2）。
 - `controller/agent` 仍不 import support（纯逻辑，fake 可测）——change3"agent 不碰 support"纪律的形态前提变了，但核心逻辑层的纯净性不变。
 
-### 4. 转人工信号：结构化响应，后端无状态
+### 4. 转人工信号：`suggest_human` 文案 + PATCH 窗口开关
 
-- AI 端点返回 `{type: ai_answer | fallback_human}`；τ 拒答 / 意图外 → `fallback_human`，前端据此切换端点。
-- **`handler_mode` 驱动逻辑删除，后端不再持有会话级模式状态**；转人工信号经 AI 端点响应传递。**边界**：若将来出现真实需求（如卖家强制人工且前端不可绕的信任边界、合规要求后端持有模式状态），可作为独立决策重新引入（新 ADR 评审，不默认复活）；禁止借中间件读会话状态隐式回归——那是状态机还魂。
+- AI 端点**无请求 body**，成功与生成失败（LLM / 编排抛错）均 **200** 并落助手行（失败用已登记 `suggest_human` 文案）；响应 `{text, conversation_id, assistant_message_id}`，**不用** `type: ai_answer | fallback_human` 判别器。
+- 转人工 = 前端收到 `suggest_human` 文案后 **PATCH `handler_mode=human`**（保留为窗口开关）；AI 端点**不**读 / **不**写 `handler_mode`。**边界**：若将来出现真实需求（如卖家强制人工且前端不可绕的信任边界、合规要求后端持有模式状态），可作为独立决策重新引入（新 ADR 评审，不默认复活）；禁止借中间件读会话状态隐式回归——那是状态机还魂。
 
 ### 5. 保留不变
 
@@ -63,8 +63,9 @@
 当前（change3 合并后）
   后端转发形态：借 support 入口 + Port/注册表 + handler_mode —— 本 ADR 宣布推翻
 
-随后（refactor/ai-frontend-split）
-  AI router 落地；support 删 AI 分支 / 注册表 / Port / PATCH；落库转 AI router
+随后（refactor/ai-dedicated-entry，实际落地）
+  AI router 落地；support 删 POST 内 AI 分派 / 注册表 / Port；PATCH 与 handler_mode
+  保留为窗口开关；落库转 AI router
   测试：support 双模式测试删改、AI 端点测试新增、落库接线测试（SAVEPOINT 真库）
   规范：AI 域测试规范（L0-L3 按 IO 边界、fake 集中、替身术语）+ 架构规范成文
 

@@ -1,6 +1,6 @@
 # ADR-013：AI 域组合根与消费边界
 
-- **状态**：已采纳（`refactor-ai-domain-architecture` Task 1 成文；`ai-support-agent` apply 落地并修订决策 5）
+- **状态**：已采纳（`refactor-ai-domain-architecture` Task 1 成文；`ai-support-agent` apply 落地并修订决策 5；`dedicated-entry` apply 落地 AI 客服 HTTP 并修订决策 1/4/5）
 - **日期**：2026-08-22
 - **背景**：Change 2（`ai-rag-acl-index`）交付写侧索引与检索雏形后，组合根未宣布——门面零调用方、`indexing/service.py` 自装配 `MediaService`、AST 的 `DOMAINS` 不含 `ai`。本 ADR 定稿 AI 与业务域的不对称边界、组合根位置、查询过滤与防腐层用词，以及 Change 3（`ai-support-agent`）的终态契约（apply 落地首批仅知识类意图，Tool 类后续）。
 
@@ -8,8 +8,8 @@
 
 ### 1. 组合根是 `app/ai/deps.py`，不是 router，也不要求当下用 `Depends`
 
-- AI 组合根只放 **装配类**（如 `build_media_service(session)`）。CLI `_run` 与测试 fixture **普通函数调用**；将来有 AI router 时对同一函数使用 `Depends`。
-- 无 AI HTTP 时 **SHALL NOT** 为占坑新建空 `router.py`，**SHALL NOT** 写 `get_current_*` 解析类。
+- AI 组合根只放 **装配类**（如 `build_media_service(session)`）。CLI `_run` 与测试 fixture **普通函数调用**；客服 HTTP router 对同一函数使用 `Depends`。
+- 客服 HTTP 由 `app/ai/router.py` 提供（`/ai/*`）：router 以 `Depends` 消费装配函数（`build_intent_controller`），**SHALL NOT** 写 `get_current_*` 解析类（买家 id 用 infra `get_current_user_id`）。
 - indexing service 的跨域依赖（`MediaService`）**必传**；service **SHALL NOT** import 别域 `deps` 或自行 `new`。
 
 `Depends` 只是「有请求时调用装配函数」。无请求（CLI）时组合根仍然存在，只是调用方式不同。
@@ -32,15 +32,15 @@
 ### 4. 消费形态：RAG 是库；前端消费的 AI 功能才有 router
 
 - RAG indexing / retrieval **无 HTTP**，被客服 agent 进程内调用。
-- 客服 **将来** 有自己的 router（经营助手写完后与之一同从「借用 support 入口」提出）。本切片不建空路由、不把 `rag/` 预迁到 `support_agent/`。
+- 客服已有自己的 router（`app/ai/router.py`，`dedicated-entry` 落地）；不把 `rag/` 预迁到 `support_agent/`。
 - 不投资「handler 挂在 support 上、后端偷偷切 AI/人工」作为终态。
 
 ### 5. Change 3 契约（已落地：首批仅知识类意图 + 转人工文案）
 
 - **NLU 只负责意图分流**：产出 `{intent, confidence}`；进入知识 handler **当且仅当** `intent == knowledge` **且** `confidence ≥ TAU_THRESHOLD`（τ 最小版，单阈值）。意图过载 / 未识别 / 低置信 → **返回转人工文案（`suggest_human`）**，不调检索、**不**改会话模式。
 - **意图注册表机制本刀落地，只注册 `knowledge`**（知识检索，消费 `retrieve_chunks`）。价格 / 库存 / 订单等 **Tool 类意图不注册、不占位**，随后续 change 逐个注册（8/18 分水岭：RAG 是一个意图）。
-- 会话默认 AI（不做店铺级默认配置）。转人工 = 前端 **PATCH `handler_mode`** → support；`handler_mode=human` 时不进 NLU、不调 Port。
-- 入口复用 support HTTP（买家 POST messages），**不建 AI router**（无 `/ai/*`）；AI 经 support `BuyerTurnAiHandler` Port 被同步调用（`main.py` 组合根注册 `build_buyer_turn_handler` 工厂）。
+- 会话默认 AI（不做店铺级默认配置）。转人工 = 前端 **PATCH `handler_mode`** → support；`handler_mode` 为会话级窗口开关（AI 客服 vs 人工）。
+- 入口为 AI 专用 HTTP `POST /ai/shops/{shop_id}/replies`（前端两步：先 support POST 落买家消息，再按窗口开关调 AI 端点）；买家 POST **不**再同步调用 AI。`BuyerTurnAiHandler` Port 与 `register_buyer_turn_handler_factory` **退役**（`dedicated-entry` 删除 `ports.py`）；装配函数更名 `build_buyer_turn_handler` → `build_intent_controller`，由 AI router 消费。
 
 ## 否决的观点
 
@@ -76,7 +76,7 @@
   retrieve 按会话 product ref 传 product_id
 
 更后
-  客服 / 经营助手抽出 AI router；Outbox 防腐层
+  经营助手抽出自己的 AI router；Outbox 防腐层
 ```
 
 ## 相关文档
