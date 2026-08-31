@@ -62,6 +62,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 reports/
+# 离线 RAGAS 评测报告（runner 输出，不进库）
+evals/reports/
 
 # 本地临时工具（如手动下载的 Allure CLI），勿提交
 .tools/

@@ -31,8 +31,8 @@
 
 ## 5. 离线 RAGAS runner（绿）
 
-- [ ] 5.1 `python -m app.ai.evals.runner`（或等价）：读当前快照黄金测试集 → adapter → RAGAS Faithfulness + Context recall；生成用 `LLM_*`（DeepSeek），裁判用 `RAGAS_JUDGE_*`。报告写入 gitignore 目录（如 `evals/reports/`，确认 `.gitignore` 已覆盖、不进库）。**不**把 runner 挂进 `task ci`
-- [ ] 5.2 跑绿 §1.8（指标集合）。本会话可用 mock/跳过真打分；真密钥手验不作为 CI 门禁
+- [x] 5.1 `python -m app.ai.evals.runner`（或等价）：读当前快照黄金测试集 → adapter → RAGAS Faithfulness + Context recall；生成用 `LLM_*`（DeepSeek），裁判用 `RAGAS_JUDGE_*`。报告写入 gitignore 目录（如 `evals/reports/`，确认 `.gitignore` 已覆盖、不进库）。**不**把 runner 挂进 `task ci`
+- [x] 5.2 跑绿 §1.8（指标集合）。本会话可用 mock/跳过真打分；真密钥手验不作为 CI 门禁
 
 ## 6. 本地 CI
 
