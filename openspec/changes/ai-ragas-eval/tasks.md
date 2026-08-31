@@ -25,9 +25,9 @@
 
 ## 4. Eval 店种子与黄金测试集（绿）
 
-- [ ] 4.1 种子脚本：经 **catalog.service**（及如需 **media.service**）写入独立 Eval 店与 2–3 个可区分事实的商品；再走已有 `reindex_shop`（组合根经 `app.ai.deps.build_media_service`）。禁止 catalog/media ORM。目标为 **dev** 库，勿与 `clean_ai_chunks` 测试店混用
-- [ ] 4.2 提交 `evals/golden/<snapshot_id>/manifest.yaml` + `samples.jsonl`（20–40 条）：问句人手写；`reference` 和/或 reindex 后对照 PG 填写 `reference_context_ids`；覆盖有 `product_id`、整店泛问、资料没有的易幻觉问
-- [ ] 4.3 跑绿 §1.1–1.3
+- [x] 4.1 种子脚本：经 **catalog.service**（及如需 **media.service**）写入独立 Eval 店与 2–3 个可区分事实的商品；再走已有 `reindex_shop`（组合根经 `app.ai.deps.build_media_service`）。禁止 catalog/media ORM。目标为 **dev** 库，勿与 `clean_ai_chunks` 测试店混用
+- [x] 4.2 提交 `evals/golden/<snapshot_id>/manifest.yaml` + `samples.jsonl`（20–40 条）：问句人手写；`reference` 和/或 reindex 后对照 PG 填写 `reference_context_ids`；覆盖有 `product_id`、整店泛问、资料没有的易幻觉问
+- [x] 4.3 跑绿 §1.1–1.3
 
 ## 5. 离线 RAGAS runner（绿）
 
