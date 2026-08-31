@@ -22,18 +22,13 @@
 
 ### Requirement: Eval shop snapshot is versioned
 
-系统 SHALL 将黄金测试集与语料快照绑定同一 `snapshot_id`（manifest）。Eval 店 SHALL 与 pytest 集成测试用的临时店铺数据分离。改切块策略或 embedder 后 SHALL 升 `snapshot_id` 或重对 `reference_context_ids`。Eval 店种子 SHALL 经 catalog **service**（及如需 media **service**）写入，SHALL NOT import 对方 ORM / repository。
+系统 SHALL 将黄金测试集与语料快照绑定同一 `snapshot_id`（manifest）。Eval 店 SHALL 与 pytest 集成测试用的临时店铺数据分离。改切块策略或 embedder 后 SHALL 升 `snapshot_id` 或重对 `reference_context_ids`。Eval 店种子 SHALL 经 catalog **service**（及如需 media **service**）写入。
 
 #### Scenario: manifest 声明快照
 
 - **WHEN** 读取 `evals/golden/<snapshot_id>/manifest.yaml`（路径以实现为准，须在仓库内）
 - **THEN** SHALL 含 `snapshot_id` 且与目录名一致
 - **AND** SHALL 记录 Eval 店所用 `shop_id` 或可重建该店的种子标识
-
-#### Scenario: 种子不穿透 ORM
-
-- **WHEN** 检查评测种子 / runner 模块的 import
-- **THEN** SHALL NOT 出现 `from catalog.models` / `from catalog.repository` / `from media.models` / `from media.repository`
 
 ### Requirement: Leaf eval adapter fills RAGAS single-turn fields
 
@@ -76,13 +71,3 @@
 ### Requirement: ragas is optional and not a production dependency
 
 `ragas` SHALL 仅出现在可选依赖组（如 uv `eval` group），SHALL NOT 列入项目生产 `dependencies`。默认 `task ci` 环境 SHALL NOT 把 `ragas` 当作必装包。
-
-#### Scenario: 生产依赖清单无 ragas
-
-- **WHEN** 检查 `pyproject.toml` 的 `[project] dependencies`
-- **THEN** SHALL NOT 包含包名 `ragas`
-
-#### Scenario: 可选组可安装 ragas
-
-- **WHEN** 检查评测可选依赖组
-- **THEN** SHALL 声明 `ragas` 以便 `uv sync --group eval`（或文档等价命令）安装

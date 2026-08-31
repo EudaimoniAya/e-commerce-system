@@ -86,7 +86,7 @@ Runner 入口：`python -m app.ai.evals.runner`（或 `evals/run.py` 调组装�
 
 | 路径 | 做什么 |
 |------|--------|
-| `task ci` | 黄金测试集 JSON 可解析；adapter 用 Fake LLM + spy retrieve 填 Sample 字段；`ragas` 不在 lock 的生产/dev 默认组则测不得 `import ragas`（或 skip）；确定性：给定 fake chunks 时 `retrieved_context_ids` 格式正确 |
+| `task ci` | 黄金测试集 JSON 可解析；adapter 用 Fake LLM + spy retrieve 填 Sample 字段；确定性：给定 fake chunks 时 `retrieved_context_ids` 格式正确 |
 | 离线 | `uv sync --group eval` + 真 embedder + 真 DeepSeek + 真 GPT 裁判；人工看报告 |
 
 **理由：** 与「pytest 不测文案」一致。
