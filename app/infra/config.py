@@ -68,6 +68,13 @@ class Settings(BaseSettings):
     # RAG chunking：单 chunk 最大字符数（catalog_text 短文本 / media_document 段落切分）
     rag_chunk_max_chars: int = 800
 
+    # ── 离线 RAGAS 裁判（可选组；仅离线评测，不进 CI）──────────────
+    # 与生成 LLM_* 分离：评测裁判用另一家 OpenAI 兼容 GPT。缺省（env 未设）
+    # 为 None，Settings 构造不抛错；task ci / 默认 pytest 不读这些变量。
+    ragas_judge_api_key: str | None = None
+    ragas_judge_base_url: str | None = None
+    ragas_judge_model: str | None = None
+
     def __init__(self, **values: Any) -> None:
         """mypy 门禁：构造器接受任意 kwargs。
 

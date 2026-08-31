@@ -468,7 +468,7 @@ confirmed → shipped → completed（与立即购买相同履约路径）
 - **PostgreSQL + pgvector**：AI 检索上下文，通过 Outbox + worker（**防腐层**）从 MySQL 同步；现况为 CLI 全量/按店重建
 - **Alembic 双入口**：business（MySQL）与 ai（PostgreSQL）独立迁移
 - **Tool 封装**：AI Agent 的所有数据操作通过 Tool → 业务 service，不直连数据库
-- **RAG 写读分离（[ADR-012](./decision/ADR-012-RAG读写分离与change宏观安排.md)）**：写路径（离线 ingest：多源 → DocumentIR → chunk/embed → pgvector 落库）与读路径（在线检索：`vector_search` + 按会话范围过滤）仓储级分离；写/读/评测三路径复杂度正交、独立演进；change 1=底座、change 2=写侧（均已归档）、change 2.1=形状修缮（`refactor-ai-domain-architecture`）、change 3=读侧闭环（`ai-support-agent`，已落地：知识类意图 + τ 最小版，评测集/τ 标定移出）。组合根与消费边界见 [ADR-013](./decision/ADR-013-AI域组合根与消费边界.md)。
+- **RAG 写读分离（[ADR-012](./decision/ADR-012-RAG读写分离与change宏观安排.md)）**：写路径（离线 ingest：多源 → DocumentIR → chunk/embed → pgvector 落库）与读路径（在线检索：`vector_search` + 按会话范围过滤）仓储级分离；写/读/评测三路径复杂度正交、独立演进；change 1=底座、change 2=写侧、change 2.1=形状修缮（`refactor-ai-domain-architecture`）、change 3=读侧闭环（`ai-support-agent`，知识类意图 + τ 最小版，均已归档）；客服质量已补**离线 RAGAS 评测**（change 4 `ai-ragas-eval`：黄金测试集 + 叶子 Faithfulness/Context recall，可选 `eval` 组、**不进默认 CI**；τ 标定仍不在本刀）。组合根与消费边界见 [ADR-013](./decision/ADR-013-AI域组合根与消费边界.md)。
 
 ## 8. 开发流程
 

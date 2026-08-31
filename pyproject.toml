@@ -30,6 +30,12 @@ dev = [
     "mypy>=2.3.0",
     "allure-pytest",
 ]
+eval = [
+    # ragas 0.4.3 无条件 import langchain_community.chat_models.vertexai，
+    # 0.4.2 起该模块被移除（sunset）→ 锁 <0.4.2 保持 ragas 可导入
+    "langchain-community<0.4.2",
+    "ragas>=0.4.3",
+]
 
 [build-system]
 requires = ["hatchling"]

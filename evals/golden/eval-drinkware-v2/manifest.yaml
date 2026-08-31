@@ -1,0 +1,30 @@
+snapshot_id: eval-drinkware-v2
+seed_id: eval-drinkware-shop
+shop_id: a3b91c56-fe3a-47a8-9e65-cf4102d0a868
+owner_user_id: b5f7111a-18b4-49ca-b368-93b940a82c3c
+category_id: ace9539d-8d98-413e-936a-132910467d5b
+embedder:
+  provider: mock
+  model: mock-embedding
+  dimension: 1024
+reindex:
+  entry: reindex_shop
+  documents_processed: 4
+  chunks: 13
+  chunk_max_chars: 800
+source_kinds:
+  - catalog_text
+  - media_document
+products:
+  - name: 冷萃咖啡浓缩液 12 瓶装
+    product_id: 81e24e21-8763-43d8-bf10-04c33de00417
+  - name: 便携保温杯 500ml 不锈钢
+    product_id: eca20f06-6120-4bc1-8124-aa4c47a9a682
+  - name: 智能温湿度计 墨水屏
+    product_id: 1f022874-8624-433a-b2e0-112e401a93d9
+    manual_asset_id: eb764375-2187-4115-b398-4b5a9a9422b5
+    manual_filename: 智能温湿度计使用说明书.txt
+note: |
+  语料与黄金测试集同快照（v2 起覆盖 media_document 说明书 + 多 chunk 长描述）。
+  改切块策略 / embedder / 商品语料后须升 snapshot_id 或重对 reference_context_ids
+  （design 决策 2）。种子可复现：python -m evals.seed_eval_shop --reset。

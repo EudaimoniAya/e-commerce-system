@@ -58,11 +58,12 @@ CQS（方法级）→ 接口/对象级 → 模型级（DTO → 投影表）→ �
 |---|---|---|---|
 | change 1 `infra-ai-pgvector` | PG/pgvector 底座 + Embedder 抽象（协议/Mock/厂商骨架）+ readiness + CI | 已归档 | 写侧地基（**无多源语义**，纯基础设施） |
 | change 2 `ai-rag-acl-index` | 多源语料（catalog_text + media_document）→ DocumentIR → chunk/embed → 落库；retrieval 仓储雏形；reindex CLI | 已归档 | **写侧完成** + 读侧存储接口 |
-| change 2.1 `refactor-ai-domain-architecture` | Change 2 形状修缮：组合根、砍门面、单商品语料接口、检索可选 `product_id` | 进行中 | 写/读契约补强，非客服闭环 |
-| change 3 `ai-support-agent` | 读侧闭环：检索消费 + 客服 agent（NLU 只办事）+ **τ 最小版**（单阈值门禁）；**评测集 / τ 标定移出**（后续 change）；首批仅知识类意图 + 转人工文案；转人工由前端 PATCH → support | 已落地 | 读侧闭环 |
+| change 2.1 `refactor-ai-domain-architecture` | Change 2 形状修缮：组合根、砍门面、单商品语料接口、检索可选 `product_id` | 已归档 | 写/读契约补强，非客服闭环 |
+| change 3 `ai-support-agent` | 读侧闭环：检索消费 + 客服 agent（NLU 只办事）+ **τ 最小版**（单阈值门禁）；首批仅知识类意图 + 转人工文案；转人工由前端 PATCH → support | 已归档 | 读侧闭环 |
+| change 4 `ai-ragas-eval` | 评测路径落地：黄金测试集（20–40 人手问句 + manifest）+ 叶子 adapter（`retrieve_chunks` + `rag_answer` 生成）+ RAGAS **Faithfulness / Context recall** 离线打分（可选 `eval` 组、不进默认 CI）；**τ 标定仍不在本刀** | 本刀 | 评测路径 |
 
-- 依赖链：change 3 的**输入 = change 2 落库的向量数据**；写侧理解（多源→DocumentIR→落库）覆盖 change 3 的"数据前提"；agent 编排/门禁/评测是 change 3 **独立的新设计**，不在写侧理解范围内。会话默认 AI、NLU 不执行转人工，见 ADR-013。
-- 推论：写侧完成 ⇒ change 3 的检索输入确定；change 3 聚焦检索质量/门禁/评测，不碰写侧代码（组合根修缮除外，已由 2.1 承担）。
+- 依赖链：change 3 的**输入 = change 2 落库的向量数据**；写侧理解（多源→DocumentIR→落库）覆盖 change 3 的"数据前提"；agent 编排/门禁是 change 3 **独立的新设计**，评测路径由 change 4（`ai-ragas-eval`）落地，均不在写侧理解范围内。会话默认 AI、NLU 不执行转人工，见 ADR-013。
+- 推论：写侧完成 ⇒ change 3 的检索输入确定；change 3 聚焦检索质量/门禁，评测质量由 change 4（黄金测试集 + 叶子 RAGAS 两指标）承担，均不碰写侧代码（组合根修缮除外，已由 2.1 承担）。
 
 ### 7. 已知代价与失效条件
 
