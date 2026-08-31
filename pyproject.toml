@@ -30,6 +30,9 @@ dev = [
     "mypy>=2.3.0",
     "allure-pytest",
 ]
+eval = [
+    "ragas>=0.4.3",
+]
 
 [build-system]
 requires = ["hatchling"]

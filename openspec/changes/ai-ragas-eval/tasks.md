@@ -15,8 +15,8 @@
 
 ## 2. 可选依赖与裁判配置（绿）
 
-- [ ] 2.1 `pyproject.toml` 增加 `[dependency-groups] eval`（含 `ragas`）；生产 `dependencies` 不加 ragas。`.env.example` 注释 `RAGAS_JUDGE_API_KEY` / `RAGAS_JUDGE_BASE_URL` / `RAGAS_JUDGE_MODEL`（仅离线、不进 CI）。Settings 可读裁判项但缺省不得让 `task ci` 失败
-- [ ] 2.2 跑绿 §1.9
+- [x] 2.1 `pyproject.toml` 增加 `[dependency-groups] eval`（含 `ragas`）；生产 `dependencies` 不加 ragas。`.env.example` 注释 `RAGAS_JUDGE_API_KEY` / `RAGAS_JUDGE_BASE_URL` / `RAGAS_JUDGE_MODEL`（仅离线、不进 CI）。Settings 可读裁判项但缺省不得让 `task ci` 失败
+- [x] 2.2 跑绿 §1.9
 
 ## 3. 叶子 adapter（绿）
 
