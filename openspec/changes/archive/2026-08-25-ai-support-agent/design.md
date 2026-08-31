@@ -193,3 +193,18 @@ pytest **SHALL NOT** 打真实 DeepSeek。真厂商 IO 不进 CI。
 ## Open Questions
 
 无。定稿已覆盖入口、默认模式、refs 过滤、τ 最小版、LLM/Embedder、意图注册策略。
+
+---
+
+## 演进记录（2026-08-25，合并后追加）
+
+> 本 change 已合并归档。以下记录**本 change 上线后对其设计决策的推翻**，正文保持归档快照原样，不追溯修改。
+
+**决策 1-3 被 [ADR-014](../../../docs/decision/ADR-014-AI入口形态-前端分流.md) 推翻（AI 入口形态：前端分流）**：
+
+- 决策 1（借 support 入口、不建 AI router）→ 推翻：AI 域开自己的 `app/ai/router.py`，前端分别调用 AI 端点 / support 端点。复盘根因：借入口是**权宜**（非约束），从它推出的注册表整条链是伪必然——详见踩坑记录 `docs/troubleshooting/ai域-入口形态-借support到前端分流.md`（"权宜伪装成约束"）。
+- 决策 2（Port + `register_buyer_turn_handler_factory`）→ 推翻：前端分流后 support 不再消费 AI 能力，注册表与 `BuyerTurnAiHandler` Port 退役；落库责任转移到 AI router（AI → `support.service`，合法叶子方向）；`controller` 保持纯净（不 import support）。
+- 决策 3（`handler_mode` 会话状态机 + PATCH 切人工）→ 推翻：`handler_mode` 是实现状态机（非领域状态机），前端分流后模式由"端点选择"表达，后端无模式状态；驱动逻辑与 PATCH 删除，字段留作历史数据。转人工信号改由 AI 端点结构化响应（`{type: ai_answer | fallback_human}`）传给前端。
+- 保留不变：意图注册表机制（消费者变为 AI router 内部）、逐个 change 注册纪律、RAG 是库、叶子依赖方向、`author_role` 审计。
+
+落地 change：`refactor/ai-frontend-split`（含 AI 域测试规范 + 架构规范设立）。

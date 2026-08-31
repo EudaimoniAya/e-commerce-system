@@ -217,6 +217,50 @@ async def test_human_mode_post_does_not_add_ai_message(
 @pytest.mark.asyncio
 @allure.epic("support")
 @allure.feature("handler_mode")
+@allure.title("默认 ai 窗口下买家 POST 不新增 author_role=ai 行。")
+async def test_ai_mode_post_does_not_add_ai_message(
+    integration_client: AsyncClient,
+    shop_owner: ShopOwnerContext,
+    authenticated_user: AuthContext,
+) -> None:
+    """handler_mode=ai（默认）时买家 POST 只落买家行，不自动追加 ai 助手行。
+
+    BREAKING（本 change）：入口改为前端分流，买家 POST 不再读 handler_mode 调 AI。
+    """
+    buyer_headers = bearer_headers(authenticated_user.access_token)
+    first = await post_buyer_message(
+        integration_client,
+        headers=buyer_headers,
+        shop_id=shop_owner.shop_id,
+        body="你好",
+    )
+    assert first.status_code == 201
+
+    second = await post_buyer_message(
+        integration_client,
+        headers=buyer_headers,
+        shop_id=shop_owner.shop_id,
+        body="再问一句",
+    )
+    assert second.status_code == 201
+
+    after = await list_buyer_messages(
+        integration_client,
+        headers=buyer_headers,
+        shop_id=shop_owner.shop_id,
+    )
+    assert after.status_code == 200
+    assert after.body is not None
+    items = after.body["items"]
+    assert len(items) == 2
+    assert all(item["author_role"] == "human" for item in items)
+    assert all(item["sender_role"] == "buyer" for item in items)
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@allure.epic("support")
+@allure.feature("handler_mode")
 @allure.title("AI 模式下店主 inbox POST 不触发 AI 行。")
 async def test_shop_inbox_post_does_not_trigger_ai(
     integration_client: AsyncClient,

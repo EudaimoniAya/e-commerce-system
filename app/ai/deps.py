@@ -1,6 +1,7 @@
-"""AI 域组合根：仅装配类（无 router / 无 get_current_*）。
+"""AI 域组合根：装配类 + 供 router 消费的 service-provider。
 
-CLI 与测试以普通函数调用；将来若有 AI HTTP，同一函数可挂 ``Depends``。
+CLI 与测试以普通函数调用；客服 HTTP（``app/ai/router.py``）以 ``Depends`` 消费
+``build_intent_controller``（ADR-013 决策 1）。组合根不定义 ``get_current_*``。
 """
 
 from pathlib import Path
@@ -16,6 +17,12 @@ from app.ai.rag.retrieval.service import retrieve_chunks
 from app.infra.config import get_settings
 from app.media.deps import get_media_service, get_storage_backend
 from app.media.service import MediaService
+
+# 再导出 support 的 service-provider：AI router 消费 support.service（R5：AI 非组合根
+# 禁止 import 别域 deps，故经组合根中转；self-alias 表示有意再导出）。
+from app.support.deps import (
+    get_support_service as get_support_service,
+)
 
 
 def build_media_service(session: AsyncSession) -> MediaService:
@@ -45,12 +52,12 @@ def build_prompt_loader() -> PromptLoader:
     return PromptLoader(base_dir=Path(__file__).parent / "prompts")
 
 
-def build_buyer_turn_handler() -> IntentController:
-    """装配客服回合 handler（知识类 IntentController）。
+def build_intent_controller() -> IntentController:
+    """装配客服回合编排器（知识类 IntentController）。
 
-    供 ``main.py`` 注册到 support 的 ``BuyerTurnAiHandler`` Port 工厂；
-    返回对象以 ``handle_buyer_turn(shop_id, body, product_ref_ids) -> str``
-    满足 Port 契约（design D2）。LLM 以 ``mock``（CI/默认）或 ``deepseek``（dev）装配。
+    供 ``app/ai/router.py`` 以 ``Depends`` 消费；返回对象以
+    ``handle_buyer_turn(shop_id, body, product_ref_ids) -> str`` 处理一轮买家输入。
+    LLM 以 ``mock``（CI/默认）或 ``deepseek``（dev）装配。
     """
     settings = get_settings()
     llm = build_llm_client()

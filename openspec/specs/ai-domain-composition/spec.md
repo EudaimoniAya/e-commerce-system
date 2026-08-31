@@ -8,7 +8,7 @@ AI 域消费边界与组合根：`app/ai/deps.py` 为唯一装配点（不含 ro
 
 ### Requirement: AI composition root in deps.py
 
-系统 SHALL 提供 `app/ai/deps.py`，仅含装配类函数。除既有 `build_media_service(session)` 外，本 change SHALL 增加 `build_llm_client()`、`build_prompt_loader()`、`build_buyer_turn_handler()`（名称可等价，须为普通函数）。CLI 与测试 SHALL 以普通函数调用装配函数。SHALL NOT 提供 `get_current_*` 解析类 deps。SHALL NOT 新增 AI HTTP router（`app/ai/router.py` 或等价 `/ai/*` 路由模块）。客服 HTTP 入口 SHALL 继续由 support 域提供。
+系统 SHALL 提供 `app/ai/deps.py`，以装配类函数为主。SHALL 提供 `build_media_service(session)`、`build_llm_client()`、`build_prompt_loader()`、`build_intent_controller()`（普通函数）。CLI 与测试 SHALL 以普通函数调用装配函数。客服 HTTP SHALL 由 `app/ai/router.py` 提供（`/ai/*`），router 调用 `build_intent_controller()`，SHALL NOT 经 support 模块级工厂注入。`app/ai/deps.py` SHALL NOT 定义 `get_current_*` 解析类（买家 id 由 router 使用 infra `get_current_user_id`）。
 
 #### Scenario: CLI 经 deps 传入 MediaService
 
@@ -16,16 +16,17 @@ AI 域消费边界与组合根：`app/ai/deps.py` 为唯一装配点（不含 ro
 - **THEN** 调用方 SHALL 先调用 `app.ai.deps` 的装配函数得到 `MediaService` 再传入
 - **AND** `app/ai/rag/indexing/service.py` SHALL NOT 在缺省时自行构造 `MediaService`
 
-#### Scenario: 无 AI router 与解析类 deps
+#### Scenario: 存在 AI router 且 deps 无 get_current_*
 
 - **WHEN** 检查 `app/ai/`
-- **THEN** SHALL NOT 存在 `app/ai/router.py`（或等价 AI HTTP 路由模块）
+- **THEN** SHALL 存在 `app/ai/router.py`（或等价 `/ai/*` 路由模块）
 - **AND** `app/ai/deps.py` SHALL NOT 定义 `get_current_*`
 
-#### Scenario: 组合根装配客服依赖
+#### Scenario: 组合根装配客服编排器
 
 - **WHEN** 检查 `app/ai/deps.py`
-- **THEN** SHALL 能装配 LLM 客户端、提示词加载器与买家回合 handler，供 `main.py` 注册到 support Port 工厂
+- **THEN** SHALL 能装配 LLM 客户端、提示词加载器与 `build_intent_controller`
+- **AND** `app/main.py` SHALL NOT 调用 `register_buyer_turn_handler_factory`
 
 ### Requirement: AI service must not self-assemble foreign deps
 

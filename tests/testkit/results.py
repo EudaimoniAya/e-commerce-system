@@ -319,3 +319,17 @@ class MediaResult:
 
     status_code: int
     body: dict | None = None
+
+
+@dataclass
+class AiReplyResult:
+    """AI 买家回复 HTTP 调用结果（``POST /ai/shops/{shop_id}/replies``）。
+
+    Attributes:
+        status_code: HTTP 响应状态码。
+        body: 200 时解析为 dict（含 text/conversation_id/assistant_message_id）；
+              非成功时为 ``None``。
+    """
+
+    status_code: int
+    body: dict | None = None

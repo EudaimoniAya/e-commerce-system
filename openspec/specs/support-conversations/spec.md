@@ -23,7 +23,7 @@ support 域店铺客服会话垂直切片：买家在 `shop_id` 管辖下与店�
 
 ### Requirement: Message identity and handler_mode defaults
 
-系统 SHALL 在每条消息上区分 `sender_role`（对话侧）与 `author_role`（撰写者）。会话 SHALL 含 `handler_mode` 表示当前 AI 是否参与。lazy create 新会话时 `handler_mode` SHALL 为 `ai`。买家与店主经既有 POST 写入的人工消息 `author_role` SHALL 为 `human`。由 AI Port 返回并落库的助手消息 `author_role` SHALL 为 `ai` 且 `sender_role` SHALL 为 `shop`。
+系统 SHALL 在每条消息上区分 `sender_role`（对话侧）与 `author_role`（撰写者）。会话 SHALL 含 `handler_mode` 表示当前窗口是 AI 客服还是人工（前端开关），**不是**买家 POST 是否调用 AI 的后端分派。lazy create 新会话时 `handler_mode` SHALL 为 `ai`。买家与店主经 support POST 写入的人工消息 `author_role` SHALL 为 `human`。经 AI HTTP 落库的助手消息 `author_role` SHALL 为 `ai` 且 `sender_role` SHALL 为 `shop`。
 
 #### Scenario: 买家 POST 的买家行 author_role 为 human
 
@@ -114,6 +114,42 @@ support 域店铺客服会话垂直切片：买家在 `shop_id` 管辖下与店�
 
 - **WHEN** 认证买家 POST 且 `body` 长度超过 2000
 - **THEN** 响应状态码 SHALL 为 422
+
+### Requirement: Buyer POST never invokes AI
+
+买家 `POST /support/shops/{shop_id}/conversation/messages` SHALL 只校验并落买家消息（`sender_role=buyer`、`author_role=human`）。SHALL NOT 根据 `handler_mode` 调用 AI，SHALL NOT 在该 POST 的同一请求内写入 `author_role=ai` 行。店主 inbox POST SHALL NOT 调用 AI。support 域模块 SHALL NOT import `app.ai` 任何模块。SHALL NOT 保留 `BuyerTurnAiHandler` 或 `register_buyer_turn_handler_factory`。
+
+#### Scenario: ai 窗口下买家 POST 仍只有买家行
+
+- **WHEN** 会话 `handler_mode=ai` 且认证买家 POST 合法消息（不随后调用 AI 端点）
+- **THEN** 响应状态码 SHALL 为 201 且响应 `author_role` 为 `human`
+- **AND** GET messages SHALL NOT 因该 POST 新增 `author_role=ai` 消息
+
+#### Scenario: 人工窗口买家 POST 不写 AI 行
+
+- **WHEN** 会话 `handler_mode=human` 且认证买家 POST 合法消息
+- **THEN** 响应 201
+- **AND** GET messages SHALL NOT 含本轮新增的 `author_role=ai` 消息
+
+#### Scenario: support 不 import app.ai
+
+- **WHEN** 检查 `app/support/` 模块 import
+- **THEN** SHALL NOT import `app.ai` 任何模块
+
+#### Scenario: 无 Port 与工厂符号
+
+- **WHEN** 检查 `app/support/` 与 `app/main.py`
+- **THEN** SHALL NOT 存在 `BuyerTurnAiHandler` 类型或 `register_buyer_turn_handler_factory`
+
+### Requirement: Append AI message via support service
+
+support 域 SHALL 提供供 AI 调用的 service 方法：按 `shop_id` 与买家用户 id 追加助手消息（`sender_role=shop`、`author_role=ai`），并更新 `last_message_preview`（正文截断上限仍 200）。该方法 SHALL 返回含消息 `id` 与 `conversation_id` 的 schema。无会话 SHALL 失败（由 AI HTTP 映射为 404）。
+
+#### Scenario: 追加助手后 preview 为助手截断
+
+- **WHEN** AI 路径成功调用追加助手且正文非空
+- **THEN** 会话 `last_message_preview` SHALL 为该正文截断
+- **AND** GET messages SHALL 含该 `author_role=ai` 行
 
 ### Requirement: Buyer GET messages
 
@@ -222,7 +258,7 @@ support 域 SHALL NOT import `catalog.models`、`catalog.repository`、`ordering
 
 ### Requirement: Buyer PATCH handler_mode
 
-系统 SHALL 提供 `PATCH /support/shops/{shop_id}/conversation`（需认证）。请求体 SHALL 为 `{ "handler_mode": "ai" | "human" }`。仅会话买家可改本店该会话模式。成功 SHALL 返回 **200** 与 `ConversationResponse`。无会话 SHALL **404**。非法枚举 SHALL **422**。未认证 SHALL **401**。NLU / AI Port SHALL NOT 调用此接口或直接写 `handler_mode`。
+系统 SHALL 提供 `PATCH /support/shops/{shop_id}/conversation`（需认证）。请求体 SHALL 为 `{ "handler_mode": "ai" | "human" }`。仅会话买家可改本店该会话窗口开关。成功 SHALL 返回 **200** 与 `ConversationResponse`（仍含 `handler_mode`）。无会话 SHALL **404**。非法枚举 SHALL **422**。未认证 SHALL **401**。NLU 与 AI 编排 SHALL NOT 调用此接口或直接写 `handler_mode`。
 
 #### Scenario: 买家切到 human
 
@@ -239,30 +275,3 @@ support 域 SHALL NOT import `catalog.models`、`catalog.repository`、`ordering
 
 - **WHEN** 认证买家 PATCH 的 `handler_mode` 不是 `ai` 或 `human`
 - **THEN** 响应状态码 SHALL 为 422
-
-### Requirement: AI port on buyer POST when mode is ai
-
-当会话 `handler_mode=ai` 且已注入 `BuyerTurnAiHandler` 时，买家 POST 在落库买家消息之后 SHALL 同步调用 Port，并将返回正文落库为助手消息（`sender_role=shop`、`author_role=ai`）。买家 POST 的 HTTP 响应 SHALL 仍为 **201** 且 body SHALL 为买家那条消息。`last_message_preview` SHALL 更新为助手正文截断（上限仍 200）。`handler_mode=human` 时 SHALL NOT 调用 Port、SHALL NOT 写 `author_role=ai` 行。店主 inbox POST SHALL NOT 调用 Port。support 域模块 SHALL NOT import `app.ai`；Port 由 `main.py` 注册的工厂注入。Port 抛错时买家消息 SHALL 仍 201，助手 SHALL 写入兜底文案而非让请求 5xx。未注入工厂且模式为 ai 时 SHALL 写入同一兜底文案，SHALL NOT 500。
-
-#### Scenario: AI 模式双写消息
-
-- **WHEN** 会话 `handler_mode=ai` 且 Port 返回非空正文，认证买家 POST 合法消息
-- **THEN** 响应状态码 SHALL 为 201 且响应 `author_role` 为 `human`
-- **AND** GET messages SHALL 含随后一条 `author_role=ai` 且 `sender_role=shop` 的消息
-
-#### Scenario: 人工模式不写 AI 消息
-
-- **WHEN** 会话 `handler_mode=human` 且认证买家 POST 合法消息
-- **THEN** 响应 201
-- **AND** GET messages SHALL NOT 含本轮新增的 `author_role=ai` 消息
-
-#### Scenario: 店主回复不触发 Port
-
-- **WHEN** 会话 `handler_mode=ai` 且店主 inbox POST 合法消息
-- **THEN** 响应 201
-- **AND** SHALL NOT 因该 POST 新增第二条 `author_role=ai` 消息
-
-#### Scenario: support 不 import app.ai
-
-- **WHEN** 检查 `app/support/` 模块 import
-- **THEN** SHALL NOT import `app.ai` 任何模块

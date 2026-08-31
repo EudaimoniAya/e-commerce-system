@@ -5,7 +5,6 @@
 """
 
 import uuid
-from collections.abc import Callable
 from typing import Literal
 
 from fastapi import HTTPException, status
@@ -15,9 +14,10 @@ from app.catalog.product_service import ProductService
 from app.catalog.schemas import ShopContext
 from app.catalog.shop_service import ShopService
 from app.support.models import SupportConversation, SupportMessage
-from app.support.ports import BuyerTurnAiHandler
 from app.support.repository import ConversationRepository, MessageRepository
 from app.support.schemas import (
+    AiMessageAppended,
+    AssembledTurn,
     ConversationResponse,
     MessageCreate,
     MessageResponse,
@@ -33,8 +33,6 @@ _EMPTY_MESSAGE_MSG = "body and message_refs cannot both be empty"
 _ORDER_REF_MSG = "order ref is not supported yet"
 _TOO_MANY_REFS_MSG = "message_refs must contain at most 10 distinct items"
 _PREVIEW_MAX = 200
-# AI 回合兜底文案：Port 缺失 / Port 抛错时写入（support 不 import app.ai，文案本域自持）
-_AI_FALLBACK_TEXT = "暂时无法为您解答，已为您转接人工客服，请稍候。"
 
 
 def _to_conversation_response(
@@ -75,15 +73,12 @@ class SupportService:
         message_repo: MessageRepository,
         shop_service: ShopService,
         product_service: ProductService,
-        buyer_turn_handler_factory: Callable[[], BuyerTurnAiHandler | None]
-        | None = None,
     ) -> None:
         self._session = session
         self._conversation_repo = conversation_repo
         self._message_repo = message_repo
         self._shops = shop_service
         self._products = product_service
-        self._buyer_turn_handler_factory = buyer_turn_handler_factory
 
     # ── 买家路径 ──────────────────────────────────────────────
 
@@ -136,8 +131,8 @@ class SupportService:
     ) -> MessageResponse:
         """买家发消息：lazy create 会话（默认 ``handler_mode=ai``）；closed 店任何 POST 422。
 
-        ``handler_mode=ai`` 时在落买家消息后同步跑 AI 回合（写 ``author_role=ai`` 助手消息）；
-        响应仍为买家那条消息（201）。Port 缺失/失败 → 兜底文案，不 5xx。
+        只落买家行（``author_role=human``），**不**调用 AI / 不写 ``author_role=ai`` 行；
+        生成由前端分流后经 ``POST /ai/shops/{shop_id}/replies`` 触发。响应仍为买家消息（201）。
         """
         shop = await self._shops.get_shop_context(shop_id)
         self._ensure_not_owner(buyer_user_id, shop.owner_user_id)
@@ -167,9 +162,78 @@ class SupportService:
             body=data.body,
             refs=refs,
         )
-        if conversation.handler_mode == "ai":
-            await self._run_ai_turn(conversation, message)
         return _to_message_response(message)
+
+    # ── AI 路径（前端分流：对话走 support，生成走 AI 自己的 HTTP）──────────
+
+    async def assemble_turn(
+        self,
+        shop_id: uuid.UUID,
+        buyer_user_id: uuid.UUID,
+    ) -> AssembledTurn:
+        """只读组装一轮 AI 输入：无会话 404；从新到旧扫消息，遇助手/店主人工行停止。
+
+        不设条数上限；不把会话全文拼进 LLM。``query`` 为停止前最近一条买家消息的
+        非空 ``body``；``product_ref_ids`` 为停止前最近一条含 product refs 的买家
+        消息（去重、顺序保留）。AI 跨域只经本 service，不穿透 ORM。
+        """
+        conversation = await self._conversation_repo.get_by_shop_and_buyer(
+            shop_id, buyer_user_id
+        )
+        if conversation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=_CONVERSATION_NOT_FOUND_MSG,
+            )
+
+        query: str | None = None
+        product_ref_ids: list[str] = []
+        # created_at DESC：从最新扫到停止墙（author_role=ai 或店主人工行）
+        for message in await self._message_repo.list_all_by_conversation(
+            conversation.id
+        ):
+            if message.author_role == "ai" or (
+                message.sender_role == "shop" and message.author_role == "human"
+            ):
+                break
+            if message.sender_role != "buyer":
+                continue
+            if query is None and message.body and message.body.strip():
+                query = message.body
+            if not product_ref_ids:
+                product_ref_ids = self._dedupe_ref_ids(
+                    self._extract_product_ref_ids(message.message_refs)
+                )
+        return AssembledTurn(
+            conversation_id=str(conversation.id),
+            query=query,
+            product_ref_ids=product_ref_ids,
+        )
+
+    async def append_ai_message(
+        self,
+        shop_id: uuid.UUID,
+        buyer_user_id: uuid.UUID,
+        text: str,
+    ) -> AiMessageAppended:
+        """追加助手消息（``sender_role=shop`` / ``author_role=ai``），bump preview。
+
+        无会话 404（AI HTTP 映射）；正文截断上限仍 200。返回消息 ``id`` 与
+        ``conversation_id`` 供 AI 端点组装 200 响应。
+        """
+        conversation = await self._conversation_repo.get_by_shop_and_buyer(
+            shop_id, buyer_user_id
+        )
+        if conversation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=_CONVERSATION_NOT_FOUND_MSG,
+            )
+        message = await self._persist_ai_message(conversation, text)
+        return AiMessageAppended(
+            id=str(message.id),
+            conversation_id=str(message.conversation_id),
+        )
 
     async def patch_buyer_handler_mode(
         self,
@@ -357,32 +421,6 @@ class SupportService:
         await self._session.refresh(message)
         return message
 
-    async def _run_ai_turn(
-        self,
-        conversation: SupportConversation,
-        buyer_message: SupportMessage,
-    ) -> None:
-        """``handler_mode=ai``：买家消息已 commit 后同步调 Port，写助手消息。
-
-        Port 未注入 / 返回前抛错 → 落兜底文案（买家 POST 仍 201，SHALL NOT 5xx）。
-        """
-        assistant_text = _AI_FALLBACK_TEXT
-        port: BuyerTurnAiHandler | None = None
-        if self._buyer_turn_handler_factory is not None:
-            port = self._buyer_turn_handler_factory()
-        if port is not None:
-            try:
-                assistant_text = await port.handle_buyer_turn(
-                    shop_id=str(conversation.shop_id),
-                    body=buyer_message.body,
-                    product_ref_ids=self._extract_product_ref_ids(
-                        buyer_message.message_refs
-                    ),
-                )
-            except Exception:
-                assistant_text = _AI_FALLBACK_TEXT
-        await self._persist_ai_message(conversation, assistant_text)
-
     def _extract_product_ref_ids(
         self,
         message_refs: list[dict[str, str]] | None,
@@ -397,11 +435,21 @@ class SupportService:
             if ref.get("ref_type") == "product"
         ]
 
+    def _dedupe_ref_ids(self, ref_ids: list[str]) -> list[str]:
+        """按 ref_id 去重、保留顺序（回看组装对齐 spec「去重后保留顺序」）。"""
+        seen: set[str] = set()
+        result: list[str] = []
+        for ref_id in ref_ids:
+            if ref_id not in seen:
+                seen.add(ref_id)
+                result.append(ref_id)
+        return result
+
     async def _persist_ai_message(
         self,
         conversation: SupportConversation,
         text: str,
-    ) -> None:
+    ) -> SupportMessage:
         """写助手消息（``sender_role=shop``、``author_role=ai``）并更新 preview 为助手正文截断。"""
         message = SupportMessage(
             id=uuid.uuid4(),
@@ -415,6 +463,7 @@ class SupportService:
         conversation.last_message_preview = text[:_PREVIEW_MAX]
         await self._session.commit()
         await self._session.refresh(message)
+        return message
 
     async def _list_messages(
         self,
