@@ -69,4 +69,3 @@ async def _reset_intent_controller_override(
     clear_intent_controller_override()
     yield
     clear_intent_controller_override()
-
