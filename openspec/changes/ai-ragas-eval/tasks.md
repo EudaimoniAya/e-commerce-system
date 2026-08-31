@@ -36,11 +36,11 @@
 
 ## 6. 本地 CI
 
-- [ ] 6.1 `devbox run -- task ci` 全绿（无裁判密钥、未 `uv sync --group eval` 亦须绿）
+- [x] 6.1 `devbox run -- task ci` 全绿（无裁判密钥、未 `uv sync --group eval` 亦须绿）
 
 ## 7. 文档整理
 
-- [ ] 7.1 修订 ADR-012：评测路径由「change 3 移出」改为本刀落地（黄金测试集 + 叶子 RAGAS 两指标）；τ 标定仍不在本刀；更新 change 表状态（2.1 / 3 已归档）
-- [ ] 7.2 修订 `docs/architecture.md` 客服质量补一句离线 RAGAS（可选组、不进默认 CI）；同步 `ai-rag-retrieval` 的 delta 修订（检索集成测仍不依赖 ragas；评测为可选组、入口仍是 `retrieve_chunks`）。**不改** `openspec/changes/archive/**`
+- [x] 7.1 修订 ADR-012：评测路径由「change 3 移出」改为本刀落地（黄金测试集 + 叶子 RAGAS 两指标）；τ 标定仍不在本刀；更新 change 表状态（2.1 / 3 已归档）
+- [x] 7.2 修订 `docs/architecture.md` 客服质量补一句离线 RAGAS（可选组、不进默认 CI）；同步 `ai-rag-retrieval` 的 delta 修订（检索集成测仍不依赖 ragas；评测为可选组、入口仍是 `retrieve_chunks`）。**不改** `openspec/changes/archive/**`
 
 > **Apply 约定**：严格 TDD，§1 完成前不得开始 §2–§5。每个 apply 会话建议只完成 1 个 Task 节。短标签 `[ragas-eval]`。

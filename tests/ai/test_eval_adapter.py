@@ -34,9 +34,7 @@ _TEMPLATES = {
 }
 
 
-def _chunk(
-    document_id: str, chunk_index: int, content_text: str
-) -> RetrievedChunk:
+def _chunk(document_id: str, chunk_index: int, content_text: str) -> RetrievedChunk:
     """数据载体：直接构造 RetrievedChunk，非测试替身。"""
     return RetrievedChunk(
         shop_id=_SHOP_ID,
@@ -70,7 +68,12 @@ def _spy_retrieve(
         product_id: str | None = None,
     ) -> list[RetrievedChunk]:
         records.append(
-            {"shop_id": shop_id, "query": query, "top_k": top_k, "product_id": product_id}
+            {
+                "shop_id": shop_id,
+                "query": query,
+                "top_k": top_k,
+                "product_id": product_id,
+            }
         )
         return chunks
 
@@ -111,7 +114,9 @@ async def _build_eval_sample(
 
 @allure.epic("ai")
 @allure.feature("eval_adapter")
-@allure.title("retrieved_contexts 与 content_text 顺序一致，retrieved_context_ids 为 document_id:chunk_index。")
+@allure.title(
+    "retrieved_contexts 与 content_text 顺序一致，retrieved_context_ids 为 document_id:chunk_index。"
+)
 async def test_fills_retrieved_contexts_and_ids_in_chunk_order() -> None:
     """注入 Fake 检索返回带 document_id/chunk_index/content_text 的 chunk 列表。"""
     records: list[dict] = []
@@ -150,7 +155,9 @@ async def test_product_id_none_passes_no_filter_to_retrieve() -> None:
 
 @allure.epic("ai")
 @allure.feature("eval_adapter")
-@allure.title("有 chunk 时加载 rag_answer 并调 LLMClient.generate（chunks/问句按模板填写）。")
+@allure.title(
+    "有 chunk 时加载 rag_answer 并调 LLMClient.generate（chunks/问句按模板填写）。"
+)
 async def test_with_chunks_loads_rag_answer_and_calls_generate() -> None:
     """有 chunk：mock loader 断言 load(\"rag_answer\") 被调，模板填 chunks 与问句。"""
     records: list[dict] = []
@@ -190,4 +197,3 @@ async def test_empty_retrieval_no_generate_uses_suggest_human() -> None:
     assert llm.calls == []
     assert loader.loaded == ["suggest_human"]
     assert result.response == _TEMPLATES["suggest_human"]
-

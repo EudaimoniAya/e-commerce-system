@@ -30,7 +30,9 @@ def test_settings_expose_judge_fields() -> None:
     """裁判配置项可读（§2.1 落地前缺字段 → 本测红）。"""
     fields = _model_fields()
     missing = _JUDGE_FIELDS - fields
-    assert not missing, f"Settings 缺少裁判字段（§2.1 落地前本测应红）: {sorted(missing)}"
+    assert not missing, (
+        f"Settings 缺少裁判字段（§2.1 落地前本测应红）: {sorted(missing)}"
+    )
 
 
 @allure.epic("ai")

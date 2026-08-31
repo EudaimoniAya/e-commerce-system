@@ -148,7 +148,9 @@ def test_reference_context_ids_format() -> None:
         ids = sample.get("reference_context_ids")
         if not ids:
             continue
-        assert isinstance(ids, list), f"样本[{idx}] reference_context_ids 应为列表: {sample!r}"
+        assert isinstance(ids, list), (
+            f"样本[{idx}] reference_context_ids 应为列表: {sample!r}"
+        )
         for item in ids:
             assert isinstance(item, str) and ":" in item, (
                 f"样本[{idx}] 应召回 id 应形如 document_id:chunk_index: {item!r}"
@@ -169,9 +171,7 @@ def test_every_sample_has_reference_or_context_ids() -> None:
         reference = sample.get("reference")
         has_reference = isinstance(reference, str) and bool(reference.strip())
         ids = sample.get("reference_context_ids")
-        has_ids = isinstance(ids, list) and any(
-            isinstance(i, str) and i for i in ids
-        )
+        has_ids = isinstance(ids, list) and any(isinstance(i, str) and i for i in ids)
         assert has_reference or has_ids, (
             f"样本[{idx}] 缺 reference 且 reference_context_ids 为空: {sample!r}"
         )
@@ -207,7 +207,8 @@ def test_manifest_records_eval_shop_or_seed() -> None:
     shop_id = manifest.get("shop_id")
     seed_keys = [k for k in manifest if "seed" in k.lower()]
     has_seed = bool(
-        seed_keys and any(isinstance(manifest[k], str) and manifest[k] for k in seed_keys)
+        seed_keys
+        and any(isinstance(manifest[k], str) and manifest[k] for k in seed_keys)
     )
     if isinstance(shop_id, str) and shop_id:
         uuid.UUID(shop_id)  # Eval 店应为稳定 UUID（与 pytest 随建随清店分离）
