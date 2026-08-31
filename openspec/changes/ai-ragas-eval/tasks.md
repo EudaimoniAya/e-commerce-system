@@ -20,8 +20,8 @@
 
 ## 3. 叶子 adapter（绿）
 
-- [ ] 3.1 实现 `app/ai/evals/`：对样本调用 `retrieve_chunks`；填 `retrieved_contexts` / `retrieved_context_ids`；有 chunk 时用 `rag_answer` + `LLMClient.generate`；空检索用 `suggest_human` 正文且不调生成。**不**调用 `IntentController` / `/ai/replies`
-- [ ] 3.2 跑绿 §1.4–1.7
+- [x] 3.1 实现 `app/ai/evals/`：对样本调用 `retrieve_chunks`；填 `retrieved_contexts` / `retrieved_context_ids`；有 chunk 时用 `rag_answer` + `LLMClient.generate`；空检索用 `suggest_human` 正文且不调生成。**不**调用 `IntentController` / `/ai/replies`
+- [x] 3.2 跑绿 §1.4–1.7
 
 ## 4. Eval 店种子与黄金测试集（绿）
 
